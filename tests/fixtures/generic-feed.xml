@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<products>
+<item>
+  <id>G-1</id>
+  <name>Drevena hracka Vlacik</name>
+  <price>19.99</price>
+  <url>https://hracky.example.cz/vlacik</url>
+  <description>Rucne vyrobeny dreveny vlacik pre deti od 2 rokov.</description>
+  <image>https://hracky.example.cz/img/vlacik.jpg</image>
+  <availability>in stock</availability>
+  <category>Hracky &gt; Drevene</category>
+</item>
+<item>
+  <id>G-2</id>
+  <name>Stavebnica Kocky</name>
+  <price>24.5</price>
+  <url>https://hracky.example.cz/kocky</url>
+  <description>Farebne drevene kocky, 50 kusov v krabici.</description>
+  <image>https://hracky.example.cz/img/kocky.jpg</image>
+  <availability>in stock</availability>
+  <category>Hracky &gt; Drevene</category>
+</item>
+</products>

@@ -1,0 +1,12 @@
+{
+  "name": "arling-asistent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ARLing Asistent: AI shopping assistant widget for e-shops, running on Cloudflare Workers, no conversation storage.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  },
+  "license": "UNLICENSED",
+  "author": "ARLing s. r. o. <andrej@arling.sk>"
+}
