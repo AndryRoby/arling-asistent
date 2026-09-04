@@ -42,7 +42,7 @@ cd worker
 npx wrangler dev
 ```
 
-Na lokálne prezretie demo stránky stačí otvoriť `demo/index.html` v prehliadači, alebo spustiť statický server (`npx serve demo`). Skúšobný formulár na stránke volá worker na adrese nastavenej v `?endpoint=` parametri URL (predvolene placeholder `https://asistent.arling.sk`, ktorý treba nahradiť po nasadení); pri lokálnom teste pridajte `?endpoint=http://localhost:8787` a dočasne uvoľnite `connect-src` v CSP meta tagu v `demo/index.html`.
+Na lokálne prezretie demo stránky stačí otvoriť `demo/index.html` v prehliadači, alebo spustiť statický server (`npx serve demo`). Skúšobný formulár na stránke volá worker na adrese nastavenej v `?endpoint=` parametri URL (predvolene placeholder `https://arling-asistent.arling.workers.dev`, ktorý treba nahradiť po nasadení); pri lokálnom teste pridajte `?endpoint=http://localhost:8787` a dočasne uvoľnite `connect-src` v CSP meta tagu v `demo/index.html`.
 
 ## Nasadenie (až keď bude účet na Cloudflare)
 
@@ -66,12 +66,12 @@ cd worker
 wrangler deploy
 ```
 
-Widget (`widget/widget.js`) a demo stránku (`demo/`) treba nasadiť ako statické súbory (napríklad GitHub Pages pod `arling.sk/asistent/`, tak ako ostatné nástroje ARLing). Po nasadení Workera nahraďte placeholder `https://asistent.arling.sk` skutočnou doménou Workera v `demo/app.js`, `demo/index.html` (CSP `connect-src`) a vo `widget/widget.js` dokumentácii.
+Widget (`widget/widget.js`) a demo stránku (`demo/`) treba nasadiť ako statické súbory (napríklad GitHub Pages pod `arling.sk/asistent/`, tak ako ostatné nástroje ARLing). Po nasadení Workera nahraďte placeholder `https://arling-asistent.arling.workers.dev` skutočnou doménou Workera v `demo/app.js`, `demo/index.html` (CSP `connect-src`) a vo `widget/widget.js` dokumentácii.
 
 ## Vloženie widgetu na e-shop
 
 ```html
-<script src="https://asistent.arling.sk/widget.js"
+<script src="https://arling-asistent.arling.workers.dev/widget.js"
         data-tenant="TENANT_ID"
         data-lang="sk"
         data-color="auto"
