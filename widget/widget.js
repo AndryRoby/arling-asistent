@@ -4,11 +4,11 @@
  * Single-file embeddable chat widget for ARLing Asistent. No dependencies,
  * no build step: an e-shop adds one <script> tag and it works.
  *
- *   <script src="https://asistent.arling.sk/widget.js"
+ *   <script src="https://arling-asistent.arling.workers.dev/widget.js"
  *           data-tenant="TENANT_ID"
  *           data-lang="sk"
  *           data-color="auto"
- *           data-endpoint="https://asistent.arling.sk" defer></script>
+ *           data-endpoint="https://arling-asistent.arling.workers.dev" defer></script>
  *
  * data-tenant   required, the tenant id returned by POST /v1/tenants.
  * data-lang     optional, one of sk/cs/en/de, default "sk".

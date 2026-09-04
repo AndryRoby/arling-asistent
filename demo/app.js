@@ -17,7 +17,7 @@
 (function () {
   'use strict';
 
-  var DEFAULT_ENDPOINT = 'https://asistent.arling.sk';
+  var DEFAULT_ENDPOINT = 'https://arling-asistent.arling.workers.dev';
   var ENDPOINT = (new URLSearchParams(window.location.search).get('endpoint') || DEFAULT_ENDPOINT).replace(/\/$/, '');
   var POLL_INTERVAL_MS = 3000;
   var POLL_MAX_TRIES = 40; // ~2 minutes
