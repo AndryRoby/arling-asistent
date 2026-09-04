@@ -34,14 +34,14 @@ index_name = "asistent-products"
 [[d1_databases]]
 binding = "DB"
 database_name = "asistent"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "5db06a2c-7053-46a4-a70f-c35b03f1dc79"
 
 # KV: short-lived per-IP rate-limit counters only (see src/security.js).
 # Create with:
 #   wrangler kv namespace create ASISTENT_CACHE
 [[kv_namespaces]]
 binding = "ASISTENT_CACHE"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "848dd3f27004468c9003db53bbc48b94"
 
 # Daily feed refresh, 03:00 UTC.
 [triggers]
