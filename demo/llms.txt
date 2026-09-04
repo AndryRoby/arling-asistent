@@ -1,0 +1,30 @@
+# ARLing Asistent
+
+> AI shopping assistant widget for e-shops: builds itself from a product feed (Google Shopping XML, Shopify, WooCommerce, or a generic XML feed) in minutes, runs on Cloudflare Workers, and stores no conversation content, only daily aggregate counters.
+
+Store owners embed a single `<script>` tag. The widget shows a chat panel, answers only from the shop's own product feed and contact details, always in the visitor's language (Slovak, Czech, English, or German), and links to up to 3 real products per answer. If nothing in the feed answers the question, it says so and points to the shop's contact email instead of guessing.
+
+## How it works
+
+1. The shop owner submits their feed URL and email at https://arling.sk/asistent/#playground.
+2. A Cloudflare Worker downloads the feed, strips HTML, chunks each product's title and description, embeds it with Workers AI (`@cf/baai/bge-m3`), and stores the vectors in Cloudflare Vectorize, namespaced per tenant. The feed refreshes automatically once a day.
+3. The shop adds `widget/widget.js` as a `<script>` tag with a `data-tenant` attribute. Each customer question is embedded and matched against the shop's own product vectors (top 8), and a grounded prompt (products and shop facts wrapped as untrusted data, never as instructions) is sent to a Workers AI chat model, which must reply with only a short answer plus up to 3 real, retrieved product links.
+
+## Privacy
+
+No conversation content is ever stored, by any component. The only stored state is a tenant record (domain, feed URL, contact email, plan, monthly quota) and daily aggregate counters (conversation count, product-click count) in Cloudflare D1. The widget sets no cookies and uses no localStorage; a session id lives only in memory for the current page view.
+
+## Pricing
+
+Starter: 19 EUR/month, up to 1,000 conversations. Growth: 39 EUR/month, up to 5,000 conversations. 14-day free trial, no card required. Billing (Stripe) is not wired up yet; see the repository README for current status.
+
+## Links
+
+- Demo and signup: https://arling.sk/asistent/
+- Source code: https://github.com/AndryRoby/arling-asistent
+- Data processing agreement (GDPR article 28, Slovak): https://github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md
+- Hub (more ARLing tools): https://arling.sk/
+
+## Contact
+
+Built by ARLing s. r. o. (Bratislava, Slovakia). andrej@arling.sk

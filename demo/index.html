@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://homelab.tailbf8f27.ts.net; connect-src 'self' https://homelab.tailbf8f27.ts.net https://asistent.arling.sk; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<title>ARLing Asistent: AI predajný asistent pre e-shopy</title>
+<meta name="description" content="Predajný asistent pre váš e-shop, nastavený za 10 minút z produktového feedu. Beží na Cloudflare Workers, neukladá rozhovory zákazníkov. Od 19 EUR mesačne, 14 dní zadarmo." />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="ARLing Asistent: AI predajný asistent pre e-shopy" />
+<meta property="og:description" content="Predajný asistent pre váš e-shop, nastavený za 10 minút z produktového feedu. Beží na Cloudflare Workers, neukladá rozhovory zákazníkov. Od 19 EUR mesačne, 14 dní zadarmo." />
+<meta property="og:url" content="https://arling.sk/asistent/" />
+<meta property="og:locale" content="sk_SK" />
+<link rel="canonical" href="https://arling.sk/asistent/" />
+<meta property="og:image" content="https://arling.sk/asistent/icon-512.png" />
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<link rel="alternate icon" href="favicon.ico" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<link rel="manifest" href="manifest.json" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "ARLing Asistent",
+  "url": "https://arling.sk/asistent/",
+  "description": "AI predajný asistent pre e-shopy: nastaví sa z produktového feedu (Google Shopping XML, Shopify, WooCommerce, generický XML) za 10 minút, beží na Cloudflare Workers a neukladá obsah rozhovorov, len počítadlá.",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Any (web browser, jeden <script> tag)",
+  "offers": [
+    { "@type": "Offer", "name": "Starter", "price": "19", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/#cennik" },
+    { "@type": "Offer", "name": "Growth", "price": "39", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/#cennik" }
+  ],
+  "author": {
+    "@type": "Organization",
+    "name": "ARLing s. r. o.",
+    "url": "https://arling.sk/",
+    "email": "andrej@arling.sk",
+    "address": { "@type": "PostalAddress", "streetAddress": "Ivanská cesta 19112/32E", "addressLocality": "Bratislava", "postalCode": "821 04", "addressCountry": "SK" }
+  }
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Ako dlho trvá nastavenie?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Vložíte URL feedu produktov a e-mail. Worker feed stiahne, rozdelí na časti a uloží ako embeddings, zvyčajne do pár minút podľa veľkosti katalógu (limit je 5000 produktov). Potom stačí vložiť jeden <script> tag do e-shopu." }
+    },
+    {
+      "@type": "Question",
+      "name": "Aké formáty feedu podporujete?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Google Shopping RSS/XML (aj Heureka formát so značkami g:), Shopify /products.json, WooCommerce REST/Store API JSON a bežný XML feed so značkami item/name/price/url/description/image." }
+    },
+    {
+      "@type": "Question",
+      "name": "Ukladáte rozhovory zákazníkov?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Nie. Obsah rozhovoru sa nikde neukladá, ani u nás, ani v databáze. Ukladáme len počítadlá: koľko rozhovorov a kliknutí na produkt sa za deň udialo, kvôli fakturácii a mesačnému limitu." }
+    },
+    {
+      "@type": "Question",
+      "name": "V akom jazyku asistent odpovedá?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Slovensky, česky, anglicky alebo nemecky, podľa nastavenia widgetu na stránke (data-lang). Odpoveď je vždy len z produktov vo vašom feede, nikdy si nič nevymýšľa." }
+    },
+    {
+      "@type": "Question",
+      "name": "Čo ak asistent nevie odpovedať?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Ak sa vo feede nenájde nič relevantné k otázke, asistent to jasne povie a odporučí zákazníkovi kontaktovať obchod priamo, na e-mail zadaný pri nastavení." }
+    },
+    {
+      "@type": "Question",
+      "name": "Funguje to aj na Shoptete, WooCommerce alebo Shopify?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Skript funguje na akomkoľvek e-shope hneď, stačí vložiť jeden <script> tag do administrácie alebo šablóny. Samostatný WooCommerce plugin a Shopify aplikácia (inštalácia na klik) sú v príprave, pozrite README v repozitári pre aktuálny stav." }
+    },
+    {
+      "@type": "Question",
+      "name": "Čo je v 14-dňovej skúšobnej verzii?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Plný prístup, do 1000 rozhovorov, žiadna platobná karta vopred. Vyskúšať si to môžete priamo na tejto stránke s vlastným feedom, chat sa objaví vpravo dole." }
+    },
+    {
+      "@type": "Question",
+      "name": "Kde bežia dáta?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Na globálnej sieti Cloudflare (Workers, Vectorize, D1). Presná EU-only lokalita spracovania nie je Cloudflare verejne garantovaná, preto zmluva o spracúvaní osobných údajov (DPA) medzi ARLingom a e-shopom počíta so štandardnými zmluvnými doložkami (SCC) a Cloudflare EU Cloud Code of Conduct." }
+    },
+    {
+      "@type": "Question",
+      "name": "Ako funguje platba a fakturácia?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Platby ešte nie sú spustené: skúšobná verzia je 14 dní zadarmo bez karty. Mesačné predplatné cez Stripe pribudne v ďalšej verzii, pozrite README v repozitári." }
+    }
+  ]
+}
+</script>
+
+<style>
+  :root {
+    --paper:#f6f2ea; --paper-2:#fbf9f4; --ink:#1b1a17; --ink-2:#4a4741; --muted:#66625a; --line:#d9d2c4;
+    --accent:#b23a1d; --accent-soft:#f3e2dc; --ok:#2f6f3e; --warn:#9a6b00;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --sans:system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"Cascadia Code",Consolas,Menlo,monospace;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper:#151412; --paper-2:#1d1b18; --ink:#efe9de; --ink-2:#c9c2b5; --muted:#8f887b; --line:#2e2b26; --accent:#e0623f; --accent-soft:#3a1f17; --ok:#7fbf8e; --warn:#caa552; }
+  }
+  * { box-sizing:border-box; }
+  html { background:var(--paper); }
+  body { margin:0; color:var(--ink); background:var(--paper); font:16px/1.55 var(--sans); -webkit-font-smoothing:antialiased; }
+  a { color:inherit; text-decoration-color:var(--line); text-underline-offset:3px; }
+  a:hover { text-decoration-color:var(--accent); }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+  img { max-width:100%; height:auto; display:block; }
+  [hidden] { display:none !important; }
+  .skip { position:absolute; left:-999px; top:8px; background:var(--ink); color:var(--paper); padding:8px 12px; z-index:10; }
+  .skip:focus { left:8px; }
+  .wrap { max-width:1040px; margin:0 auto; padding:0 24px; min-width:0; }
+  code { font:13.5px/1.4 var(--mono); background:var(--paper-2); border:1px solid var(--line); border-radius:3px; padding:1px 5px; overflow-wrap:anywhere; }
+
+  header.top { border-bottom:1px solid var(--line); }
+  header.top .wrap { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px 24px; padding:18px 24px; }
+  .brand { display:flex; align-items:baseline; flex-wrap:wrap; gap:2px 10px; min-width:0; }
+  .wordmark { font:600 21px/1.25 var(--serif); text-decoration:none; overflow-wrap:anywhere; }
+  .wordmark-sub { font:13px/1 var(--sans); color:var(--muted); letter-spacing:.02em; text-decoration:none; white-space:nowrap; }
+  .wordmark-sub:hover { color:var(--accent); }
+  nav.main { display:flex; flex-wrap:wrap; }
+  nav.main a { font-size:14px; margin-left:20px; text-decoration:none; color:var(--ink-2); white-space:nowrap; }
+  nav.main a:first-child { margin-left:0; }
+  nav.main a:hover { color:var(--accent); }
+
+  .hero { padding:64px 0 40px; border-bottom:1px solid var(--line); }
+  .hero h1 { font:400 clamp(30px,4.6vw,46px)/1.14 var(--serif); letter-spacing:-.01em; margin:0 0 18px; max-width:22ch; }
+  .hero p.lead { font-size:18px; color:var(--ink-2); max-width:60ch; margin:0 0 26px; }
+  .facts { list-style:none; margin:22px 0 0; padding:0; display:flex; flex-wrap:wrap; gap:8px 0; color:var(--muted); font-size:14px; }
+  .facts li + li::before { content:"·"; margin:0 10px; color:var(--line); }
+  .facts b { color:var(--ink); font-weight:600; }
+
+  .btn { display:inline-block; font:600 15px/1 var(--sans); padding:13px 18px; border-radius:4px; text-decoration:none; cursor:pointer; border:2px solid transparent; appearance:none; -webkit-appearance:none; }
+  .btn-solid { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .btn-solid:hover { background:var(--ink); border-color:var(--ink); color:var(--paper); }
+  .btn-line { border:2px solid var(--ink); color:var(--ink); background:transparent; }
+  .btn-line:hover { border-color:var(--accent); color:var(--accent); }
+  .btn + .btn { margin-left:10px; }
+  .btn:disabled { opacity:.6; cursor:default; }
+
+  section { padding:44px 0; border-bottom:1px solid var(--line); }
+  section[id], header.top { scroll-margin-top:14px; }
+  .kicker { font:400 14px/1 var(--serif); color:var(--accent); letter-spacing:.06em; text-transform:uppercase; margin:0 0 10px; }
+  h2 { font:400 28px/1.2 var(--serif); margin:0 0 8px; letter-spacing:-.005em; max-width:30ch; }
+  .sub { color:var(--ink-2); max-width:64ch; margin:0 0 24px; }
+
+  .rules { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:26px 32px; margin:0; padding:0; list-style:none; counter-reset:r; }
+  .rules li { padding-top:14px; border-top:1px solid var(--line); min-width:0; }
+  .rules li::before { counter-increment:r; content:counter(r,decimal-leading-zero); font:400 14px/1 var(--serif); color:var(--accent); display:block; margin-bottom:8px; }
+  .rules b { display:block; font-weight:600; margin-bottom:4px; }
+  .rules p { margin:0; color:var(--ink-2); font-size:15px; overflow-wrap:anywhere; }
+
+  .trial { border:1px solid var(--line); background:var(--paper-2); padding:24px; min-width:0; }
+  .trial-grid { display:grid; grid-template-columns:2fr 2fr 1fr auto; gap:10px; align-items:end; }
+  @media (max-width:760px) { .trial-grid { grid-template-columns:minmax(0,1fr); } }
+  .trial .field { display:flex; flex-direction:column; gap:5px; min-width:0; }
+  .trial label { font-size:12px; color:var(--muted); }
+  .trial input, .trial select {
+    background:var(--paper); color:var(--ink); border:1px solid var(--line); border-radius:4px;
+    padding:10px 11px; font:14px/1.3 var(--sans); width:100%;
+  }
+  .trial input:focus, .trial select:focus { border-color:var(--accent); outline:none; }
+  .trial-hint { font-size:12px; color:var(--muted); margin:12px 0 0; }
+  .trial-status { margin-top:16px; padding:10px 14px; border-radius:4px; font-size:14px; border:1px solid var(--line); background:var(--paper); }
+  .trial-status-pending { color:var(--ink-2); }
+  .trial-status-ok { color:var(--ok); border-color:var(--ok); }
+  .trial-status-warn { color:var(--warn); border-color:var(--warn); }
+  .trial-status-error { color:var(--accent); border-color:var(--accent); }
+  .trial-widget-note { margin-top:14px; padding:10px 14px; background:var(--accent-soft); border:1px solid var(--accent); border-radius:4px; font-size:13.5px; color:var(--ink); }
+
+  .pricing-table { width:100%; border-collapse:collapse; }
+  .pricing-table th, .pricing-table td { text-align:left; padding:14px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .pricing-table th { font:600 12px/1 var(--sans); text-transform:uppercase; letter-spacing:.03em; color:var(--muted); }
+  .pricing-table td.plan { font:600 16px/1.3 var(--sans); }
+  .pricing-table td.price { font:400 26px/1 var(--serif); white-space:nowrap; }
+  .pricing-table td.price span { font:13px/1 var(--sans); color:var(--muted); }
+  .pricing-table-wrap { overflow-x:auto; }
+  .pricing-note { color:var(--ink-2); font-size:14px; margin:16px 0 0; }
+
+  .privacy-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:14px; }
+  .privacy-list li { display:flex; gap:12px; align-items:flex-start; }
+  .privacy-list li::before { content:"\2022"; color:var(--accent); flex-shrink:0; font-family:var(--serif); }
+  .privacy-list p { margin:0; color:var(--ink-2); }
+  .privacy-list b { color:var(--ink); }
+
+  .ask { display:flex; flex-wrap:wrap; align-items:center; gap:14px 24px; margin-top:6px; }
+  .ask p { margin:0; color:var(--ink-2); max-width:56ch; }
+  .hp { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+  .subscribe-ask { border-top:1px solid var(--line); margin-top:20px; padding-top:20px; }
+  .subscribe-form { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  .subscribe-form input[type="email"] { height:44px; min-width:0; flex:1 1 240px; padding:0 14px; border:1px solid var(--line); border-radius:4px; background:var(--paper-2); color:var(--ink); font:15px/1 var(--sans); }
+  .subscribe-form .btn { flex:none; }
+  #subscribe-thanks { color:var(--ok); font-weight:600; }
+  #subscribe-error { color:var(--accent); font-weight:600; }
+  .subscribe-privacy { flex-basis:100%; margin:0; }
+  @media (max-width:480px) { .subscribe-form input[type="email"], .subscribe-form button { width:100%; } }
+
+  details { border-top:1px solid var(--line); padding:14px 0; }
+  details:last-of-type { border-bottom:1px solid var(--line); }
+  summary { cursor:pointer; font:400 18px/1.3 var(--serif); list-style:none; display:flex; justify-content:space-between; gap:12px; }
+  summary::-webkit-details-marker { display:none; }
+  summary::after { content:"+"; color:var(--accent); flex:none; font-family:var(--sans); }
+  details[open] summary::after { content:"\2013"; }
+  details p { color:var(--ink-2); margin:10px 0 0; max-width:70ch; overflow-wrap:anywhere; }
+
+  footer { padding:32px 0 56px; color:var(--muted); font-size:14px; }
+  footer .cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:20px 32px; }
+  footer b { color:var(--ink); font-weight:600; }
+  footer a { color:var(--ink-2); }
+  .footer-note { margin-top:14px; font-size:12px; color:var(--muted); }
+
+  @media (max-width:480px) {
+    .hero { padding:44px 0 32px; }
+    nav.main a { margin-left:12px; }
+    .wordmark-sub { display:none; }
+    .btn + .btn { margin-left:0; margin-top:10px; }
+  }
+</style>
+</head>
+<body>
+
+<a class="skip" href="#playground">Skočiť na skúšobnú verziu</a>
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <a class="wordmark" href="https://arling.sk/asistent/">ARLing Asistent</a>
+      <a class="wordmark-sub" href="https://arling.sk/">nástroj ARLing</a>
+    </div>
+    <nav class="main" aria-label="Stránka">
+      <a href="#how">Ako to funguje</a>
+      <a href="#playground">Vyskúšať</a>
+      <a href="#cennik">Cenník</a>
+      <a href="#privacy">Súkromie</a>
+      <a href="#faq">Otázky</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <div class="wrap">
+      <h1>Predajný asistent pre váš e-shop, nastavený za 10 minút z feedu.</h1>
+      <p class="lead">Vložíte URL produktového feedu a e-mail. Asistent odpovedá zákazníkom z vašich skutočných produktov, v ich jazyku, a vždy pridá odkazy na konkrétny tovar. Bez ukladania rozhovorov, bez cookies.</p>
+      <a class="btn btn-solid" href="#playground">Vyskúšať s vlastným feedom</a><a class="btn btn-line" href="https://github.com/AndryRoby/arling-asistent" target="_blank" rel="noopener">Zdrojový kód na GitHube</a>
+      <ul class="facts">
+        <li><b>4</b> formáty feedu</li>
+        <li><b>0</b> rozhovorov sa ukladá</li>
+        <li><b>14</b> dní zadarmo</li>
+        <li>SK · CS · EN · DE</li>
+        <li>beží na Cloudflare Workers</li>
+      </ul>
+    </div>
+  </div>
+
+  <section id="how">
+    <div class="wrap">
+      <p class="kicker">01</p>
+      <h2>Ako to funguje</h2>
+      <p class="sub">Tri kroky, žiadna inštalácia na strane servera, žiadny obchodník.</p>
+      <ol class="rules">
+        <li>
+          <b>Vložíte URL feedu a e-mail.</b>
+          <p>Podporujeme Google Shopping RSS/XML (aj Heureka formát), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON a bežný XML feed so značkami <code>item/name/price/url</code>.</p>
+        </li>
+        <li>
+          <b>Feed sa spracuje na embeddings.</b>
+          <p>Worker stiahne feed, popisy skráti a rozdelí na časti a uloží do Cloudflare Vectorize (najviac 5000 produktov). Feed sa obnovuje automaticky raz denne.</p>
+        </li>
+        <li>
+          <b>Vložíte jeden <code>&lt;script&gt;</code> tag.</b>
+          <p>Asistent sa zobrazí vpravo dole na stránke. Odpovedá výhradne z vášho feedu a obchodných kontaktov, nikdy si nič nevymýšľa; ak nevie, odporučí kontaktovať obchod.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="playground">
+    <div class="wrap">
+      <p class="kicker">02</p>
+      <h2>Vyskúšajte to s vlastným feedom</h2>
+      <p class="sub">Zadajte URL feedu produktov a e-mail. Za pár minút sa vpravo dole na tejto stránke objaví chat s vašimi vlastnými produktmi. Doménu odvodíme automaticky z URL feedu.</p>
+
+      <div class="trial">
+        <form id="trial-form" novalidate>
+          <div class="trial-grid">
+            <div class="field">
+              <label for="trial-feed-url">URL feedu produktov</label>
+              <input type="url" id="trial-feed-url" name="feed_url" placeholder="https://vasobchod.sk/feed.xml" required>
+            </div>
+            <div class="field">
+              <label for="trial-email">E-mail</label>
+              <input type="email" id="trial-email" name="email" placeholder="vy@vasobchod.sk" required>
+            </div>
+            <div class="field">
+              <label for="trial-lang">Jazyk</label>
+              <select id="trial-lang" name="lang">
+                <option value="sk">Slovenčina</option>
+                <option value="cs">Čeština</option>
+                <option value="en">English</option>
+                <option value="de">Deutsch</option>
+              </select>
+            </div>
+            <div class="field">
+              <button class="btn btn-solid" id="trial-submit" type="submit">Spustiť skúšobnú verziu</button>
+            </div>
+          </div>
+        </form>
+        <p class="trial-hint">Feed sa použije len na vytvorenie skúšobného asistenta pre túto ukážku. Samotný rozhovor v chate sa nikde neukladá. 14 dní zadarmo, žiadna platobná karta.</p>
+        <p class="trial-status" id="trial-status" role="status" hidden></p>
+        <p class="trial-widget-note" id="trial-widget-note" hidden>Asistent je pripravený. Hľadajte okrúhle tlačidlo vpravo dole na tejto stránke.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="privacy">
+    <div class="wrap">
+      <p class="kicker">03</p>
+      <h2>Súkromie ako vlastnosť, nie dodatok</h2>
+      <p class="sub">Widget je postavený tak, aby o návštevníkoch vášho e-shopu vedel čo najmenej.</p>
+      <ul class="privacy-list">
+        <li><p><b>Rozhovory sa neukladajú.</b> Obsah správ nikde nepretrváva, ani u nás, ani v databáze. Ukladáme len denné počítadlá rozhovorov a kliknutí na produkt, kvôli mesačnému limitu a fakturácii.</p></li>
+        <li><p><b>Žiadne cookies.</b> Widget nepoužíva cookies ani localStorage okrem voliteľného identifikátora relácie, ktorý žije len v pamäti prehliadača a mizne pri zatvorení stránky.</p></li>
+        <li><p><b>Feed produktov je jediný zdroj pravdy.</b> Asistent odpovedá len z toho, čo je vo vašom feede a v kontaktných údajoch, nikdy si nič nevymýšľa a text produktov berie ako dáta, nie ako pokyny.</p></li>
+        <li><p><b>Zmluva podľa čl. 28 GDPR.</b> ARLing s. r. o. je pri spracúvaní správ návštevníkov vášho e-shopu sprostredkovateľom. Vzor zmluvy: <a href="https://github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md" target="_blank" rel="noopener">Zmluva o spracúvaní osobných údajov (DPA)</a>.</p></li>
+        <li><p><b>Beh na globálnej sieti Cloudflare.</b> Presná EU-only lokalita spracovania Workers AI nie je Cloudflare verejne garantovaná; DPA preto počíta so štandardnými zmluvnými doložkami (SCC) a certifikáciou Cloudflare podľa EU Cloud Code of Conduct.</p></li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="cennik">
+    <div class="wrap">
+      <p class="kicker">04</p>
+      <h2>Cenník</h2>
+      <p class="sub">Jednoduchá cena podľa počtu rozhovorov za mesiac, bez poplatku za nastavenie.</p>
+      <div class="pricing-table-wrap">
+        <table class="pricing-table">
+          <thead>
+            <tr><th>Plán</th><th>Cena</th><th>Rozhovory / mesiac</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="plan">Starter</td>
+              <td class="price">19 &euro;<span> / mesiac</span></td>
+              <td>do 1&nbsp;000</td>
+              <td><a class="btn btn-line" href="#playground">Skúšobná verzia</a></td>
+            </tr>
+            <tr>
+              <td class="plan">Growth</td>
+              <td class="price">39 &euro;<span> / mesiac</span></td>
+              <td>do 5&nbsp;000</td>
+              <td><a class="btn btn-line" href="#playground">Skúšobná verzia</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="pricing-note">14 dní zadarmo, bez platobnej karty. Platba cez Stripe je v príprave (pozrite README v repozitári); počas skúšobnej verzie sa nič neúčtuje.</p>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap">
+      <p class="kicker">05</p>
+      <h2>Otázky</h2>
+
+      <details>
+        <summary>Ako dlho trvá nastavenie?</summary>
+        <p>Vložíte URL feedu produktov a e-mail. Worker feed stiahne, rozdelí na časti a uloží ako embeddings, zvyčajne do pár minút podľa veľkosti katalógu (limit je 5000 produktov). Potom stačí vložiť jeden <code>&lt;script&gt;</code> tag do e-shopu.</p>
+      </details>
+      <details>
+        <summary>Aké formáty feedu podporujete?</summary>
+        <p>Google Shopping RSS/XML (aj Heureka formát so značkami <code>g:</code>), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON a bežný XML feed so značkami <code>item/name/price/url/description/image</code>.</p>
+      </details>
+      <details>
+        <summary>Ukladáte rozhovory zákazníkov?</summary>
+        <p>Nie. Obsah rozhovoru sa nikde neukladá, ani u nás, ani v databáze. Ukladáme len počítadlá: koľko rozhovorov a kliknutí na produkt sa za deň udialo, kvôli fakturácii a mesačnému limitu.</p>
+      </details>
+      <details>
+        <summary>V akom jazyku asistent odpovedá?</summary>
+        <p>Slovensky, česky, anglicky alebo nemecky, podľa nastavenia widgetu na stránke (<code>data-lang</code>). Odpoveď je vždy len z produktov vo vašom feede, nikdy si nič nevymýšľa.</p>
+      </details>
+      <details>
+        <summary>Čo ak asistent nevie odpovedať?</summary>
+        <p>Ak sa vo feede nenájde nič relevantné k otázke, asistent to jasne povie a odporučí zákazníkovi kontaktovať obchod priamo, na e-mail zadaný pri nastavení.</p>
+      </details>
+      <details>
+        <summary>Funguje to aj na Shoptete, WooCommerce alebo Shopify?</summary>
+        <p>Skript funguje na akomkoľvek e-shope hneď, stačí vložiť jeden <code>&lt;script&gt;</code> tag do administrácie alebo šablóny. Samostatný WooCommerce plugin a Shopify aplikácia (inštalácia na klik) sú v príprave, pozrite README v repozitári pre aktuálny stav.</p>
+      </details>
+      <details>
+        <summary>Čo je v 14-dňovej skúšobnej verzii?</summary>
+        <p>Plný prístup, do 1000 rozhovorov, žiadna platobná karta vopred. Vyskúšať si to môžete priamo na tejto stránke s vlastným feedom, chat sa objaví vpravo dole.</p>
+      </details>
+      <details>
+        <summary>Kde bežia dáta?</summary>
+        <p>Na globálnej sieti Cloudflare (Workers, Vectorize, D1). Presná EU-only lokalita spracovania nie je Cloudflare verejne garantovaná, preto zmluva o spracúvaní osobných údajov (DPA) medzi ARLingom a e-shopom počíta so štandardnými zmluvnými doložkami (SCC) a Cloudflare EU Cloud Code of Conduct.</p>
+      </details>
+      <details>
+        <summary>Ako funguje platba a fakturácia?</summary>
+        <p>Platby ešte nie sú spustené: skúšobná verzia je 14 dní zadarmo bez karty. Mesačné predplatné cez Stripe pribudne v ďalšej verzii, pozrite README v repozitári.</p>
+      </details>
+
+      <div class="subscribe-ask">
+        <p class="sub" style="margin-bottom:14px">Chcete vedieť, keď pribudne WooCommerce plugin, Shopify aplikácia alebo platené predplatné?</p>
+        <form class="subscribe-form" data-subscribe data-source="asistent" data-lang="sk" data-thanks="subscribe-thanks" data-error="subscribe-error">
+          <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off">
+          <input type="email" name="email" placeholder="vas@email.sk" required>
+          <button class="btn btn-solid" type="submit">Dajte mi vedieť</button>
+          <p class="subscribe-privacy trial-hint">Len e-mail o novinkách k ARLing Asistentovi. Odhlásenie kedykoľvek jedným klikom.</p>
+        </form>
+        <p id="subscribe-thanks" hidden>Ďakujeme, ozveme sa.</p>
+        <p id="subscribe-error" hidden>Niečo sa pokazilo, skúste to prosím znova alebo napíšte na andrej@arling.sk.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <div class="cols">
+        <div>
+          <b>ARLing Asistent</b><br>
+          nástroj <a href="https://arling.sk/">ARLing s. r. o.</a>
+        </div>
+        <div>
+          IČO 56583486 · IČ DPH SK2122352100<br>
+          Ivanská cesta 19112/32E, 821 04 Bratislava<br>
+          <a href="mailto:andrej@arling.sk">andrej@arling.sk</a>
+        </div>
+        <div>
+          <a href="https://github.com/AndryRoby/arling-asistent" target="_blank" rel="noopener">Zdrojový kód (GitHub)</a><br>
+          <a href="llms.txt">llms.txt</a> · <a href="sitemap.xml">sitemap.xml</a><br>
+          <a href="https://github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md" target="_blank" rel="noopener">DPA (GDPR čl. 28)</a>
+        </div>
+      </div>
+      <p class="footer-note">Návštevnosť meriame vlastným, cookie-free nástrojom Umami. Neukladá cookies ani odtlačok prehliadača.</p>
+    </div>
+  </footer>
+</main>
+
+<script defer src="https://homelab.tailbf8f27.ts.net/script.js" data-website-id="TODO"></script>
+<script src="subscribe.js" defer></script>
+<script src="app.js" defer></script>
+</body>
+</html>

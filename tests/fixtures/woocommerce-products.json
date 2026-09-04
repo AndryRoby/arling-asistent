@@ -1,0 +1,22 @@
+[
+  {
+    "id": 501,
+    "name": "Bavlnene tricko",
+    "permalink": "https://eshop.example.sk/produkt/bavlnene-tricko",
+    "short_description": "<p>100% bavlna, unisex strih.</p>",
+    "prices": { "price": "1999", "regular_price": "1999", "currency_code": "EUR", "currency_minor_unit": 2 },
+    "images": [{ "src": "https://eshop.example.sk/img/tricko.jpg" }],
+    "categories": [{ "name": "Oblecenie" }],
+    "stock_status": "instock"
+  },
+  {
+    "id": 502,
+    "name": "Bavlnene tricko XL",
+    "permalink": "https://eshop.example.sk/produkt/tricko-xl",
+    "short_description": "<p>Nadmerna velkost XL, rovnaky strih.</p>",
+    "prices": { "price": "2199", "regular_price": "2199", "currency_code": "EUR", "currency_minor_unit": 2 },
+    "images": [],
+    "categories": [{ "name": "Oblecenie" }],
+    "stock_status": "outofstock"
+  }
+]

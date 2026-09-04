@@ -1,0 +1,48 @@
+# wrangler.toml
+# ARLing Asistent worker: RAG chat API + tenant onboarding + daily feed cron.
+# See ../README.md for the one-time setup commands (wrangler login, d1 create,
+# vectorize create) that fill in the placeholder ids below.
+
+name = "arling-asistent"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+[observability]
+enabled = true
+
+# Comma-separated list of hostnames allowed to call the API without a known
+# tenant match yet (the demo page, and any admin UI). Tenant domains are
+# always allowed automatically once created (see src/security.js).
+[vars]
+ALLOWED_ORIGINS = "arling.sk"
+
+# Workers AI: @cf/baai/bge-m3 (embeddings) and the chat model.
+[ai]
+binding = "AI"
+
+# Vectorize: product embeddings, one index shared across tenants, filtered
+# by a "tenant" metadata field on every vector (see src/embed.js).
+# Create with:
+#   wrangler vectorize create asistent-products --dimensions=1024 --metric=cosine
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "asistent-products"
+
+# D1: tenants + daily counters, see schema.sql. Create with:
+#   wrangler d1 create asistent
+# then paste the returned database_id below.
+[[d1_databases]]
+binding = "DB"
+database_name = "asistent"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+# KV: short-lived per-IP rate-limit counters only (see src/security.js).
+# Create with:
+#   wrangler kv namespace create ASISTENT_CACHE
+[[kv_namespaces]]
+binding = "ASISTENT_CACHE"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# Daily feed refresh, 03:00 UTC.
+[triggers]
+crons = ["0 3 * * *"]

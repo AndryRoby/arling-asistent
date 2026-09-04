@@ -1,0 +1,24 @@
+{
+  "products": [
+    {
+      "id": 111,
+      "title": "Kozena penazenka",
+      "body_html": "<p>Rucne sita kozena penazenka s <strong>viacerymi</strong> priehradkami.</p>",
+      "handle": "kozena-penazenka",
+      "product_type": "Doplnky",
+      "tags": ["kozene", "doplnky"],
+      "variants": [{ "price": "39.00", "available": true }],
+      "images": [{ "src": "https://shop.example.com/img/penazenka.jpg" }]
+    },
+    {
+      "id": 112,
+      "title": "Koeny opasok",
+      "body_html": "<p>Klasicky koeny opasok, viac farieb na vyber.</p>",
+      "handle": "koeny-opasok",
+      "product_type": "Doplnky",
+      "tags": ["kozene"],
+      "variants": [{ "price": "29.00", "available": false }],
+      "images": []
+    }
+  ]
+}
