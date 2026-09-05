@@ -5,7 +5,8 @@
   "description": "ARLing Asistent: AI shopping assistant widget for e-shops, running on Cloudflare Workers, no conversation storage.",
   "type": "module",
   "scripts": {
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "build:widget": "node scripts/build-widget.mjs"
   },
   "license": "UNLICENSED",
   "author": "ARLing s. r. o. <andrej@arling.sk>"

@@ -24,6 +24,12 @@ binding = "AI"
 # by a "tenant" metadata field on every vector (see src/embed.js).
 # Create with:
 #   wrangler vectorize create asistent-products --dimensions=1024 --metric=cosine
+# Then create the metadata index the "tenant" filter in src/chat.js needs
+# (without it, a filtered query silently matches nothing instead of
+# erroring; retrieveCandidates() degrades to a slower unfiltered fallback
+# rather than failing, but this should still be created before real
+# traffic):
+#   wrangler vectorize create-metadata-index asistent-products --property-name=tenant --type=string
 [[vectorize]]
 binding = "VECTORIZE"
 index_name = "asistent-products"
@@ -46,3 +52,8 @@ id = "848dd3f27004468c9003db53bbc48b94"
 # Daily feed refresh, 03:00 UTC.
 [triggers]
 crons = ["0 3 * * *"]
+
+# Secret (not a [vars] entry, never committed): required by
+# POST /v1/tenants/:id/reingest (src/onboarding.js), compared against the
+# request's X-Admin-Token header. Set with:
+#   wrangler secret put ADMIN_TOKEN

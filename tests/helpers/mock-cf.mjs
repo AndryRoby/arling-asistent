@@ -41,8 +41,20 @@ function cosineSimilarity(a, b) {
   return denom ? dot / denom : 0;
 }
 
-/** Mock Vectorize index: upsert/query/deleteByIds against an in-memory Map, cosine-ranked. */
-export function createMockVectorize() {
+/**
+ * Mock Vectorize index: upsert/query/deleteByIds against an in-memory Map,
+ * cosine-ranked.
+ *
+ * `noMetadataIndex`, when true, simulates a tenant metadata index that was
+ * never created at ingestion time (the real-world bug this mock exists to
+ * reproduce): any query carrying a `tenant` filter comes back with zero
+ * matches regardless of what is stored, exactly like Vectorize does when the
+ * filtered property has no metadata index, while an unfiltered query still
+ * works normally. This is what lets tests exercise chat.js's fallback path
+ * in retrieveCandidates (filtered query empty -> wider unfiltered query,
+ * filtered client-side by id prefix instead).
+ */
+export function createMockVectorize({ noMetadataIndex = false } = {}) {
   const store = new Map();
   return {
     async upsert(vectors) {
@@ -54,8 +66,12 @@ export function createMockVectorize() {
       return { count: ids.length };
     },
     async query(vector, { topK = 8, filter = {}, returnMetadata = true } = {}) {
+      const hasTenantFilter = !!(filter && filter.tenant);
+      if (hasTenantFilter && noMetadataIndex) {
+        return { matches: [] };
+      }
       const matches = Array.from(store.values())
-        .filter((v) => !filter || !filter.tenant || (v.metadata && v.metadata.tenant === filter.tenant))
+        .filter((v) => !hasTenantFilter || (v.metadata && v.metadata.tenant === filter.tenant))
         .map((v) => ({ id: v.id, score: cosineSimilarity(vector, v.values), metadata: returnMetadata ? v.metadata : undefined }))
         .sort((a, b) => b.score - a.score)
         .slice(0, topK);

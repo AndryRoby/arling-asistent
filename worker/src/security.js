@@ -83,16 +83,30 @@ function rateLimitKey(ip, windowSeconds, now) {
  * Increment and check a per-IP request counter in KV. Returns
  * {allowed, remaining, limit}. `kv` needs get/put with the standard Workers
  * KV signature; a small in-memory mock is enough for tests.
+ *
+ * Never throws: KV is eventually consistent and a concurrent burst of
+ * requests can race on the same get-then-put key (two requests both read the
+ * same counter value before either writes it back), and either the get or
+ * the put can also simply fail as a transient KV error. Either way this must
+ * not turn into a 500 for the visitor, so any KV error fails OPEN (the
+ * request is allowed through) rather than failing the whole chat request;
+ * the 429 path above is unaffected and still applies whenever KV itself
+ * works but the counter is over the limit.
  */
 export async function checkRateLimit(kv, ip, { limit = RATE_LIMIT_DEFAULT, windowSeconds = RATE_LIMIT_WINDOW_SECONDS, now = Date.now() } = {}) {
   const safeIp = ip || 'unknown';
   const key = rateLimitKey(safeIp, windowSeconds, now);
-  const current = parseInt((await kv.get(key)) || '0', 10);
-  if (current >= limit) {
-    return { allowed: false, remaining: 0, limit };
+  try {
+    const current = parseInt((await kv.get(key)) || '0', 10);
+    if (current >= limit) {
+      return { allowed: false, remaining: 0, limit };
+    }
+    await kv.put(key, String(current + 1), { expirationTtl: windowSeconds * 2 });
+    return { allowed: true, remaining: limit - current - 1, limit };
+  } catch (err) {
+    console.warn('[arling-asistent] rate limit KV error, failing open:', (err && err.message) || err);
+    return { allowed: true, remaining: limit, limit, failedOpen: true };
   }
-  await kv.put(key, String(current + 1), { expirationTtl: windowSeconds * 2 });
-  return { allowed: true, remaining: limit - current - 1, limit };
 }
 
 // ---------------------------------------------------------------------------

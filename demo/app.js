@@ -22,6 +22,31 @@
   var POLL_INTERVAL_MS = 3000;
   var POLL_MAX_TRIES = 40; // ~2 minutes
 
+  // Slovak text for every error code POST /v1/tenants can return (see
+  // worker/src/index.js and worker/src/onboarding.js), so a rejected trial
+  // signup tells the visitor (or Andrej, debugging live) what actually went
+  // wrong instead of always showing the same generic "check the fields"
+  // text regardless of cause.
+  var TENANT_ERROR_MESSAGES = {
+    invalid_json: 'Neplatná požiadavka (poškodené dáta formulára).',
+    validation_failed: 'Skontrolujte polia formulára.',
+    origin_not_allowed: 'Táto stránka nemá povolený prístup k API (CORS).',
+    rate_limited: 'Príliš veľa požiadaviek naraz. Skúste to o chvíľu.',
+    payload_too_large: 'Požiadavka je príliš veľká.',
+    quota_exceeded: 'Dnešný limit skúšobných účtov bol dosiahnutý.',
+    internal_error: 'Nastala chyba na strane servera.',
+  };
+
+  /** Turn a POST /v1/tenants error response body into a Slovak-language detail string, or null if there is nothing usable to show. */
+  function describeTenantError(err) {
+    if (!err) return null;
+    var code = typeof err === 'string' ? err : err.error;
+    if (!code) return null;
+    var text = TENANT_ERROR_MESSAGES[code] || code;
+    var issues = err && Array.isArray(err.issues) && err.issues.length ? ' (' + err.issues.join(', ') + ')' : '';
+    return text + issues;
+  }
+
   var form = document.getElementById('trial-form');
   if (!form) return;
 
@@ -126,8 +151,11 @@
         poll(tenant.id, lang, POLL_MAX_TRIES);
       })
       .catch(function (err) {
-        var issues = err && Array.isArray(err.issues) ? ' (' + err.issues.join(', ') + ')' : '';
-        setStatus('Nepodarilo sa vytvoriť skúšobný účet' + issues + '. Skontrolujte polia a skúste znova.', 'error');
+        var detail = describeTenantError(err);
+        var message = detail
+          ? 'Nepodarilo sa vytvoriť skúšobný účet: ' + detail
+          : 'Nepodarilo sa vytvoriť skúšobný účet. Skontrolujte internetové pripojenie a skúste znova.';
+        setStatus(message, 'error');
         submitBtn.disabled = false;
       });
   });

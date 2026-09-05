@@ -191,6 +191,9 @@
   .privacy-list p { margin:0; color:var(--ink-2); }
   .privacy-list b { color:var(--ink); }
 
+  .pro-objections { margin-top:28px; }
+  .objections-label { margin:0 0 4px; font:600 13px/1 var(--sans); letter-spacing:.03em; text-transform:uppercase; color:var(--ink-2); }
+
   .ask { display:flex; flex-wrap:wrap; align-items:center; gap:14px 24px; margin-top:6px; }
   .ask p { margin:0; color:var(--ink-2); max-width:56ch; }
   .hp { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
@@ -223,6 +226,16 @@
     .wordmark-sub { display:none; }
     .btn + .btn { margin-left:0; margin-top:10px; }
   }
+
+  /* Sticky mobile trial bar (Paper Sell): mobile only, appears after the hero, closable. */
+  .sticky-cta { position:fixed; left:0; right:0; bottom:0; z-index:30; background:var(--paper-2); border-top:1px solid var(--line); }
+  .sticky-cta-inner { display:flex; align-items:center; gap:10px; max-width:1040px; margin:0 auto; padding:10px 14px; }
+  .sticky-cta-text { flex:1 1 auto; min-width:0; font-size:12.5px; color:var(--ink-2); overflow-wrap:anywhere; }
+  .sticky-cta .btn { flex:none; padding:10px 14px; font-size:13.5px; margin:0; }
+  .sticky-cta-close { flex:none; width:30px; height:30px; border:1px solid var(--line); background:var(--paper); color:var(--ink-2); border-radius:4px; cursor:pointer; font:16px/1 var(--sans); padding:0; }
+  .sticky-cta-close:hover { border-color:var(--accent); color:var(--accent); }
+  @media (min-width:761px) { .sticky-cta { display:none !important; } }
+  @media print { .sticky-cta { display:none !important; } }
 </style>
 </head>
 <body>
@@ -249,7 +262,7 @@
     <div class="wrap">
       <h1>Predajný asistent pre váš e-shop, nastavený za 10 minút z feedu.</h1>
       <p class="lead">Vložíte URL produktového feedu a e-mail. Asistent odpovedá zákazníkom z vašich skutočných produktov, v ich jazyku, a vždy pridá odkazy na konkrétny tovar. Bez ukladania rozhovorov, bez cookies.</p>
-      <a class="btn btn-solid" href="#playground">Vyskúšať s vlastným feedom</a><a class="btn btn-line" href="https://github.com/AndryRoby/arling-asistent" target="_blank" rel="noopener">Zdrojový kód na GitHube</a>
+      <a class="btn btn-solid" href="#playground" data-umami-event="trial_click" data-umami-event-place="hero">Vyskúšať 14 dní zadarmo</a><a class="btn btn-line" href="https://github.com/AndryRoby/arling-asistent" target="_blank" rel="noopener">Zdrojový kód na GitHube</a>
       <ul class="facts">
         <li><b>4</b> formáty feedu</li>
         <li><b>0</b> rozhovorov sa ukladá</li>
@@ -282,9 +295,59 @@
     </div>
   </section>
 
-  <section id="playground">
+  <section id="cennik">
     <div class="wrap">
       <p class="kicker">02</p>
+      <h2>Cenník</h2>
+      <p class="sub">Jednoduchá cena podľa počtu rozhovorov za mesiac, bez poplatku za nastavenie. Ročné predplatné zatiaľ neponúkame, len mesačné.</p>
+      <div class="pricing-table-wrap">
+        <table class="pricing-table">
+          <thead>
+            <tr><th>Plán</th><th>Cena</th><th>Rozhovory / mesiac</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="plan">Starter</td>
+              <td class="price">19 &euro;<span> / mesiac</span></td>
+              <td>do 1&nbsp;000</td>
+              <td><a class="btn btn-line" href="#playground" data-umami-event="trial_click" data-umami-event-place="pricing">Skúšobná verzia</a></td>
+            </tr>
+            <tr>
+              <td class="plan">Growth</td>
+              <td class="price">39 &euro;<span> / mesiac</span></td>
+              <td>do 5&nbsp;000</td>
+              <td><a class="btn btn-line" href="#playground" data-umami-event="trial_click" data-umami-event-place="pricing">Skúšobná verzia</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="pricing-note">14 dní zadarmo, bez platobnej karty. Ročné predplatné zatiaľ nie je v ponuke. Platba cez Stripe je v príprave (pozrite README v repozitári); počas skúšobnej verzie sa nič neúčtuje.</p>
+
+      <div class="pro-objections">
+        <p class="objections-label">Predtým, než začnete</p>
+        <details>
+          <summary>Ukladáte rozhovory zákazníkov?</summary>
+          <p>Nie. Obsah rozhovoru sa nikde neukladá, ani u nás, ani v databáze. Ukladáme len počítadlá: koľko rozhovorov a kliknutí na produkt sa za deň udialo, kvôli fakturácii a mesačnému limitu.</p>
+        </details>
+        <details>
+          <summary>Máte zmluvu podľa čl. 28 GDPR?</summary>
+          <p>Áno. ARLing s. r. o. je pri spracúvaní správ návštevníkov vášho e-shopu sprostredkovateľom. Vzor zmluvy: <a href="https://github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md" target="_blank" rel="noopener">Zmluva o spracúvaní osobných údajov (DPA)</a>.</p>
+        </details>
+        <details>
+          <summary>Ako zrušiť, keď mi to nesadne?</summary>
+          <p>Platby ešte nie sú spustené: skúšobná verzia je 14 dní zadarmo, bez karty, a po uplynutí jednoducho vyprší. Mesačné predplatné cez Stripe pribudne v ďalšej verzii a bude sa dať zrušiť kedykoľvek, rovnako ako pri ostatných nástrojoch ARLing.</p>
+        </details>
+        <details>
+          <summary>Čo ak môj feed nie je v žiadnom z podporovaných formátov?</summary>
+          <p>Podporujeme Google Shopping RSS/XML (aj Heureka so značkami <code>g:</code>), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON a bežný XML feed so značkami <code>item/name/price/url/description/image</code>. Iný formát vyskúšajte vo formulári nižšie; ak ho spracovanie odmietne, napíšte na andrej@arling.sk s ukážkou feedu.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section id="playground">
+    <div class="wrap">
+      <p class="kicker">03</p>
       <h2>Vyskúšajte to s vlastným feedom</h2>
       <p class="sub">Zadajte URL feedu produktov a e-mail. Za pár minút sa vpravo dole na tejto stránke objaví chat s vašimi vlastnými produktmi. Doménu odvodíme automaticky z URL feedu.</p>
 
@@ -322,7 +385,7 @@
 
   <section id="privacy">
     <div class="wrap">
-      <p class="kicker">03</p>
+      <p class="kicker">04</p>
       <h2>Súkromie ako vlastnosť, nie dodatok</h2>
       <p class="sub">Widget je postavený tak, aby o návštevníkoch vášho e-shopu vedel čo najmenej.</p>
       <ul class="privacy-list">
@@ -332,36 +395,6 @@
         <li><p><b>Zmluva podľa čl. 28 GDPR.</b> ARLing s. r. o. je pri spracúvaní správ návštevníkov vášho e-shopu sprostredkovateľom. Vzor zmluvy: <a href="https://github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md" target="_blank" rel="noopener">Zmluva o spracúvaní osobných údajov (DPA)</a>.</p></li>
         <li><p><b>Beh na globálnej sieti Cloudflare.</b> Presná EU-only lokalita spracovania Workers AI nie je Cloudflare verejne garantovaná; DPA preto počíta so štandardnými zmluvnými doložkami (SCC) a certifikáciou Cloudflare podľa EU Cloud Code of Conduct.</p></li>
       </ul>
-    </div>
-  </section>
-
-  <section id="cennik">
-    <div class="wrap">
-      <p class="kicker">04</p>
-      <h2>Cenník</h2>
-      <p class="sub">Jednoduchá cena podľa počtu rozhovorov za mesiac, bez poplatku za nastavenie.</p>
-      <div class="pricing-table-wrap">
-        <table class="pricing-table">
-          <thead>
-            <tr><th>Plán</th><th>Cena</th><th>Rozhovory / mesiac</th><th></th></tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="plan">Starter</td>
-              <td class="price">19 &euro;<span> / mesiac</span></td>
-              <td>do 1&nbsp;000</td>
-              <td><a class="btn btn-line" href="#playground">Skúšobná verzia</a></td>
-            </tr>
-            <tr>
-              <td class="plan">Growth</td>
-              <td class="price">39 &euro;<span> / mesiac</span></td>
-              <td>do 5&nbsp;000</td>
-              <td><a class="btn btn-line" href="#playground">Skúšobná verzia</a></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p class="pricing-note">14 dní zadarmo, bez platobnej karty. Platba cez Stripe je v príprave (pozrite README v repozitári); počas skúšobnej verzie sa nič neúčtuje.</p>
     </div>
   </section>
 
@@ -421,6 +454,13 @@
     </div>
   </section>
 
+  <section id="closing-cta">
+    <div class="wrap" style="text-align:center;">
+      <p class="sub" style="margin:0 auto 18px;">Vložte URL feedu a e-mail, vyskúšajte 14 dní zadarmo, bez platobnej karty.</p>
+      <a class="btn btn-solid" href="#playground" data-umami-event="trial_click" data-umami-event-place="closing">Vyskúšať 14 dní zadarmo</a>
+    </div>
+  </section>
+
   <footer>
     <div class="wrap">
       <div class="cols">
@@ -444,8 +484,17 @@
   </footer>
 </main>
 
+<div class="sticky-cta" id="sticky-cta" hidden>
+  <div class="sticky-cta-inner">
+    <span class="sticky-cta-text">14 dní zadarmo, bez platobnej karty.</span>
+    <a class="btn btn-solid" href="#playground" data-umami-event="trial_click" data-umami-event-place="sticky">Vyskúšať zadarmo</a>
+    <button type="button" class="sticky-cta-close" id="sticky-cta-close" aria-label="Zavrieť lištu">&times;</button>
+  </div>
+</div>
+
 <script defer src="https://homelab.tailbf8f27.ts.net/script.js" data-website-id="09cc54da-8172-43b3-8aa2-84e3ab5a17f1"></script>
 <script src="subscribe.js" defer></script>
 <script src="app.js" defer></script>
+<script src="sell.js" defer></script>
 </body>
 </html>

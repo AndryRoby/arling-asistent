@@ -25,6 +25,15 @@
  * server, used only to key the aria-live region) and the message list for
  * the current page view, kept in a JS variable and lost on reload. The
  * server itself stores no conversation content either (see worker/src/chat.js).
+ *
+ * Load order matters in this file: every constant/helper that boot() uses
+ * (STRINGS, normaliseLang, scriptOrigin, escapeHtml, safeUrl, formatPrice,
+ * buildMarkup, buildStyle) is defined above boot(), and boot() itself is
+ * only called at the very bottom, after all of them exist. (Previously
+ * normaliseLang() was called - to compute LANG - before the STRINGS object
+ * it reads was assigned, since `var` hoisting only hoists the declaration,
+ * not the assignment: STRINGS was still undefined at that point and the
+ * widget threw on every page load.)
  */
 
 (function () {
@@ -32,28 +41,6 @@
 
   if (window.__arlingAsistentInit) return;
   window.__arlingAsistentInit = true;
-
-  var scriptEl = document.currentScript || (function () {
-    var scripts = document.getElementsByTagName('script');
-    for (var i = scripts.length - 1; i >= 0; i--) {
-      if (/widget\.js(\?|$)/.test(scripts[i].src)) return scripts[i];
-    }
-    return null;
-  })();
-
-  if (!scriptEl) return;
-
-  var TENANT = scriptEl.getAttribute('data-tenant');
-  var LANG = normaliseLang(scriptEl.getAttribute('data-lang'));
-  var COLOR = scriptEl.getAttribute('data-color') || 'auto';
-  var ENDPOINT = (scriptEl.getAttribute('data-endpoint') || scriptOrigin(scriptEl)).replace(/\/$/, '');
-
-  if (!TENANT) {
-    console.error('[arling-asistent] widget.js: missing required data-tenant attribute, widget not started.');
-    return;
-  }
-
-  var SESSION_ID = 'sess_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
 
   // ---------------------------------------------------------------------
   // i18n
@@ -131,74 +118,8 @@
     }
   }
 
-  var t = STRINGS[LANG];
-
   // ---------------------------------------------------------------------
-  // DOM / Shadow root
-  // ---------------------------------------------------------------------
-
-  var host = document.createElement('div');
-  host.setAttribute('data-arling-asistent', '');
-  if (COLOR === 'light') host.className = 'force-light';
-  if (COLOR === 'dark') host.className = 'force-dark';
-  document.body.appendChild(host);
-
-  var root = host.attachShadow({ mode: 'open' });
-  root.innerHTML = buildMarkup(t);
-  root.appendChild(buildStyle());
-
-  var els = {
-    toggle: root.getElementById('toggle'),
-    panel: root.getElementById('panel'),
-    closeBtn: root.getElementById('close-btn'),
-    messages: root.getElementById('messages'),
-    form: root.getElementById('form'),
-    input: root.getElementById('input'),
-    sendBtn: root.getElementById('send-btn'),
-    live: root.getElementById('live'),
-  };
-
-  var conversation = []; // {role: 'user'|'assistant', content: string}
-  var isOpen = false;
-  var isSending = false;
-
-  // ---------------------------------------------------------------------
-  // Open / close
-  // ---------------------------------------------------------------------
-
-  function openPanel() {
-    isOpen = true;
-    els.panel.hidden = false;
-    els.toggle.setAttribute('aria-expanded', 'true');
-    if (conversation.length === 0) appendMessage('assistant', t.greeting, []);
-    window.requestAnimationFrame(function () {
-      els.input.focus();
-    });
-    document.addEventListener('keydown', onKeydown, true);
-  }
-
-  function closePanel() {
-    isOpen = false;
-    els.panel.hidden = true;
-    els.toggle.setAttribute('aria-expanded', 'false');
-    els.toggle.focus();
-    document.removeEventListener('keydown', onKeydown, true);
-  }
-
-  function onKeydown(evt) {
-    if (evt.key === 'Escape' && isOpen) {
-      evt.stopPropagation();
-      closePanel();
-    }
-  }
-
-  els.toggle.addEventListener('click', function () {
-    isOpen ? closePanel() : openPanel();
-  });
-  els.closeBtn.addEventListener('click', closePanel);
-
-  // ---------------------------------------------------------------------
-  // Messages
+  // Rendering helpers (pure, used inside boot() below)
   // ---------------------------------------------------------------------
 
   function escapeHtml(s) {
@@ -223,125 +144,6 @@
     var text = Number.isFinite(amount) ? amount.toFixed(2) : String(p.price);
     return text + ' ' + (p.currency || '');
   }
-
-  function appendMessage(role, text, products) {
-    var row = document.createElement('div');
-    row.className = 'msg msg-' + role;
-
-    var bubble = document.createElement('div');
-    bubble.className = 'bubble';
-    bubble.textContent = text;
-    row.appendChild(bubble);
-
-    if (products && products.length) {
-      var list = document.createElement('div');
-      list.className = 'products';
-      list.setAttribute('role', 'list');
-      list.setAttribute('aria-label', t.relatedProducts);
-      products.forEach(function (p) {
-        var card = document.createElement('a');
-        card.className = 'product-card';
-        card.setAttribute('role', 'listitem');
-        var productUrl = safeUrl(p.url);
-        card.href = productUrl || '#';
-        card.target = '_blank';
-        card.rel = 'noopener';
-        var imageUrl = safeUrl(p.image);
-        var imgHtml = imageUrl ? '<img class="product-img" src="' + escapeHtml(imageUrl) + '" alt="" loading="lazy">' : '';
-        var priceText = formatPrice(p);
-        card.innerHTML =
-          imgHtml +
-          '<span class="product-body">' +
-          '<span class="product-title">' + escapeHtml(p.title || '') + '</span>' +
-          (priceText ? '<span class="product-price">' + escapeHtml(priceText) + '</span>' : '') +
-          '</span>';
-        list.appendChild(card);
-      });
-      row.appendChild(list);
-    }
-
-    els.messages.appendChild(row);
-    els.messages.scrollTop = els.messages.scrollHeight;
-    els.live.textContent = (role === 'assistant' ? t.title + ': ' : '') + text;
-  }
-
-  function appendThinking() {
-    var row = document.createElement('div');
-    row.className = 'msg msg-assistant';
-    row.id = 'thinking-row';
-    var bubble = document.createElement('div');
-    bubble.className = 'bubble thinking';
-    bubble.textContent = t.thinking;
-    row.appendChild(bubble);
-    els.messages.appendChild(row);
-    els.messages.scrollTop = els.messages.scrollHeight;
-  }
-
-  function removeThinking() {
-    var row = root.getElementById('thinking-row');
-    if (row) row.remove();
-  }
-
-  function setSending(sending) {
-    isSending = sending;
-    els.input.disabled = sending;
-    els.sendBtn.disabled = sending;
-  }
-
-  // ---------------------------------------------------------------------
-  // Networking
-  // ---------------------------------------------------------------------
-
-  async function sendMessage(text) {
-    conversation.push({ role: 'user', content: text });
-    appendMessage('user', text, []);
-    appendThinking();
-    setSending(true);
-
-    try {
-      var res = await fetch(ENDPOINT + '/v1/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenant: TENANT, messages: conversation, lang: LANG }),
-      });
-
-      removeThinking();
-
-      if (res.status === 429) {
-        var body = await res.json().catch(function () { return {}; });
-        var msg = body && body.error === 'quota_exceeded' ? t.quotaExceeded : t.rateLimited;
-        appendMessage('assistant', msg, []);
-        return;
-      }
-
-      if (!res.ok) {
-        appendMessage('assistant', t.networkError, []);
-        return;
-      }
-
-      var data = await res.json();
-      conversation.push({ role: 'assistant', content: data.answer });
-      appendMessage('assistant', data.answer, Array.isArray(data.products) ? data.products : []);
-    } catch (err) {
-      removeThinking();
-      appendMessage('assistant', t.networkError, []);
-    } finally {
-      setSending(false);
-    }
-  }
-
-  els.form.addEventListener('submit', function (evt) {
-    evt.preventDefault();
-    if (isSending) return;
-    var text = els.input.value.trim();
-    if (!text) return;
-    els.input.value = '';
-    sendMessage(text);
-  });
-
-  // ---------------------------------------------------------------------
-  // Markup / styles
-  // ---------------------------------------------------------------------
 
   function buildMarkup(strings) {
     return (
@@ -455,4 +257,219 @@
       '}';
     return style;
   }
+
+  // ---------------------------------------------------------------------
+  // Boot: one widget instance for this page. Called once, at the bottom of
+  // this file, after every constant/helper above it already exists.
+  // ---------------------------------------------------------------------
+
+  function boot() {
+    var scriptEl = document.currentScript || (function () {
+      var scripts = document.getElementsByTagName('script');
+      for (var i = scripts.length - 1; i >= 0; i--) {
+        if (/widget\.js(\?|$)/.test(scripts[i].src)) return scripts[i];
+      }
+      return null;
+    })();
+
+    if (!scriptEl) return;
+
+    var TENANT = scriptEl.getAttribute('data-tenant');
+    var LANG = normaliseLang(scriptEl.getAttribute('data-lang'));
+    var COLOR = scriptEl.getAttribute('data-color') || 'auto';
+    var ENDPOINT = (scriptEl.getAttribute('data-endpoint') || scriptOrigin(scriptEl)).replace(/\/$/, '');
+
+    if (!TENANT) {
+      console.error('[arling-asistent] widget.js: missing required data-tenant attribute, widget not started.');
+      return;
+    }
+
+    var SESSION_ID = 'sess_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    var t = STRINGS[LANG];
+
+    // -------------------------------------------------------------------
+    // DOM / Shadow root
+    // -------------------------------------------------------------------
+
+    var host = document.createElement('div');
+    host.setAttribute('data-arling-asistent', '');
+    if (COLOR === 'light') host.className = 'force-light';
+    if (COLOR === 'dark') host.className = 'force-dark';
+    document.body.appendChild(host);
+
+    var root = host.attachShadow({ mode: 'open' });
+    root.innerHTML = buildMarkup(t);
+    root.appendChild(buildStyle());
+
+    var els = {
+      toggle: root.getElementById('toggle'),
+      panel: root.getElementById('panel'),
+      closeBtn: root.getElementById('close-btn'),
+      messages: root.getElementById('messages'),
+      form: root.getElementById('form'),
+      input: root.getElementById('input'),
+      sendBtn: root.getElementById('send-btn'),
+      live: root.getElementById('live'),
+    };
+
+    var conversation = []; // {role: 'user'|'assistant', content: string}
+    var isOpen = false;
+    var isSending = false;
+
+    // -------------------------------------------------------------------
+    // Open / close
+    // -------------------------------------------------------------------
+
+    function openPanel() {
+      isOpen = true;
+      els.panel.hidden = false;
+      els.toggle.setAttribute('aria-expanded', 'true');
+      if (conversation.length === 0) appendMessage('assistant', t.greeting, []);
+      window.requestAnimationFrame(function () {
+        els.input.focus();
+      });
+      document.addEventListener('keydown', onKeydown, true);
+    }
+
+    function closePanel() {
+      isOpen = false;
+      els.panel.hidden = true;
+      els.toggle.setAttribute('aria-expanded', 'false');
+      els.toggle.focus();
+      document.removeEventListener('keydown', onKeydown, true);
+    }
+
+    function onKeydown(evt) {
+      if (evt.key === 'Escape' && isOpen) {
+        evt.stopPropagation();
+        closePanel();
+      }
+    }
+
+    els.toggle.addEventListener('click', function () {
+      isOpen ? closePanel() : openPanel();
+    });
+    els.closeBtn.addEventListener('click', closePanel);
+
+    // -------------------------------------------------------------------
+    // Messages
+    // -------------------------------------------------------------------
+
+    function appendMessage(role, text, products) {
+      var row = document.createElement('div');
+      row.className = 'msg msg-' + role;
+
+      var bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.textContent = text;
+      row.appendChild(bubble);
+
+      if (products && products.length) {
+        var list = document.createElement('div');
+        list.className = 'products';
+        list.setAttribute('role', 'list');
+        list.setAttribute('aria-label', t.relatedProducts);
+        products.forEach(function (p) {
+          var card = document.createElement('a');
+          card.className = 'product-card';
+          card.setAttribute('role', 'listitem');
+          var productUrl = safeUrl(p.url);
+          card.href = productUrl || '#';
+          card.target = '_blank';
+          card.rel = 'noopener';
+          var imageUrl = safeUrl(p.image);
+          var imgHtml = imageUrl ? '<img class="product-img" src="' + escapeHtml(imageUrl) + '" alt="" loading="lazy">' : '';
+          var priceText = formatPrice(p);
+          card.innerHTML =
+            imgHtml +
+            '<span class="product-body">' +
+            '<span class="product-title">' + escapeHtml(p.title || '') + '</span>' +
+            (priceText ? '<span class="product-price">' + escapeHtml(priceText) + '</span>' : '') +
+            '</span>';
+          list.appendChild(card);
+        });
+        row.appendChild(list);
+      }
+
+      els.messages.appendChild(row);
+      els.messages.scrollTop = els.messages.scrollHeight;
+      els.live.textContent = (role === 'assistant' ? t.title + ': ' : '') + text;
+    }
+
+    function appendThinking() {
+      var row = document.createElement('div');
+      row.className = 'msg msg-assistant';
+      row.id = 'thinking-row';
+      var bubble = document.createElement('div');
+      bubble.className = 'bubble thinking';
+      bubble.textContent = t.thinking;
+      row.appendChild(bubble);
+      els.messages.appendChild(row);
+      els.messages.scrollTop = els.messages.scrollHeight;
+    }
+
+    function removeThinking() {
+      var row = root.getElementById('thinking-row');
+      if (row) row.remove();
+    }
+
+    function setSending(sending) {
+      isSending = sending;
+      els.input.disabled = sending;
+      els.sendBtn.disabled = sending;
+    }
+
+    // -------------------------------------------------------------------
+    // Networking
+    // -------------------------------------------------------------------
+
+    async function sendMessage(text) {
+      conversation.push({ role: 'user', content: text });
+      appendMessage('user', text, []);
+      appendThinking();
+      setSending(true);
+
+      try {
+        var res = await fetch(ENDPOINT + '/v1/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tenant: TENANT, messages: conversation, lang: LANG }),
+        });
+
+        removeThinking();
+
+        if (res.status === 429) {
+          var body = await res.json().catch(function () { return {}; });
+          var msg = body && body.error === 'quota_exceeded' ? t.quotaExceeded : t.rateLimited;
+          appendMessage('assistant', msg, []);
+          return;
+        }
+
+        if (!res.ok) {
+          appendMessage('assistant', t.networkError, []);
+          return;
+        }
+
+        var data = await res.json();
+        conversation.push({ role: 'assistant', content: data.answer });
+        appendMessage('assistant', data.answer, Array.isArray(data.products) ? data.products : []);
+      } catch (err) {
+        removeThinking();
+        appendMessage('assistant', t.networkError, []);
+      } finally {
+        setSending(false);
+      }
+    }
+
+    els.form.addEventListener('submit', function (evt) {
+      evt.preventDefault();
+      if (isSending) return;
+      var text = els.input.value.trim();
+      if (!text) return;
+      els.input.value = '';
+      sendMessage(text);
+    });
+  }
+
+  boot();
 })();

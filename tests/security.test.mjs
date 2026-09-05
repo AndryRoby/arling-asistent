@@ -78,6 +78,26 @@ test('checkRateLimit tracks IPs independently and resets in a new time window', 
   assert.equal(afterWindow.allowed, true);
 });
 
+test('checkRateLimit fails open (never throws) when the KV get call errors, e.g. a concurrent-write race', async () => {
+  const flakyKv = {
+    async get() { throw new Error('simulated KV get race'); },
+    async put() { throw new Error('simulated KV put race'); },
+  };
+  const result = await checkRateLimit(flakyKv, '5.5.5.5', {});
+  assert.equal(result.allowed, true);
+  assert.equal(result.failedOpen, true);
+});
+
+test('checkRateLimit fails open when only the KV put call errors (get succeeded)', async () => {
+  const kv = {
+    async get() { return '0'; },
+    async put() { throw new Error('simulated KV put race'); },
+  };
+  const result = await checkRateLimit(kv, '6.6.6.6', {});
+  assert.equal(result.allowed, true);
+  assert.equal(result.failedOpen, true);
+});
+
 test('assertBodySize passes under the limit and throws InputTooLargeError over it', () => {
   assert.doesNotThrow(() => assertBodySize('a'.repeat(100), 200));
   assert.throws(() => assertBodySize('a'.repeat(300), 200), InputTooLargeError);
