@@ -25,6 +25,11 @@ import { checkAndRecordConversation } from './tenants.js';
 
 export const CHAT_MODEL_DEFAULT = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 export const TOP_K = 8;
+// Used only as the fallback path below, when the tenant-filtered query comes
+// back empty because no metadata index exists yet on the "tenant" property
+// (see retrieveCandidates): a wider, unfiltered scan gives the client-side
+// id-prefix filter enough candidates to still find this tenant's products.
+export const FALLBACK_TOP_K = 40;
 export const MAX_ANSWER_WORDS = 120;
 export const MAX_PRODUCTS_IN_ANSWER = 3;
 export const SUPPORTED_LANGS = ['sk', 'cs', 'en', 'de'];
@@ -97,14 +102,35 @@ function matchToCandidate(match) {
   };
 }
 
-/** Query Vectorize for the top-K product chunks for this tenant, deduplicated by product id (best chunk wins). */
-export async function retrieveCandidates(env, tenantId, queryVector, { topK = TOP_K } = {}) {
-  const result = await env.VECTORIZE.query(queryVector, {
+async function queryVectorizeMatches(env, queryVector, options) {
+  const result = await env.VECTORIZE.query(queryVector, options);
+  return (result && result.matches) || [];
+}
+
+/**
+ * Query Vectorize for the top-K product chunks for this tenant, deduplicated
+ * by product id (best chunk wins).
+ *
+ * Degrades instead of failing when the "tenant" metadata index is missing
+ * (see worker README / re-ingest notes): a filter on a property with no
+ * metadata index does not error, it just matches nothing, so a filtered
+ * query that comes back empty falls back to an unfiltered, wider query and
+ * filters client-side by vector id prefix instead (every vector id is
+ * `${tenantId}::...`, see embed.js), rather than reporting zero candidates.
+ */
+export async function retrieveCandidates(env, tenantId, queryVector, { topK = TOP_K, fallbackTopK = FALLBACK_TOP_K } = {}) {
+  let matches = await queryVectorizeMatches(env, queryVector, {
     topK,
     filter: { tenant: tenantId },
     returnMetadata: true,
   });
-  const matches = (result && result.matches) || [];
+
+  if (matches.length === 0) {
+    const unfiltered = await queryVectorizeMatches(env, queryVector, { topK: fallbackTopK, returnMetadata: true });
+    const prefix = `${tenantId}::`;
+    matches = unfiltered.filter((m) => typeof m.id === 'string' && m.id.startsWith(prefix));
+  }
+
   const byProduct = new Map();
   for (const match of matches) {
     const candidate = matchToCandidate(match);

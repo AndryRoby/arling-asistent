@@ -1,4 +1,14 @@
-/*
+// widget-src.js
+// GENERATED FILE: do not edit directly, it will be overwritten.
+// Source of truth is ../../widget/widget.js. Regenerate both this file
+// and the demo/widget.js copy with `npm run build:widget` (see
+// scripts/build-widget.mjs) after any change to widget/widget.js.
+//
+// Served verbatim by GET /widget.js (see src/index.js) so e-shops can
+// load the widget from the worker's own origin instead of needing a
+// separate static host.
+
+export default `/*
  * widget.js
  *
  * Single-file embeddable chat widget for ARLing Asistent. No dependencies,
@@ -31,7 +41,7 @@
  * buildMarkup, buildStyle) is defined above boot(), and boot() itself is
  * only called at the very bottom, after all of them exist. (Previously
  * normaliseLang() was called - to compute LANG - before the STRINGS object
- * it reads was assigned, since `var` hoisting only hoists the declaration,
+ * it reads was assigned, since \`var\` hoisting only hoists the declaration,
  * not the assignment: STRINGS was still undefined at that point and the
  * widget threw on every page load.)
  */
@@ -267,7 +277,7 @@
     var scriptEl = document.currentScript || (function () {
       var scripts = document.getElementsByTagName('script');
       for (var i = scripts.length - 1; i >= 0; i--) {
-        if (/widget\.js(\?|$)/.test(scripts[i].src)) return scripts[i];
+        if (/widget\\.js(\\?|$)/.test(scripts[i].src)) return scripts[i];
       }
       return null;
     })();
@@ -277,7 +287,7 @@
     var TENANT = scriptEl.getAttribute('data-tenant');
     var LANG = normaliseLang(scriptEl.getAttribute('data-lang'));
     var COLOR = scriptEl.getAttribute('data-color') || 'auto';
-    var ENDPOINT = (scriptEl.getAttribute('data-endpoint') || scriptOrigin(scriptEl)).replace(/\/$/, '');
+    var ENDPOINT = (scriptEl.getAttribute('data-endpoint') || scriptOrigin(scriptEl)).replace(/\\/$/, '');
 
     if (!TENANT) {
       console.error('[arling-asistent] widget.js: missing required data-tenant attribute, widget not started.');
@@ -473,3 +483,4 @@
 
   boot();
 })();
+`;

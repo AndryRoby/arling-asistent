@@ -8,14 +8,15 @@ Demo a landing stránka: `demo/index.html` (naživo na https://arling.sk/asisten
 
 1. E-shop vloží URL feedu produktov a e-mail (`POST /v1/tenants`).
 2. Worker feed stiahne, znormalizuje, rozdelí na časti a uloží ako embeddings do Cloudflare Vectorize (`@cf/baai/bge-m3`). Feed sa obnovuje automaticky raz denne (cron).
-3. E-shop vloží jeden `<script>` tag (`widget/widget.js`) na svoju stránku.
+3. E-shop vloží jeden `<script>` tag, buď na `widget/widget.js` (GitHub Pages), alebo priamo na `GET /widget.js` z Workera (rovnaký súbor, worker ho servíruje zo svojej vlastnej domény, viď nižšie).
 4. Zákazník sa opýta widgetu na niečo; otázka sa zabedduje, nájde sa 8 najbližších produktov daného e-shopu vo Vectorize, a model (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`) odpovie výhradne z týchto produktov a kontaktných údajov obchodu, v jazyku zákazníka, do 120 slov, s najviac 3 odkazmi na produkty.
 
 Súbory:
 
-- `worker/`: Cloudflare Worker (wrangler, plain JavaScript ES modules, žiadny build krok).
-- `widget/widget.js`: vkladateľný chat widget (jeden súbor, Shadow DOM, bez závislostí).
+- `worker/`: Cloudflare Worker (wrangler, plain JavaScript ES modules, žiadny build krok pri nasadení).
+- `widget/widget.js`: vkladateľný chat widget (jeden súbor, Shadow DOM, bez závislostí). Toto je jediný zdroj pravdy pre widget; `worker/src/widget-src.js` a `demo/widget.js` sú z neho generované, viď "Widget: úprava a build" nižšie.
 - `demo/`: landing stránka a živé demo (statické súbory pre GitHub Pages).
+- `scripts/build-widget.mjs`: kopíruje `widget/widget.js` do `worker/src/widget-src.js` a `demo/widget.js` (`npm run build:widget`).
 - `legal/dpa-sk.md`: vzorová zmluva o spracúvaní osobných údajov (čl. 28 GDPR).
 - `tests/`: `node --test`, mocky pre AI/Vectorize/D1/KV, žiadna sieť.
 
@@ -32,8 +33,24 @@ Na kontrolu syntaxe worker kódu a widgetu bez inštalácie čohokoľvek:
 
 ```bash
 node --check widget/widget.js
+node --check demo/widget.js
 for f in worker/src/*.js; do node --check "$f"; done
 ```
+
+### Widget: úprava a build
+
+`widget/widget.js` je jediný zdroj pravdy. Worker (plain ES modules, žiadny bundler) nevie priamo `import`-núť `.js` súbor ako text, a `demo/` má byť nezávislá statická kópia pre GitHub Pages, preto po každej úprave `widget/widget.js` treba spustiť:
+
+```bash
+npm run build:widget
+```
+
+Tento skript (`scripts/build-widget.mjs`) prepíše dva generované súbory:
+
+- `worker/src/widget-src.js` — `export default \`...\`;` s obsahom widgetu, servírovaný priamo Workerom na `GET /widget.js` (content-type `application/javascript`, `cache-control: public, max-age=3600`, CORS `*`, keďže ide o statický, tenant-neutrálny kód nahrávaný z `<script src>` z ľubovoľnej domény e-shopu).
+- `demo/widget.js` — presná kópia pre GitHub Pages demo stránku.
+
+Oba generované súbory sa commitujú ako bežný zdrojový kód (nasadenie samotné žiadny build krok nepotrebuje); skript treba spustiť len lokálne po úprave `widget/widget.js`, nie pri každom `wrangler deploy`.
 
 Na lokálne vyskúšanie samotného Workera (vyžaduje len `npx`, nie účet, `wrangler dev` beží úplne offline s lokálnym D1/KV/Vectorize emulátorom):
 
@@ -62,11 +79,33 @@ wrangler vectorize create asistent-products --dimensions=1024 --metric=cosine
 wrangler kv namespace create ASISTENT_CACHE
 # skopírovať vrátené id do worker/wrangler.toml ([[kv_namespaces]])
 
+# Metadata index na Vectorize (nutné, inak filtrovaný dotaz podľa tenanta
+# vždy vráti 0 výsledkov; worker sa bez neho degraduje na pomalší
+# nefiltrovaný fallback, viď "Ak retrieval vracia 0 produktov" nižšie, ale
+# treba ho vytvoriť čo najskôr):
+wrangler vectorize create-metadata-index asistent-products --property-name=tenant --type=string
+
+# Admin token pre POST /v1/tenants/:id/reingest (ľubovoľný náhodný reťazec,
+# napr. `openssl rand -hex 32`); bez neho endpoint odmietne úplne všetky
+# požiadavky, nikdy nepovolí re-ingest bez neho:
+wrangler secret put ADMIN_TOKEN
+
 cd worker
 wrangler deploy
 ```
 
-Widget (`widget/widget.js`) a demo stránku (`demo/`) treba nasadiť ako statické súbory (napríklad GitHub Pages pod `arling.sk/asistent/`, tak ako ostatné nástroje ARLing). Po nasadení Workera nahraďte placeholder `https://arling-asistent.arling.workers.dev` skutočnou doménou Workera v `demo/app.js`, `demo/index.html` (CSP `connect-src`) a vo `widget/widget.js` dokumentácii.
+Widget (`widget/widget.js`) a demo stránku (`demo/`) treba nasadiť ako statické súbory (napríklad GitHub Pages pod `arling.sk/asistent/`, tak ako ostatné nástroje ARLing) — alebo namiesto toho použiť `<script src="https://VASA-DOMENA-WORKERA/widget.js">`, keďže worker po nasadení servíruje presne ten istý súbor priamo (viď "Vloženie widgetu na e-shop" nižšie), čo je jednoduchšie ako spravovať druhý statický hosting. Po nasadení Workera nahraďte placeholder `https://arling-asistent.arling.workers.dev` skutočnou doménou Workera v `demo/app.js` a `demo/index.html` (CSP `connect-src`).
+
+### Ak retrieval vracia 0 produktov (chýbajúci metadata index)
+
+Ak bol tenant vytvorený predtým, než existoval metadata index na property `tenant` (`wrangler vectorize create-metadata-index` vyššie), jeho pôvodné vektory vo Vectorize môžu byť v poriadku, ale `chat.js` sa degraduje na pomalší nefiltrovaný fallback dotaz (`retrieveCandidates` v `worker/src/chat.js`) namiesto zlyhania nahlas. Po vytvorení indexu stačí dotknutého tenanta manuálne pre-embednúť:
+
+```bash
+curl -X POST "https://VASA-DOMENA-WORKERA/v1/tenants/TENANT_ID/reingest" \
+  -H "X-Admin-Token: $ADMIN_TOKEN"
+```
+
+Ten istý `ingestFeedForTenant()` beží aj v dennom crone (`worker/src/cron.js`), takže toto je len manuálne spustenie tej istej funkcie mimo poradia.
 
 ## Vloženie widgetu na e-shop
 
@@ -77,6 +116,8 @@ Widget (`widget/widget.js`) a demo stránku (`demo/`) treba nasadiť ako statick
         data-color="auto"
         defer></script>
 ```
+
+`GET /widget.js` servíruje worker sám (rovnaký obsah ako `widget/widget.js`, viď "Widget: úprava a build" vyššie), takže e-shop nepotrebuje žiadny druhý hosting pre samotný skript.
 
 - `data-tenant` (povinné): id vrátené z `POST /v1/tenants`.
 - `data-lang`: `sk`, `cs`, `en` alebo `de`, predvolené `sk`.
@@ -109,7 +150,7 @@ Najtesnejší limit je 10 000 Workers AI neuronov/deň (embeddingy pri onboardin
 
 ## Testy
 
-`npm test` (`node --test tests/*.test.mjs`), Node 20+, bez siete. 83 testov, 279 volaní `assert.*`, pokrývajúcich: parsovanie všetkých 4 formátov feedu a normalizáciu, chunkovanie a embedding pipeline, CORS allowlist, rate limiting, limity veľkosti vstupu, ochranu proti prompt injection (vrátane popisu produktu s textom "ignore previous instructions"), validáciu a vytvorenie tenanta, mesačnú kvótu a počítadlá, stavbu groundovaného promptu, spracovanie odpovede modelu a celý chat flow s mockovaným modelom vracajúcim JSON, a napokon aj wiring na úrovni HTTP routera (`worker/src/index.js`) so skutočnými `Request`/`Response` objektmi.
+`npm test` (`node --test tests/*.test.mjs`), Node 20+, bez siete. 105 testov, 335 volaní `assert.*`, pokrývajúcich: parsovanie všetkých 4 formátov feedu a normalizáciu, chunkovanie a embedding pipeline, CORS allowlist (vrátane hlavičky na skutočných JSON odpovediach `POST /v1/tenants` a `GET /v1/tenants/:id/status`, nielen na OPTIONS preflighte), rate limiting a jeho fail-open správanie pri chybe KV, limity veľkosti vstupu a ich mapovanie na 413/400 namiesto 500, ochranu proti prompt injection (vrátane popisu produktu s textom "ignore previous instructions"), retrieval z Vectorize vrátane degradovaného nefiltrovaného fallbacku pri chýbajúcom metadata indexe, admin re-ingest endpoint (`POST /v1/tenants/:id/reingest`), validáciu a vytvorenie tenanta, mesačnú kvótu a počítadlá, stavbu groundovaného promptu, spracovanie odpovede modelu a celý chat flow s mockovaným modelom vracajúcim JSON, `widget/widget.js` samotný (načítanie cez `node:vm` s minimálnym fake DOM, bez jsdom), a napokon aj wiring na úrovni HTTP routera (`worker/src/index.js`) so skutočnými `Request`/`Response` objektmi.
 
 ## Kontakt
 

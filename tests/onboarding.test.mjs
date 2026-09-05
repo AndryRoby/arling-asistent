@@ -6,12 +6,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createTenantFromRequest, ingestFeedForTenant, tenantStatusResponse, handleCreateTenantRoute, handleTenantStatusRoute, TENANT_STATUS } from '../worker/src/onboarding.js';
+import { createTenantFromRequest, ingestFeedForTenant, tenantStatusResponse, handleCreateTenantRoute, handleTenantStatusRoute, handleReingestRoute, TENANT_STATUS } from '../worker/src/onboarding.js';
 import { getTenantById } from '../worker/src/tenants.js';
 import { createMockD1 } from './helpers/mock-d1.mjs';
 import { createMockAI, createMockVectorize } from './helpers/mock-cf.mjs';
 
 const GENERIC_XML = `<products><item><id>1</id><name>Test product</name><price>9.99</price><url>https://shop.sk/p/1</url><description>Popis produktu.</description></item></products>`;
+
+const ADMIN_TOKEN = 'test-admin-token';
 
 function makeEnv({ feedText = GENERIC_XML, feedOk = true } = {}) {
   return {
@@ -19,6 +21,7 @@ function makeEnv({ feedText = GENERIC_XML, feedOk = true } = {}) {
     AI: createMockAI({ embedDim: 4 }),
     VECTORIZE: createMockVectorize(),
     ALLOWED_ORIGINS: 'arling.sk',
+    ADMIN_TOKEN,
     fetchImpl: async () => ({ ok: feedOk, status: feedOk ? 200 : 500, text: async () => feedText }),
   };
 }
@@ -102,6 +105,41 @@ test('handleCreateTenantRoute returns 400 on invalid JSON', async () => {
   assert.equal(res.status, 400);
 });
 
+test('handleCreateTenantRoute carries Access-Control-Allow-Origin for an allowed Origin (bug: only the OPTIONS preflight had it before)', async () => {
+  const env = makeEnv();
+  const request = new Request('https://asistent.arling.sk/v1/tenants', {
+    method: 'POST',
+    headers: { Origin: 'https://arling.sk' },
+    body: JSON.stringify({ feed_url: 'https://shop.sk/feed.xml', domain: 'cors.sk', email: 'a@cors.sk' }),
+  });
+  const res = await handleCreateTenantRoute(request, env, {});
+  assert.equal(res.status, 201);
+  assert.equal(res.headers.get('Access-Control-Allow-Origin'), 'https://arling.sk');
+});
+
+test('handleCreateTenantRoute carries CORS headers even on a validation failure', async () => {
+  const env = makeEnv();
+  const request = new Request('https://asistent.arling.sk/v1/tenants', {
+    method: 'POST',
+    headers: { Origin: 'https://arling.sk' },
+    body: JSON.stringify({ feed_url: 'not-a-url', domain: '', email: 'nope' }),
+  });
+  const res = await handleCreateTenantRoute(request, env, {});
+  assert.equal(res.status, 400);
+  assert.equal(res.headers.get('Access-Control-Allow-Origin'), 'https://arling.sk');
+});
+
+test('handleCreateTenantRoute omits the CORS header for a disallowed Origin', async () => {
+  const env = makeEnv();
+  const request = new Request('https://asistent.arling.sk/v1/tenants', {
+    method: 'POST',
+    headers: { Origin: 'https://attacker.com' },
+    body: JSON.stringify({ feed_url: 'https://shop.sk/feed.xml', domain: 'nocors.sk', email: 'a@nocors.sk' }),
+  });
+  const res = await handleCreateTenantRoute(request, env, {});
+  assert.equal(res.headers.get('Access-Control-Allow-Origin'), null);
+});
+
 test('handleTenantStatusRoute returns 404 for an unknown tenant and 200 with fields for a known one', async () => {
   const env = makeEnv();
   const tenant = await createTenantFromRequest(env, { feedUrl: 'https://shop.sk/feed.xml', domain: 'status.sk', email: 'a@status.sk' });
@@ -112,4 +150,62 @@ test('handleTenantStatusRoute returns 404 for an unknown tenant and 200 with fie
 
   const notFoundRes = await handleTenantStatusRoute(new Request('https://x/'), env, 'ghost');
   assert.equal(notFoundRes.status, 404);
+});
+
+test('handleTenantStatusRoute carries Access-Control-Allow-Origin for an allowed Origin, for both the ready and not-found cases', async () => {
+  const env = makeEnv();
+  const tenant = await createTenantFromRequest(env, { feedUrl: 'https://shop.sk/feed.xml', domain: 'status-cors.sk', email: 'a@status-cors.sk' });
+
+  const okRes = await handleTenantStatusRoute(new Request('https://x/', { headers: { Origin: 'https://arling.sk' } }), env, tenant.id);
+  assert.equal(okRes.status, 200);
+  assert.equal(okRes.headers.get('Access-Control-Allow-Origin'), 'https://arling.sk');
+
+  const notFoundRes = await handleTenantStatusRoute(new Request('https://x/', { headers: { Origin: 'https://arling.sk' } }), env, 'ghost');
+  assert.equal(notFoundRes.status, 404);
+  assert.equal(notFoundRes.headers.get('Access-Control-Allow-Origin'), 'https://arling.sk');
+});
+
+// ---------------------------------------------------------------------------
+// Admin re-ingestion (POST /v1/tenants/:id/reingest)
+// ---------------------------------------------------------------------------
+
+test('handleReingestRoute rejects a missing or wrong X-Admin-Token with 401', async () => {
+  const env = makeEnv();
+  const tenant = await createTenantFromRequest(env, { feedUrl: 'https://shop.sk/feed.xml', domain: 'admin1.sk', email: 'a@admin1.sk' });
+
+  const noToken = await handleReingestRoute(new Request('https://x/', { method: 'POST' }), env, tenant.id);
+  assert.equal(noToken.status, 401);
+
+  const wrongToken = await handleReingestRoute(new Request('https://x/', { method: 'POST', headers: { 'X-Admin-Token': 'nope' } }), env, tenant.id);
+  assert.equal(wrongToken.status, 401);
+});
+
+test('handleReingestRoute refuses every request when ADMIN_TOKEN is not configured, rather than allowing unauthenticated re-ingestion', async () => {
+  const env = makeEnv();
+  delete env.ADMIN_TOKEN;
+  const tenant = await createTenantFromRequest(env, { feedUrl: 'https://shop.sk/feed.xml', domain: 'admin2.sk', email: 'a@admin2.sk' });
+  const res = await handleReingestRoute(new Request('https://x/', { method: 'POST', headers: { 'X-Admin-Token': 'anything' } }), env, tenant.id);
+  assert.equal(res.status, 401);
+});
+
+test('handleReingestRoute re-ingests a known tenant with a correct token, using the same ingestFeedForTenant the cron uses', async () => {
+  const env = makeEnv();
+  const tenant = await createTenantFromRequest(env, { feedUrl: 'https://shop.sk/feed.xml', domain: 'admin3.sk', email: 'a@admin3.sk' });
+  env.VECTORIZE._store.clear(); // pretend the metadata index was just created and vectors need re-embedding
+
+  const res = await handleReingestRoute(new Request('https://x/', { method: 'POST', headers: { 'X-Admin-Token': ADMIN_TOKEN } }), env, tenant.id);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.ok, true);
+  assert.ok(body.upserted > 0);
+  assert.ok(env.VECTORIZE._store.size > 0);
+
+  const after = await getTenantById(env.DB, tenant.id);
+  assert.equal(after.status, TENANT_STATUS.READY);
+});
+
+test('handleReingestRoute returns 404 for an unknown tenant even with a correct token', async () => {
+  const env = makeEnv();
+  const res = await handleReingestRoute(new Request('https://x/', { method: 'POST', headers: { 'X-Admin-Token': ADMIN_TOKEN } }), env, 'ghost');
+  assert.equal(res.status, 404);
 });

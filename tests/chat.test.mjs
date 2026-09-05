@@ -22,6 +22,7 @@ import {
   MAX_ANSWER_WORDS,
   MAX_PRODUCTS_IN_ANSWER,
   TOP_K,
+  FALLBACK_TOP_K,
 } from '../worker/src/chat.js';
 import { createMockAI, createMockVectorize } from './helpers/mock-cf.mjs';
 
@@ -150,6 +151,33 @@ test('retrieveCandidates queries Vectorize filtered by tenant and deduplicates b
   assert.equal(candidates.length, 2); // p1 deduplicated across its two chunks, p3 excluded (other tenant)
   const p1 = candidates.find((c) => c.id === 'p1');
   assert.equal(p1.title, 'P1 chunk0'); // higher-scoring chunk (exact match) wins
+});
+
+test('retrieveCandidates falls back to an unfiltered query filtered by id prefix when the tenant metadata filter comes back empty (missing metadata index)', async () => {
+  const vectorize = createMockVectorize({ noMetadataIndex: true });
+  await vectorize.upsert([
+    { id: 't1::p1::0', values: [1, 0, 0, 0], metadata: { tenant: 't1', productId: 'p1', title: 'P1' } },
+    { id: 't1::p2::0', values: [0.9, 0.1, 0, 0], metadata: { tenant: 't1', productId: 'p2', title: 'P2' } },
+    { id: 't2::p9::0', values: [1, 0, 0, 0], metadata: { tenant: 't2', productId: 'p9', title: 'Other tenant' } },
+  ]);
+  const env = { VECTORIZE: vectorize };
+
+  // The tenant-filtered query would normally return t1's own two products,
+  // but with no metadata index it comes back empty (simulated above), so
+  // this must still find them via the id-prefix fallback and must still
+  // exclude t2's vector even though the fallback query itself is unfiltered.
+  const candidates = await retrieveCandidates(env, 't1', [1, 0, 0, 0], { topK: TOP_K, fallbackTopK: FALLBACK_TOP_K });
+  assert.equal(candidates.length, 2);
+  assert.ok(candidates.every((c) => c.id === 'p1' || c.id === 'p2'));
+  assert.ok(!candidates.some((c) => c.id === 'p9'));
+});
+
+test('retrieveCandidates does not fall back when the filtered query legitimately has no matches for a tenant with no products', async () => {
+  const vectorize = createMockVectorize(); // metadata index present and working
+  await vectorize.upsert([{ id: 't1::p1::0', values: [1, 0, 0, 0], metadata: { tenant: 't1', productId: 'p1', title: 'P1' } }]);
+  const env = { VECTORIZE: vectorize };
+  const candidates = await retrieveCandidates(env, 'empty-tenant', [1, 0, 0, 0], { topK: TOP_K });
+  assert.deepEqual(candidates, []); // t1's product must not leak in as a false fallback match
 });
 
 test('runChat: full flow with a mocked model returning JSON, grounded on retrieved products', async () => {
