@@ -62,6 +62,45 @@
   var statusEl = document.getElementById('trial-status');
   var widgetMount = document.getElementById('trial-widget-note');
 
+  // ── ?feed= prefill: handoff from Product Feed Doctor ─────────────────
+  // arling.sk/feed-doctor/ links here as ?feed=<encoded url>#playground
+  // after analysing a feed fetched from a URL. Fill the feed URL field,
+  // bring the form into view and put the cursor in the e-mail field. The
+  // form is never submitted on the visitor's behalf; only http(s) URLs are
+  // accepted and anything else is ignored.
+  function feedUrlFromQueryString(search) {
+    var raw = '';
+    try {
+      raw = (new URLSearchParams(search || '').get('feed') || '').trim();
+    } catch (e) {
+      return '';
+    }
+    if (!raw) return '';
+    try {
+      var parsed = new URL(raw);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+      return parsed.href;
+    } catch (e) {
+      return '';
+    }
+  }
+
+  var prefillFeedUrl = feedUrlFromQueryString(window.location.search);
+  if (prefillFeedUrl && feedInput) {
+    feedInput.value = prefillFeedUrl;
+    track('feed_prefill');
+    var revealPrefill = function () {
+      try {
+        feedInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (emailInput) emailInput.focus({ preventScroll: true });
+      } catch (e) {
+        /* scrolling is a convenience only */
+      }
+    };
+    if (document.readyState === 'complete') revealPrefill();
+    else window.addEventListener('load', revealPrefill);
+  }
+
   // ── "Your embed code" block ──────────────────────────────────────────
   // Shown once the trial tenant is ready (see poll() below): the tenant id
   // (for reference / support) and the real <script> snippet a visitor
