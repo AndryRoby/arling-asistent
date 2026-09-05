@@ -1,0 +1,274 @@
+# Copyright (C) 2026 ARLing s. r. o.
+# This file is distributed under the GPLv2 or later.
+msgid ""
+msgstr ""
+"Project-Id-Version: ARLing Asistent for WooCommerce 0.1.0\n"
+"Report-Msgid-Bugs-To: https://arling.sk/asistent/\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"PO-Revision-Date: 2026-09-05T00:00:00+00:00\n"
+"X-Generator: WP-CLI 2.11.0\n"
+"X-Domain: arling-asistent\n"
+
+
+#: arling-asistent.php:123
+msgid "ARLing Asistent for WooCommerce requires WooCommerce to be installed and active."
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:43
+#: includes/class-arling-asistent-admin.php:44
+#: includes/class-arling-asistent-admin.php:260
+msgid "ARLing Asistent"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:91
+msgid "You do not have permission to do this."
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:105
+msgid "Please tick the consent checkbox to connect your store."
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:110
+msgid "Please enter a valid contact e-mail address."
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:117
+msgid "Could not determine this site's domain."
+msgstr ""
+
+#. translators: %s: error detail returned by the ARLing Asistent API.
+#: includes/class-arling-asistent-admin.php:127
+msgid "Could not connect to ARLing Asistent: %s"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:128
+msgid "unknown error"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:135
+msgid "ARLing Asistent did not return a tenant id. Please try again."
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:159
+msgid "Connected. Your product feed is now being processed, this can take a few minutes."
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:175
+msgid "Disconnected. The widget will no longer appear on your site."
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:206
+msgid "Settings saved."
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:253
+msgid "You do not have permission to access this page."
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:297
+msgid "Connect your store"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:299
+msgid "ARLing Asistent adds an AI chat widget to your store that answers shopper questions using your own product catalogue."
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:307
+msgid "Contact e-mail"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:310
+msgid "Used by ARLing to reach you about your assistant (setup issues, billing after the beta)."
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:314
+msgid "What will be sent"
+msgstr ""
+
+#. translators: %s: the store's public product feed URL.
+#: includes/class-arling-asistent-admin.php:320
+msgid "Your public product feed URL: %s"
+msgstr ""
+
+#. translators: %s: the site domain.
+#: includes/class-arling-asistent-admin.php:327
+msgid "Your site domain: %s"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:331
+msgid "The contact e-mail address entered above."
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:334
+msgid "Nothing else is sent. No customer data, no order data, no analytics. Chat conversations are never stored, only daily aggregate counters."
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:339
+msgid "Consent"
+msgstr ""
+
+#. translators: 1: opening link tag to the terms page, 2: opening link tag to the DPA, 3: closing link tag.
+#: includes/class-arling-asistent-admin.php:346
+msgid "I agree to send the product feed URL, site domain and e-mail address above to ARLing s. r. o. (Bratislava, Slovakia) to set up my assistant, and I have read the %1$sTerms%3$s and %2$sData Processing Agreement%3$s."
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:357
+msgid "Connect"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:375
+#: includes/class-arling-asistent-admin.php:394
+msgid "Status"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:378
+msgid "Could not reach ARLing Asistent right now. Your connection is saved; please try refreshing in a moment."
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:379
+#: includes/class-arling-asistent-admin.php:415
+msgid "Refresh status"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:386
+msgid "Processing your product feed…"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:387
+msgid "Ready"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:388
+msgid "There was a problem processing your product feed."
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:393
+msgid "Tenant ID"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:397
+msgid "Plan"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:401
+msgid "Conversations this month"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:408
+msgid "Products indexed"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:411
+msgid "Last updated"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:418
+msgid "This page will refresh automatically in 10 seconds."
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:431
+msgid "Widget settings"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:438
+msgid "Language"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:443
+msgid "Automatic (site language)"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:444
+msgid "Slovak"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:445
+msgid "Czech"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:446
+msgid "English"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:447
+msgid "German"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:457
+msgid "Accent colour mode"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:462
+msgid "Automatic (matches visitor device)"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:463
+msgid "Light"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:464
+msgid "Dark"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:474
+msgid "Position"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:479
+msgid "Bottom right"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:480
+msgid "Bottom left"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:487
+msgid "The current widget version always opens in the bottom-right corner; this setting will take effect once positioning support ships in the widget."
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:491
+msgid "Show widget on"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:496
+msgid "WooCommerce pages only (shop, product, cart, checkout, account)"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:497
+msgid "All pages"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:498
+msgid "Nowhere (temporarily disable the widget)"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:509
+msgid "Save settings"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:516
+#: includes/class-arling-asistent-admin.php:521
+msgid "Disconnect"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:517
+msgid "Removes the widget from your site immediately. This does not delete your data on ARLing's servers; contact andrej@arling.sk or see the Data Processing Agreement to request deletion."
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:518
+msgid "Disconnect ARLing Asistent from this store?"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:529
+msgid "Data Processing Agreement"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:531
+msgid "Terms of Service"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php:533
+msgid "Privacy Policy"
+msgstr ""

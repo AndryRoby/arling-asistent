@@ -7,7 +7,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import {
+import { extractModelText,
   normaliseLang,
   buildSystemPrompt,
   buildUserPrompt,
@@ -267,4 +267,13 @@ test('runChat answers in the requested language regardless of the message conten
   const env = { AI: ai, VECTORIZE: vectorize };
   const result = await runChat(env, { tenant: { id: 't', contact_email: 'a@b.de' }, messages: [{ role: 'user', content: 'do you have this?' }], lang: 'de' });
   assert.equal(result.answer, 'Antwort auf Deutsch');
+});
+
+test('extractModelText handles string, {response}, object response and OpenAI shapes', () => {
+  assert.equal(extractModelText('plain'), 'plain');
+  assert.equal(extractModelText({ response: 'r' }), 'r');
+  assert.equal(extractModelText({ response: { answer: 'a', products: [] } }), '{"answer":"a","products":[]}');
+  assert.equal(extractModelText({ response: { content: 'c' } }), 'c');
+  assert.equal(extractModelText({ choices: [{ message: { content: 'm' } }] }), 'm');
+  assert.equal(extractModelText(null), '');
 });
