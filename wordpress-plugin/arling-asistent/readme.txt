@@ -12,6 +12,9 @@ AI shopping assistant chat widget for WooCommerce that answers customer question
 
 == Description ==
 
+Plugin page with setup guide and pricing: https://arling.sk/asistent/woocommerce/
+
+
 ARLing Asistent adds an AI-powered chat widget to your WooCommerce store. Shoppers ask questions in their own words ("do you have a waterproof jacket under 80 euros?") and the assistant answers using only your own product catalogue, with links to the matching products.
 
 Setup takes a few minutes: connect your store from the WooCommerce menu, and ARLing Asistent reads your public WooCommerce Store API product feed to build the assistant's knowledge. No coding, no manual product upload, no theme changes.
