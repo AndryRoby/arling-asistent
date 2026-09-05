@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://homelab.tailbf8f27.ts.net; connect-src 'self' https://homelab.tailbf8f27.ts.net; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<title>ARLing Asistent: Gift Finder for e-shops</title>
+<meta name="description" content="Three questions instead of a chat (who for, budget, what they like) and five products from your own feed with a reason. Gift Finder is a mode of ARLing Asistent, no new price, turned on with one attribute in the script tag." />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="ARLing Asistent: Gift Finder for e-shops" />
+<meta property="og:description" content="Three questions instead of a chat, and five products from your own feed with a reason. A mode of ARLing Asistent, no new price, turned on with one attribute in the script tag." />
+<meta property="og:url" content="https://arling.sk/asistent/gift-finder/" />
+<meta property="og:locale" content="en_US" />
+<link rel="canonical" href="https://arling.sk/asistent/gift-finder/" />
+<link rel="alternate" hreflang="sk" href="https://arling.sk/asistent/darceky/" />
+<link rel="alternate" hreflang="en" href="https://arling.sk/asistent/gift-finder/" />
+<link rel="alternate" hreflang="x-default" href="https://arling.sk/asistent/darceky/" />
+<meta property="og:image" content="https://arling.sk/asistent/icon-512.png" />
+<link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+<link rel="alternate icon" href="../favicon.ico" />
+<link rel="apple-touch-icon" href="../icon-192.png" />
+<link rel="manifest" href="../manifest.json" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "ARLing Asistent: Gift Finder",
+  "url": "https://arling.sk/asistent/gift-finder/",
+  "description": "A mode of ARLing Asistent: instead of a chat, it asks three questions (who for, budget, what they like) and picks five products from the e-shop's own feed, each with one sentence explaining why it fits. Same feed and the same engine as Asistent, no new price.",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Any (web browser, one attribute on Asistent's existing <script> tag)",
+  "isPartOf": { "@type": "SoftwareApplication", "name": "ARLing Asistent", "url": "https://arling.sk/asistent/" },
+  "inLanguage": ["en"],
+  "offers": [
+    { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/gift-finder/#pricing" },
+    { "@type": "Offer", "name": "Starter", "price": "19", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/gift-finder/#pricing" },
+    { "@type": "Offer", "name": "Pro", "price": "39", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/gift-finder/#pricing" }
+  ],
+  "author": {
+    "@type": "Organization",
+    "name": "ARLing s. r. o.",
+    "url": "https://arling.sk/",
+    "email": "andrej@arling.sk",
+    "address": { "@type": "PostalAddress", "streetAddress": "Ivanská cesta 19112/32E", "addressLocality": "Bratislava", "postalCode": "821 04", "addressCountry": "SK" }
+  }
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Is the gift finder a new product with its own price?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. It is a mode of the existing ARLing Asistent, counted against the same monthly conversation quota, with no new pricing plan. Free up to 100 conversations a month, then 19 EUR up to 1,000 or 39 EUR up to 5,000 a month, exactly like the regular chat." }
+    },
+    {
+      "@type": "Question",
+      "name": "How long does it take to turn on?",
+      "acceptedAnswer": { "@type": "Answer", "text": "If Asistent is already installed, add the attribute data-gift=\"1\" to the existing <script> tag and save the page; a Find a gift button appears next to the chat bubble. Without that attribute, nothing changes." }
+    },
+    {
+      "@type": "Question",
+      "name": "Where do the picks come from?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Only from the same product feed your Asistent already uses. It never invents a product and never recommends anything that is not in your feed." }
+    },
+    {
+      "@type": "Question",
+      "name": "Do you store what the customer answered (who for, budget, interests)?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. The answers are never stored, not by us, not in any database, exactly like the content of a regular Asistent conversation. We only keep daily counters for the monthly limit and billing." }
+    },
+    {
+      "@type": "Question",
+      "name": "What if not enough products fit the budget?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The budget is widened once by 30% and the finder fills in more candidates. If there is still too little to offer, the finder says so honestly and offers to switch to the regular chat with Asistent." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does one gift-finder session count as one conversation?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. One gift-finder session (three questions and the result) counts as one conversation, the same as the chat, with the same session de-duplication against the monthly quota." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does this work on Shoptet, WooCommerce or Shopify?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Anywhere Asistent runs. On Shoptet and Upgates you add the attribute to the script tag in the HTML code. The WooCommerce plugin (submitted to wordpress.org, awaiting review) will get one checkbox in its settings; until approved, the plugin installs from a zip file on GitHub." }
+    }
+  ]
+}
+</script>
+
+<style>
+  :root {
+    --paper:#f6f2ea; --paper-2:#fbf9f4; --ink:#1b1a17; --ink-2:#4a4741; --muted:#66625a; --line:#d9d2c4;
+    --accent:#b23a1d; --accent-soft:#f3e2dc; --ok:#2f6f3e; --warn:#9a6b00;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --sans:system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"Cascadia Code",Consolas,Menlo,monospace;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper:#151412; --paper-2:#1d1b18; --ink:#efe9de; --ink-2:#c9c2b5; --muted:#8f887b; --line:#2e2b26; --accent:#e0623f; --accent-soft:#3a1f17; --ok:#7fbf8e; --warn:#caa552; }
+  }
+  * { box-sizing:border-box; }
+  html { background:var(--paper); }
+  body { margin:0; color:var(--ink); background:var(--paper); font:16px/1.55 var(--sans); -webkit-font-smoothing:antialiased; }
+  a { color:inherit; text-decoration-color:var(--line); text-underline-offset:3px; }
+  a:hover { text-decoration-color:var(--accent); }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+  img { max-width:100%; height:auto; display:block; }
+  [hidden] { display:none !important; }
+  .skip { position:absolute; left:-999px; top:8px; background:var(--ink); color:var(--paper); padding:8px 12px; z-index:10; }
+  .skip:focus { left:8px; }
+  .wrap { max-width:1040px; margin:0 auto; padding:0 24px; min-width:0; }
+  code { font:13.5px/1.4 var(--mono); background:var(--paper-2); border:1px solid var(--line); border-radius:3px; padding:1px 5px; overflow-wrap:anywhere; }
+  pre { overflow-x:auto; white-space:pre-wrap; overflow-wrap:anywhere; background:var(--paper-2); border:1px solid var(--line); border-radius:4px; padding:14px 16px; margin:0; font:13.5px/1.5 var(--mono); }
+  pre code { border:0; padding:0; background:transparent; }
+
+  header.top { border-bottom:1px solid var(--line); }
+  header.top .wrap { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px 24px; padding:18px 24px; }
+  .brand { display:flex; align-items:baseline; flex-wrap:wrap; gap:2px 10px; min-width:0; }
+  .wordmark { font:600 21px/1.25 var(--serif); text-decoration:none; overflow-wrap:anywhere; }
+  .wordmark-sub { font:13px/1 var(--sans); color:var(--muted); letter-spacing:.02em; text-decoration:none; white-space:nowrap; }
+  .wordmark-sub:hover { color:var(--accent); }
+  nav.main { display:flex; flex-wrap:wrap; }
+  nav.main a { font-size:14px; margin-left:20px; text-decoration:none; color:var(--ink-2); white-space:nowrap; }
+  nav.main a:first-child { margin-left:0; }
+  nav.main a:hover { color:var(--accent); }
+  .lang-switch { display:flex; align-items:center; }
+  .lang-switch a { font:600 12px/1 var(--sans); padding:6px 9px; border:1px solid var(--line); background:var(--paper); color:var(--ink-2); text-decoration:none; }
+  .lang-switch a + a { margin-left:-1px; }
+  .lang-switch a:first-child { border-radius:4px 0 0 4px; }
+  .lang-switch a:last-child { border-radius:0 4px 4px 0; }
+  .lang-switch a:hover { border-color:var(--accent); color:var(--accent); position:relative; z-index:1; }
+  .lang-switch a[aria-current="page"] { background:var(--ink); border-color:var(--ink); color:var(--paper); position:relative; z-index:1; }
+
+  .hero { padding:64px 0 40px; border-bottom:1px solid var(--line); }
+  .hero h1 { font:400 clamp(28px,4.4vw,44px)/1.18 var(--serif); letter-spacing:-.01em; margin:0 0 18px; max-width:24ch; }
+  .hero p.lead { font-size:18px; color:var(--ink-2); max-width:60ch; margin:0 0 26px; }
+  .facts { list-style:none; margin:22px 0 0; padding:0; display:flex; flex-wrap:wrap; gap:8px 0; color:var(--muted); font-size:14px; }
+  .facts li + li::before { content:"·"; margin:0 10px; color:var(--line); }
+  .facts b { color:var(--ink); font-weight:600; }
+
+  .btn { display:inline-block; font:600 15px/1 var(--sans); padding:13px 18px; border-radius:4px; text-decoration:none; cursor:pointer; border:2px solid transparent; appearance:none; -webkit-appearance:none; }
+  .btn-solid { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .btn-solid:hover { background:var(--ink); border-color:var(--ink); color:var(--paper); }
+  .btn-line { border:2px solid var(--ink); color:var(--ink); background:transparent; }
+  .btn-line:hover { border-color:var(--accent); color:var(--accent); }
+  .btn + .btn { margin-left:10px; }
+
+  section { padding:44px 0; border-bottom:1px solid var(--line); }
+  section[id], header.top { scroll-margin-top:14px; }
+  .kicker { font:400 14px/1 var(--serif); color:var(--accent); letter-spacing:.06em; text-transform:uppercase; margin:0 0 10px; }
+  h2 { font:400 28px/1.2 var(--serif); margin:0 0 8px; letter-spacing:-.005em; max-width:30ch; }
+  .sub { color:var(--ink-2); max-width:64ch; margin:0 0 24px; }
+
+  .rules { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:26px 32px; margin:0; padding:0; list-style:none; counter-reset:r; }
+  .rules li { padding-top:14px; border-top:1px solid var(--line); min-width:0; }
+  .rules li::before { counter-increment:r; content:counter(r,decimal-leading-zero); font:400 14px/1 var(--serif); color:var(--accent); display:block; margin-bottom:8px; }
+  .rules b { display:block; font-weight:600; margin-bottom:4px; }
+  .rules p { margin:0; color:var(--ink-2); font-size:15px; overflow-wrap:anywhere; }
+
+  figure.shot { margin:0; border:1px solid var(--line); background:var(--paper-2); border-radius:4px; overflow:hidden; }
+  figure.shot img { display:block; width:100%; height:auto; border-bottom:1px solid var(--line); }
+  figure.shot figcaption { padding:12px 16px; font-size:13.5px; color:var(--muted); }
+
+  .pricing-table { width:100%; border-collapse:collapse; }
+  .pricing-table th, .pricing-table td { text-align:left; padding:14px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .pricing-table th { font:600 12px/1 var(--sans); text-transform:uppercase; letter-spacing:.03em; color:var(--muted); }
+  .pricing-table td.plan { font:600 16px/1.3 var(--sans); }
+  .pricing-table td.price { font:400 26px/1 var(--serif); white-space:nowrap; }
+  .pricing-table td.price span { font:13px/1 var(--sans); color:var(--muted); }
+  .pricing-table-wrap { overflow-x:auto; }
+  .pricing-table .btn { white-space:nowrap; }
+  @media (max-width:480px) {
+    .pricing-table th, .pricing-table td { padding:12px 6px; }
+    .pricing-table td.price { font-size:21px; }
+    .pricing-table .btn { padding:9px 12px; font-size:13px; }
+  }
+  .pricing-note { color:var(--ink-2); font-size:14px; margin:16px 0 0; }
+
+  .privacy-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:14px; }
+  .privacy-list li { display:flex; gap:12px; align-items:flex-start; }
+  .privacy-list li::before { content:"\2022"; color:var(--accent); flex-shrink:0; font-family:var(--serif); }
+  .privacy-list p { margin:0; color:var(--ink-2); }
+  .privacy-list b { color:var(--ink); }
+
+  .hp { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+  .subscribe-ask { border-top:1px solid var(--line); margin-top:20px; padding-top:20px; }
+  .subscribe-form { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  .subscribe-form input[type="email"] { height:44px; min-width:0; flex:1 1 240px; padding:0 14px; border:1px solid var(--line); border-radius:4px; background:var(--paper-2); color:var(--ink); font:15px/1 var(--sans); }
+  .subscribe-form .btn { flex:none; }
+  #subscribe-thanks { color:var(--ok); font-weight:600; }
+  #subscribe-error { color:var(--accent); font-weight:600; }
+  .subscribe-privacy { flex-basis:100%; margin:0; font-size:13px; color:var(--muted); }
+  @media (max-width:480px) { .subscribe-form input[type="email"], .subscribe-form button { width:100%; } }
+
+  details { border-top:1px solid var(--line); padding:14px 0; }
+  details:last-of-type { border-bottom:1px solid var(--line); }
+  summary { cursor:pointer; font:400 18px/1.3 var(--serif); list-style:none; display:flex; justify-content:space-between; gap:12px; }
+  summary::-webkit-details-marker { display:none; }
+  summary::after { content:"+"; color:var(--accent); flex:none; font-family:var(--sans); }
+  details[open] summary::after { content:"\2013"; }
+  details p { color:var(--ink-2); margin:10px 0 0; max-width:70ch; overflow-wrap:anywhere; }
+
+  footer { padding:32px 0 56px; color:var(--muted); font-size:14px; }
+  footer .cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:20px 32px; }
+  footer b { color:var(--ink); font-weight:600; }
+  footer a { color:var(--ink-2); }
+  .footer-note { margin-top:14px; font-size:12px; color:var(--muted); }
+
+  @media (max-width:480px) {
+    .hero { padding:44px 0 32px; }
+    nav.main a { margin-left:12px; }
+    .wordmark-sub { display:none; }
+    .btn + .btn { margin-left:0; margin-top:10px; }
+  }
+
+  .sticky-cta { position:fixed; left:0; right:0; bottom:0; z-index:30; background:var(--paper-2); border-top:1px solid var(--line); }
+  .sticky-cta-inner { display:flex; align-items:center; gap:10px; max-width:1040px; margin:0 auto; padding:10px 14px; }
+  .sticky-cta-text { flex:1 1 auto; min-width:0; font-size:12.5px; color:var(--ink-2); overflow-wrap:anywhere; }
+  .sticky-cta .btn { flex:none; padding:10px 14px; font-size:13.5px; margin:0; }
+  .sticky-cta-close { flex:none; width:30px; height:30px; border:1px solid var(--line); background:var(--paper); color:var(--ink-2); border-radius:4px; cursor:pointer; font:16px/1 var(--sans); padding:0; }
+  .sticky-cta-close:hover { border-color:var(--accent); color:var(--accent); }
+  @media (min-width:761px) { .sticky-cta { display:none !important; } }
+  @media print { .sticky-cta { display:none !important; } }
+</style>
+</head>
+<body>
+
+<a class="skip" href="#how">Skip to how it works</a>
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <a class="wordmark" href="../">ARLing Asistent</a>
+      <a class="wordmark-sub" href="https://arling.sk/">an ARLing tool</a>
+    </div>
+    <nav class="main" aria-label="Page">
+      <a href="#how">How it works</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#setup">Setup</a>
+      <a href="#faq">FAQ</a>
+      <a href="../ukazka/">Live demo</a>
+    </nav>
+    <div class="lang-switch" role="group" aria-label="Page language">
+      <a href="../darceky/" hreflang="sk" lang="sk" aria-label="Slovenčina">SK</a>
+      <a href="./" hreflang="en" lang="en" aria-current="page" aria-label="English">EN</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <div class="wrap">
+      <h1>In November and December someone arrives at your e-shop not knowing what to buy, and leaves without an order.</h1>
+      <p class="lead">Gift Finder is a mode of ARLing Asistent: instead of a chat, it asks three short questions (who for, budget, what they like) and picks five real products from your own feed, each with one sentence explaining why it fits. Same engine as Asistent, same price, nothing new to manage.</p>
+      <a class="btn btn-solid" href="../ukazka/" data-umami-event="demo_click" data-umami-event-place="hero">Try the demo shop</a><a class="btn btn-line" href="../#playground" data-umami-event="trial_click" data-umami-event-place="hero">Try it with your own feed</a>
+      <ul class="facts">
+        <li><b>3</b> questions instead of a chat</li>
+        <li><b>5</b> products with a reason</li>
+        <li>part of Asistent, no new price</li>
+        <li>same quota as chat</li>
+      </ul>
+    </div>
+  </div>
+
+  <section id="how">
+    <div class="wrap">
+      <p class="kicker">01</p>
+      <h2>How it works</h2>
+      <p class="sub">Three steps, no new form on the shop's side, no new data.</p>
+      <ol class="rules">
+        <li>
+          <b>The customer clicks "Find a gift".</b>
+          <p>A button appears next to the regular chat bubble. The shopper answers three short questions, by button or free text: who for (partner, mother, father, child, colleague, friend, myself), budget (up to 20, 50, 100, or over 100 EUR, ranges computed from your feed's own prices), and what they like (free text or up to six chips drawn from your feed's categories).</p>
+        </li>
+        <li>
+          <b>The finder searches your feed.</b>
+          <p>It composes a query from the answers, pulls candidates from your catalogue in Vectorize, and filters out anything outside the budget or unavailable, in code. If too few products remain after filtering, the budget is widened once by 30% and topped up.</p>
+        </li>
+        <li>
+          <b>It shows five picks with a reason.</b>
+          <p>Each product gets an image, price, link, and one sentence under 15 words explaining why it fits, written by the model strictly from data in the feed. Below the results, "Show more" (a second set from the same candidates, no new model call) and "Ask something else" (switches back to the regular chat).</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="demo">
+    <div class="wrap">
+      <p class="kicker">02</p>
+      <h2>What it looks like</h2>
+      <p class="sub">A real run of the finder on the "Dobrá domácnosť" demo shop, which has its own Gifts category. Try it yourself with the button above.</p>
+      <figure class="shot">
+        <img src="screenshot.png" width="2360" height="1280" loading="lazy" alt="Gift Finder open on the Dobrá domácnosť demo shop, first question Who is this gift for with buttons Partner, Mum, Dad, Child, Colleague, Friend, Myself.">
+        <figcaption>A real screenshot from arling.sk/asistent/ukazka/, taken 5 September 2026. The "Find a gift" button opens three short questions instead of a chat.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="pricing">
+    <div class="wrap">
+      <p class="kicker">03</p>
+      <h2>Pricing</h2>
+      <p class="sub">Gift Finder has no pricing plan of its own. It is a mode of ARLing Asistent and is counted exactly like a regular chat conversation: one finder session (three questions and a result) counts as one conversation, with the same monthly quota and the same session de-duplication.</p>
+      <div class="pricing-table-wrap">
+        <table class="pricing-table">
+          <thead>
+            <tr><th>Plan</th><th>Price</th><th>Conversations / month</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="plan">Free</td>
+              <td class="price">0&nbsp;&euro;</td>
+              <td>up to 100</td>
+              <td><a class="btn btn-line" href="../#playground" data-umami-event="trial_click" data-umami-event-place="pricing">Start for free</a></td>
+            </tr>
+            <tr>
+              <td class="plan">Starter</td>
+              <td class="price">19 &euro;<span> / month</span></td>
+              <td>up to 1,000</td>
+              <td><a class="btn btn-line" href="../#playground" data-umami-event="trial_click" data-umami-event-place="pricing">Start for free</a></td>
+            </tr>
+            <tr>
+              <td class="plan">Pro</td>
+              <td class="price">39 &euro;<span> / month</span></td>
+              <td>up to 5,000</td>
+              <td><a class="btn btn-line" href="../#playground" data-umami-event="trial_click" data-umami-event-place="pricing">Start for free</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="pricing-note">No new Stripe product, no new database. Anyone already paying for Asistent (or on the free plan) gets the gift finder for free by adding one attribute to the script tag.</p>
+    </div>
+  </section>
+
+  <section id="setup">
+    <div class="wrap">
+      <p class="kicker">04</p>
+      <h2>How to turn it on</h2>
+      <p class="sub">If ARLing Asistent is already installed, it takes one attribute on the existing script tag. Without it, nothing changes on your store.</p>
+      <pre><code>&lt;script src="https://arling-asistent.arling.workers.dev/widget.js"
+    data-tenant="ACCOUNT_ID"
+    data-lang="auto"
+    data-gift="1"
+    defer&gt;&lt;/script&gt;</code></pre>
+      <p class="sub" style="margin-top:16px;">The WooCommerce plugin (submitted to wordpress.org, awaiting review) will get one checkbox for the gift finder in its settings screen. Until it is approved, the plugin installs the same way it does today, from a zip file on <a href="https://github.com/AndryRoby/arling-asistent" target="_blank" rel="noopener">GitHub</a>. A Shoptet and Upgates guide (HTML code editor) is at <a href="../shoptet/">arling.sk/asistent/shoptet/</a>.</p>
+    </div>
+  </section>
+
+  <section id="limits">
+    <div class="wrap">
+      <p class="kicker">05</p>
+      <h2>What it knows, and what it does not</h2>
+      <p class="sub">Built to promise only what it can actually do.</p>
+      <ul class="privacy-list">
+        <li><p><b>Picks from your feed only.</b> It never recommends anything that is not in your product feed and never invents anything, exactly like Asistent's regular chat.</p></li>
+        <li><p><b>Does not know your stock beyond the feed.</b> Availability is whatever your feed says. If the feed is stale, real stock may differ.</p></li>
+        <li><p><b>Does not wrap presents.</b> It does not handle gift wrapping, gift cards, or shipping to a different address; that stays with your e-shop's checkout.</p></li>
+        <li><p><b>Does not store the customer's answers.</b> Who for, budget, and interests are never stored, not by us, not in any database, exactly like the content of a regular conversation.</p></li>
+        <li><p><b>Counts against the same quota.</b> One finder session is one conversation, with the same session de-duplication in KV as the chat.</p></li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap">
+      <p class="kicker">06</p>
+      <h2>FAQ</h2>
+
+      <details>
+        <summary>Is the gift finder a new product with its own price?</summary>
+        <p>No. It is a mode of the existing ARLing Asistent, counted against the same monthly conversation quota, with no new pricing plan. Free up to 100 conversations a month, then 19 EUR up to 1,000 or 39 EUR up to 5,000 a month, exactly like the regular chat.</p>
+      </details>
+      <details>
+        <summary>How long does it take to turn on?</summary>
+        <p>If Asistent is already installed, add the attribute <code>data-gift="1"</code> to the existing <code>&lt;script&gt;</code> tag and save the page; a Find a gift button appears next to the chat bubble. Without that attribute, nothing changes.</p>
+      </details>
+      <details>
+        <summary>Where do the picks come from?</summary>
+        <p>Only from the same product feed your Asistent already uses. It never invents a product and never recommends anything that is not in your feed.</p>
+      </details>
+      <details>
+        <summary>Do you store what the customer answered (who for, budget, interests)?</summary>
+        <p>No. The answers are never stored, not by us, not in any database, exactly like the content of a regular Asistent conversation. We only keep daily counters for the monthly limit and billing.</p>
+      </details>
+      <details>
+        <summary>What if not enough products fit the budget?</summary>
+        <p>The budget is widened once by 30% and the finder fills in more candidates. If there is still too little to offer, the finder says so honestly and offers to switch to the regular chat with Asistent.</p>
+      </details>
+      <details>
+        <summary>Does one gift-finder session count as one conversation?</summary>
+        <p>Yes. One gift-finder session (three questions and the result) counts as one conversation, the same as the chat, with the same session de-duplication against the monthly quota.</p>
+      </details>
+      <details>
+        <summary>Does this work on Shoptet, WooCommerce or Shopify?</summary>
+        <p>Anywhere Asistent runs. On Shoptet and Upgates you add the attribute to the script tag in the HTML code. The WooCommerce plugin (submitted to wordpress.org, awaiting review) will get one checkbox in its settings; until approved, the plugin installs from a zip file on GitHub.</p>
+      </details>
+
+      <div class="subscribe-ask">
+        <p class="sub" style="margin-bottom:14px">Want to know when the gift finder gets a WooCommerce toggle or a Shopify app?</p>
+        <form class="subscribe-form" data-subscribe data-source="asistent-gift-en" data-lang="en" data-thanks="subscribe-thanks" data-error="subscribe-error">
+          <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off">
+          <input type="email" name="email" placeholder="you@email.com" required>
+          <button class="btn btn-solid" type="submit">Notify me</button>
+          <p class="subscribe-privacy">Only email about ARLing Asistent news. Unsubscribe any time with one click.</p>
+        </form>
+        <p id="subscribe-thanks" hidden>Thanks, we'll be in touch.</p>
+        <p id="subscribe-error" hidden>Something went wrong, please try again or write to andrej@arling.sk.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="closing-cta">
+    <div class="wrap" style="text-align:center;">
+      <p class="sub" style="margin:0 auto 18px;">Add data-gift="1" to your script tag, or try the demo first. Free up to 100 conversations a month.</p>
+      <a class="btn btn-solid" href="../ukazka/" data-umami-event="demo_click" data-umami-event-place="closing">Try the demo shop</a><a class="btn btn-line" href="../#playground" data-umami-event="trial_click" data-umami-event-place="closing">Try it with your own feed</a>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <div class="cols">
+        <div>
+          <b>ARLing Asistent: Gift Finder</b><br>
+          a tool by <a href="https://arling.sk/">ARLing s. r. o.</a><br>
+          <a href="../darceky/" hreflang="sk" lang="sk">Slovensky</a>
+        </div>
+        <div>
+          Company ID (IČO) 56583486 · VAT ID (IČ DPH) SK2122352100<br>
+          Ivanská cesta 19112/32E, 821 04 Bratislava, Slovakia<br>
+          <a href="mailto:andrej@arling.sk">andrej@arling.sk</a>
+        </div>
+        <div>
+          <a href="../">ARLing Asistent (main page, live demo)</a><br>
+          <a href="../ukazka/">Slovak demo shop</a> · <a href="../woocommerce/">WooCommerce</a><br>
+          <a href="https://github.com/AndryRoby/arling-asistent" target="_blank" rel="noopener">Source code (GitHub)</a><br>
+          <a href="../llms.txt">llms.txt</a> · <a href="../sitemap.xml">sitemap.xml</a><br>
+          <a href="https://github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md" target="_blank" rel="noopener">DPA (GDPR Art. 28)</a>
+        </div>
+      </div>
+      <p class="footer-note">We measure traffic with our own cookie-free tool, Umami. It stores no cookies and no browser fingerprint.</p>
+    </div>
+  </footer>
+</main>
+
+<div class="sticky-cta" id="sticky-cta" hidden>
+  <div class="sticky-cta-inner">
+    <span class="sticky-cta-text">Free up to 100 conversations a month.</span>
+    <a class="btn btn-solid" href="../#playground" data-umami-event="trial_click" data-umami-event-place="sticky">Try it</a>
+    <button type="button" class="sticky-cta-close" id="sticky-cta-close" aria-label="Close bar">&times;</button>
+  </div>
+</div>
+
+<script defer src="https://homelab.tailbf8f27.ts.net/script.js" data-website-id="09cc54da-8172-43b3-8aa2-84e3ab5a17f1"></script>
+<script src="../subscribe.js" defer></script>
+<script src="../sell.js" defer></script>
+</body>
+</html>

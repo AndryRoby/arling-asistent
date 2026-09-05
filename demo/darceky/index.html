@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://homelab.tailbf8f27.ts.net; connect-src 'self' https://homelab.tailbf8f27.ts.net; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<title>ARLing Asistent: Hľadač darčekov pre e-shopy</title>
+<meta name="description" content="Tri otázky namiesto chatu (pre koho, rozpočet, čo má rád) a päť produktov z vášho feedu s dôvodom. Hľadač darčekov je režim ARLing Asistenta, žiadna nová cena, zapnete jedným atribútom v script tagu." />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="ARLing Asistent: Hľadač darčekov pre e-shopy" />
+<meta property="og:description" content="Tri otázky namiesto chatu a päť produktov z vášho feedu s dôvodom. Režim ARLing Asistenta, žiadna nová cena, zapnete jedným atribútom v script tagu." />
+<meta property="og:url" content="https://arling.sk/asistent/darceky/" />
+<meta property="og:locale" content="sk_SK" />
+<link rel="canonical" href="https://arling.sk/asistent/darceky/" />
+<link rel="alternate" hreflang="sk" href="https://arling.sk/asistent/darceky/" />
+<link rel="alternate" hreflang="en" href="https://arling.sk/asistent/gift-finder/" />
+<link rel="alternate" hreflang="x-default" href="https://arling.sk/asistent/darceky/" />
+<meta property="og:image" content="https://arling.sk/asistent/icon-512.png" />
+<link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+<link rel="alternate icon" href="../favicon.ico" />
+<link rel="apple-touch-icon" href="../icon-192.png" />
+<link rel="manifest" href="../manifest.json" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "ARLing Asistent: Hľadač darčekov",
+  "url": "https://arling.sk/asistent/darceky/",
+  "description": "Režim ARLing Asistenta: namiesto chatu položí tri otázky (pre koho, rozpočet, čo má rád) a vyberie päť produktov z e-shopového feedu, ku každému jednu vetu s dôvodom. Rovnaký feed a ten istý motor ako Asistent, žiadna nová cena.",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Any (web browser, jeden atribút v existujúcom <script> tagu Asistenta)",
+  "isPartOf": { "@type": "SoftwareApplication", "name": "ARLing Asistent", "url": "https://arling.sk/asistent/" },
+  "inLanguage": ["sk"],
+  "offers": [
+    { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/darceky/#cennik" },
+    { "@type": "Offer", "name": "Starter", "price": "19", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/darceky/#cennik" },
+    { "@type": "Offer", "name": "Pro", "price": "39", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/darceky/#cennik" }
+  ],
+  "author": {
+    "@type": "Organization",
+    "name": "ARLing s. r. o.",
+    "url": "https://arling.sk/",
+    "email": "andrej@arling.sk",
+    "address": { "@type": "PostalAddress", "streetAddress": "Ivanská cesta 19112/32E", "addressLocality": "Bratislava", "postalCode": "821 04", "addressCountry": "SK" }
+  }
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Je hľadač darčekov nový produkt s vlastnou cenou?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Nie. Je to režim existujúceho ARLing Asistenta, počíta sa do rovnakej mesačnej kvóty rozhovorov a nemá žiadny nový cenník. Zadarmo do 100 rozhovorov mesačne, potom 19 EUR do 1 000 alebo 39 EUR do 5 000 mesačne, presne ako bežný chat." }
+    },
+    {
+      "@type": "Question",
+      "name": "Ako dlho trvá zapnutie?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Ak už máte Asistenta nainštalovaného, pridáte atribút data-gift=\"1\" do existujúceho <script> tagu, uložíte stránku a tlačidlo Nájdi darček sa objaví vedľa bubliny chatu. Bez tohto atribútu sa nič nemení." }
+    },
+    {
+      "@type": "Question",
+      "name": "Odkiaľ hľadač vyberá produkty?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Výhradne z toho istého produktového feedu, ktorý používa váš Asistent. Nič si nevymýšľa a nedoporúča produkty, ktoré nie sú vo vašom feede." }
+    },
+    {
+      "@type": "Question",
+      "name": "Ukladáte, čo zákazník odpovedal (pre koho, rozpočet, záľuby)?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Nie. Odpovede sa nikde neukladajú, ani u nás, ani v databáze, presne ako obsah bežného rozhovoru s Asistentom. Ukladáme len denné počítadlá kvôli mesačnému limitu a fakturácii." }
+    },
+    {
+      "@type": "Question",
+      "name": "Čo ak sa do rozpočtu nezmestí dosť produktov?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Rozpočet sa raz rozšíri o 30 % a hľadač doplní kandidátov. Ak ani potom nie je čo ponúknuť, hľadač to úprimne povie a ponúkne prepnúť do bežného chatu s Asistentom." }
+    },
+    {
+      "@type": "Question",
+      "name": "Počíta sa jedna relácia hľadača ako jeden rozhovor?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Áno. Jedna relácia hľadača darčekov (tri otázky a výsledok) sa počíta ako jeden rozhovor, rovnako ako v chate, s rovnakým session dedupe v mesačnej kvóte." }
+    },
+    {
+      "@type": "Question",
+      "name": "Funguje to aj na Shoptete, WooCommerce alebo Shopify?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Všade, kde beží Asistent. Na Shoptete a Upgates pridáte atribút do script tagu v HTML kóde. Vo WooCommerce pluginovi (čaká na schválenie na wordpress.org) pribudne jedno zaškrtávacie políčko v nastaveniach; kým čaká na schválenie, plugin sa inštaluje zo ZIP súboru z GitHubu." }
+    }
+  ]
+}
+</script>
+
+<style>
+  :root {
+    --paper:#f6f2ea; --paper-2:#fbf9f4; --ink:#1b1a17; --ink-2:#4a4741; --muted:#66625a; --line:#d9d2c4;
+    --accent:#b23a1d; --accent-soft:#f3e2dc; --ok:#2f6f3e; --warn:#9a6b00;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --sans:system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"Cascadia Code",Consolas,Menlo,monospace;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper:#151412; --paper-2:#1d1b18; --ink:#efe9de; --ink-2:#c9c2b5; --muted:#8f887b; --line:#2e2b26; --accent:#e0623f; --accent-soft:#3a1f17; --ok:#7fbf8e; --warn:#caa552; }
+  }
+  * { box-sizing:border-box; }
+  html { background:var(--paper); }
+  body { margin:0; color:var(--ink); background:var(--paper); font:16px/1.55 var(--sans); -webkit-font-smoothing:antialiased; }
+  a { color:inherit; text-decoration-color:var(--line); text-underline-offset:3px; }
+  a:hover { text-decoration-color:var(--accent); }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+  img { max-width:100%; height:auto; display:block; }
+  [hidden] { display:none !important; }
+  .skip { position:absolute; left:-999px; top:8px; background:var(--ink); color:var(--paper); padding:8px 12px; z-index:10; }
+  .skip:focus { left:8px; }
+  .wrap { max-width:1040px; margin:0 auto; padding:0 24px; min-width:0; }
+  code { font:13.5px/1.4 var(--mono); background:var(--paper-2); border:1px solid var(--line); border-radius:3px; padding:1px 5px; overflow-wrap:anywhere; }
+  pre { overflow-x:auto; white-space:pre-wrap; overflow-wrap:anywhere; background:var(--paper-2); border:1px solid var(--line); border-radius:4px; padding:14px 16px; margin:0; font:13.5px/1.5 var(--mono); }
+  pre code { border:0; padding:0; background:transparent; }
+
+  header.top { border-bottom:1px solid var(--line); }
+  header.top .wrap { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px 24px; padding:18px 24px; }
+  .brand { display:flex; align-items:baseline; flex-wrap:wrap; gap:2px 10px; min-width:0; }
+  .wordmark { font:600 21px/1.25 var(--serif); text-decoration:none; overflow-wrap:anywhere; }
+  .wordmark-sub { font:13px/1 var(--sans); color:var(--muted); letter-spacing:.02em; text-decoration:none; white-space:nowrap; }
+  .wordmark-sub:hover { color:var(--accent); }
+  nav.main { display:flex; flex-wrap:wrap; }
+  nav.main a { font-size:14px; margin-left:20px; text-decoration:none; color:var(--ink-2); white-space:nowrap; }
+  nav.main a:first-child { margin-left:0; }
+  nav.main a:hover { color:var(--accent); }
+  .lang-switch { display:flex; align-items:center; }
+  .lang-switch a { font:600 12px/1 var(--sans); padding:6px 9px; border:1px solid var(--line); background:var(--paper); color:var(--ink-2); text-decoration:none; }
+  .lang-switch a + a { margin-left:-1px; }
+  .lang-switch a:first-child { border-radius:4px 0 0 4px; }
+  .lang-switch a:last-child { border-radius:0 4px 4px 0; }
+  .lang-switch a:hover { border-color:var(--accent); color:var(--accent); position:relative; z-index:1; }
+  .lang-switch a[aria-current="page"] { background:var(--ink); border-color:var(--ink); color:var(--paper); position:relative; z-index:1; }
+
+  .hero { padding:64px 0 40px; border-bottom:1px solid var(--line); }
+  .hero h1 { font:400 clamp(28px,4.4vw,44px)/1.18 var(--serif); letter-spacing:-.01em; margin:0 0 18px; max-width:24ch; }
+  .hero p.lead { font-size:18px; color:var(--ink-2); max-width:60ch; margin:0 0 26px; }
+  .facts { list-style:none; margin:22px 0 0; padding:0; display:flex; flex-wrap:wrap; gap:8px 0; color:var(--muted); font-size:14px; }
+  .facts li + li::before { content:"·"; margin:0 10px; color:var(--line); }
+  .facts b { color:var(--ink); font-weight:600; }
+
+  .btn { display:inline-block; font:600 15px/1 var(--sans); padding:13px 18px; border-radius:4px; text-decoration:none; cursor:pointer; border:2px solid transparent; appearance:none; -webkit-appearance:none; }
+  .btn-solid { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .btn-solid:hover { background:var(--ink); border-color:var(--ink); color:var(--paper); }
+  .btn-line { border:2px solid var(--ink); color:var(--ink); background:transparent; }
+  .btn-line:hover { border-color:var(--accent); color:var(--accent); }
+  .btn + .btn { margin-left:10px; }
+
+  section { padding:44px 0; border-bottom:1px solid var(--line); }
+  section[id], header.top { scroll-margin-top:14px; }
+  .kicker { font:400 14px/1 var(--serif); color:var(--accent); letter-spacing:.06em; text-transform:uppercase; margin:0 0 10px; }
+  h2 { font:400 28px/1.2 var(--serif); margin:0 0 8px; letter-spacing:-.005em; max-width:30ch; }
+  .sub { color:var(--ink-2); max-width:64ch; margin:0 0 24px; }
+
+  .rules { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:26px 32px; margin:0; padding:0; list-style:none; counter-reset:r; }
+  .rules li { padding-top:14px; border-top:1px solid var(--line); min-width:0; }
+  .rules li::before { counter-increment:r; content:counter(r,decimal-leading-zero); font:400 14px/1 var(--serif); color:var(--accent); display:block; margin-bottom:8px; }
+  .rules b { display:block; font-weight:600; margin-bottom:4px; }
+  .rules p { margin:0; color:var(--ink-2); font-size:15px; overflow-wrap:anywhere; }
+
+  figure.shot { margin:0; border:1px solid var(--line); background:var(--paper-2); border-radius:4px; overflow:hidden; }
+  figure.shot img { display:block; width:100%; height:auto; border-bottom:1px solid var(--line); }
+  figure.shot figcaption { padding:12px 16px; font-size:13.5px; color:var(--muted); }
+
+  .pricing-table { width:100%; border-collapse:collapse; }
+  .pricing-table th, .pricing-table td { text-align:left; padding:14px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .pricing-table th { font:600 12px/1 var(--sans); text-transform:uppercase; letter-spacing:.03em; color:var(--muted); }
+  .pricing-table td.plan { font:600 16px/1.3 var(--sans); }
+  .pricing-table td.price { font:400 26px/1 var(--serif); white-space:nowrap; }
+  .pricing-table td.price span { font:13px/1 var(--sans); color:var(--muted); }
+  .pricing-table-wrap { overflow-x:auto; }
+  .pricing-table .btn { white-space:nowrap; }
+  @media (max-width:480px) {
+    .pricing-table th, .pricing-table td { padding:12px 6px; }
+    .pricing-table td.price { font-size:21px; }
+    .pricing-table .btn { padding:9px 12px; font-size:13px; }
+  }
+  .pricing-note { color:var(--ink-2); font-size:14px; margin:16px 0 0; }
+
+  .privacy-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:14px; }
+  .privacy-list li { display:flex; gap:12px; align-items:flex-start; }
+  .privacy-list li::before { content:"\2022"; color:var(--accent); flex-shrink:0; font-family:var(--serif); }
+  .privacy-list p { margin:0; color:var(--ink-2); }
+  .privacy-list b { color:var(--ink); }
+
+  .hp { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+  .subscribe-ask { border-top:1px solid var(--line); margin-top:20px; padding-top:20px; }
+  .subscribe-form { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  .subscribe-form input[type="email"] { height:44px; min-width:0; flex:1 1 240px; padding:0 14px; border:1px solid var(--line); border-radius:4px; background:var(--paper-2); color:var(--ink); font:15px/1 var(--sans); }
+  .subscribe-form .btn { flex:none; }
+  #subscribe-thanks { color:var(--ok); font-weight:600; }
+  #subscribe-error { color:var(--accent); font-weight:600; }
+  .subscribe-privacy { flex-basis:100%; margin:0; font-size:13px; color:var(--muted); }
+  @media (max-width:480px) { .subscribe-form input[type="email"], .subscribe-form button { width:100%; } }
+
+  details { border-top:1px solid var(--line); padding:14px 0; }
+  details:last-of-type { border-bottom:1px solid var(--line); }
+  summary { cursor:pointer; font:400 18px/1.3 var(--serif); list-style:none; display:flex; justify-content:space-between; gap:12px; }
+  summary::-webkit-details-marker { display:none; }
+  summary::after { content:"+"; color:var(--accent); flex:none; font-family:var(--sans); }
+  details[open] summary::after { content:"\2013"; }
+  details p { color:var(--ink-2); margin:10px 0 0; max-width:70ch; overflow-wrap:anywhere; }
+
+  footer { padding:32px 0 56px; color:var(--muted); font-size:14px; }
+  footer .cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:20px 32px; }
+  footer b { color:var(--ink); font-weight:600; }
+  footer a { color:var(--ink-2); }
+  .footer-note { margin-top:14px; font-size:12px; color:var(--muted); }
+
+  @media (max-width:480px) {
+    .hero { padding:44px 0 32px; }
+    nav.main a { margin-left:12px; }
+    .wordmark-sub { display:none; }
+    .btn + .btn { margin-left:0; margin-top:10px; }
+  }
+
+  .sticky-cta { position:fixed; left:0; right:0; bottom:0; z-index:30; background:var(--paper-2); border-top:1px solid var(--line); }
+  .sticky-cta-inner { display:flex; align-items:center; gap:10px; max-width:1040px; margin:0 auto; padding:10px 14px; }
+  .sticky-cta-text { flex:1 1 auto; min-width:0; font-size:12.5px; color:var(--ink-2); overflow-wrap:anywhere; }
+  .sticky-cta .btn { flex:none; padding:10px 14px; font-size:13.5px; margin:0; }
+  .sticky-cta-close { flex:none; width:30px; height:30px; border:1px solid var(--line); background:var(--paper); color:var(--ink-2); border-radius:4px; cursor:pointer; font:16px/1 var(--sans); padding:0; }
+  .sticky-cta-close:hover { border-color:var(--accent); color:var(--accent); }
+  @media (min-width:761px) { .sticky-cta { display:none !important; } }
+  @media print { .sticky-cta { display:none !important; } }
+</style>
+</head>
+<body>
+
+<a class="skip" href="#how">Skočiť na vysvetlenie</a>
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <a class="wordmark" href="../">ARLing Asistent</a>
+      <a class="wordmark-sub" href="https://arling.sk/">nástroj ARLing</a>
+    </div>
+    <nav class="main" aria-label="Stránka">
+      <a href="#how">Ako funguje</a>
+      <a href="#cennik">Cenník</a>
+      <a href="#zapnutie">Zapnutie</a>
+      <a href="#faq">Otázky</a>
+      <a href="../ukazka/">Živá ukážka</a>
+    </nav>
+    <div class="lang-switch" role="group" aria-label="Jazyk stránky">
+      <a href="./" hreflang="sk" lang="sk" aria-current="page" aria-label="Slovenčina">SK</a>
+      <a href="../gift-finder/" hreflang="en" lang="en" aria-label="English">EN</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <div class="wrap">
+      <h1>V novembri a decembri príde na e-shop niekto, kto nevie, čo kúpiť, a bez pomoci odíde bez objednávky.</h1>
+      <p class="lead">Hľadač darčekov je režim ARLing Asistenta: namiesto chatu položí tri krátke otázky (pre koho, rozpočet, čo má rád) a z vášho vlastného feedu vyberie päť konkrétnych produktov, ku každému jednu vetu, prečo sa hodí. Rovnaký motor ako Asistent, rovnaká cena, žiadny nový nástroj na správu.</p>
+      <a class="btn btn-solid" href="../ukazka/" data-umami-event="demo_click" data-umami-event-place="hero">Vyskúšať na ukážke</a><a class="btn btn-line" href="../#playground" data-umami-event="trial_click" data-umami-event-place="hero">Vyskúšať s vlastným feedom</a>
+      <ul class="facts">
+        <li><b>3</b> otázky namiesto chatu</li>
+        <li><b>5</b> produktov s dôvodom</li>
+        <li>súčasť Asistenta, žiadna nová cena</li>
+        <li>rovnaká kvóta ako chat</li>
+      </ul>
+    </div>
+  </div>
+
+  <section id="how">
+    <div class="wrap">
+      <p class="kicker">01</p>
+      <h2>Ako funguje</h2>
+      <p class="sub">Tri kroky, žiadny nový formulár na strane obchodu, žiadne nové dáta.</p>
+      <ol class="rules">
+        <li>
+          <b>Zákazník klikne na „Nájdi darček“.</b>
+          <p>Vedľa bežnej bubliny chatu pribudne tlačidlo. Zodpovie tri krátke otázky tlačidlami alebo vlastným textom: pre koho (partner/ka, mama, otec, dieťa, kolega, kamarát/ka, sebe), rozpočet (do 20, do 50, do 100 alebo nad 100 €, podľa cien vo vašom feede) a čo má rád (voľný text alebo chipy z kategórií feedu).</p>
+        </li>
+        <li>
+          <b>Hľadač prehľadá váš feed.</b>
+          <p>Z odpovedí poskladá dopyt, vytiahne kandidátov z vášho katalógu vo Vectorize a v kóde odfiltruje produkty mimo rozpočtu alebo nedostupné. Ak po filtri ostane príliš málo produktov, rozpočet sa raz rozšíri o 30 % a doplní sa.</p>
+        </li>
+        <li>
+          <b>Zobrazí päť tipov s dôvodom.</b>
+          <p>Ku každému produktu obrázok, cena, odkaz a jedna veta do 15 slov, prečo sa hodí, napísaná modelom výhradne z dát vo feede. Pod výsledkom je tlačidlo „Ukázať ďalšie“ (druhá sada z rovnakých kandidátov, bez nového volania modelu) a „Opýtať sa na niečo iné“, ktoré prepne späť do bežného chatu.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="ukazka">
+    <div class="wrap">
+      <p class="kicker">02</p>
+      <h2>Ako to vyzerá</h2>
+      <p class="sub">Skutočný beh hľadača na ukážkovom obchode Dobrá domácnosť, ktorý má aj kategóriu Darčeky. Vyskúšajte si to sami tlačidlom vyššie.</p>
+      <figure class="shot">
+        <img src="screenshot.png" width="2360" height="1280" loading="lazy" alt="Hľadač darčekov otvorený na ukážkovom obchode Dobrá domácnosť, prvá otázka Pre koho hľadáte darček s tlačidlami Partner/ka, Mama, Otec, Dieťa, Kolega, Kamarát/ka, Sebe.">
+        <figcaption>Skutočný screenshot z arling.sk/asistent/ukazka/, 5. 9. 2026. Tlačidlo „Nájdi darček“ otvára tri krátke otázky namiesto chatu.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="cennik">
+    <div class="wrap">
+      <p class="kicker">03</p>
+      <h2>Cenník</h2>
+      <p class="sub">Hľadač darčekov nemá vlastný cenník. Je to režim ARLing Asistenta a počíta sa presne rovnako ako bežný rozhovor v chate: jedna relácia hľadača (tri otázky a výsledok) sa počíta ako jeden rozhovor, s rovnakou mesačnou kvótou a rovnakým session dedupe.</p>
+      <div class="pricing-table-wrap">
+        <table class="pricing-table">
+          <thead>
+            <tr><th>Plán</th><th>Cena</th><th>Rozhovory / mesiac</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="plan">Free</td>
+              <td class="price">0&nbsp;&euro;</td>
+              <td>do 100</td>
+              <td><a class="btn btn-line" href="../#playground" data-umami-event="trial_click" data-umami-event-place="pricing">Začať zadarmo</a></td>
+            </tr>
+            <tr>
+              <td class="plan">Starter</td>
+              <td class="price">19 &euro;<span> / mesiac</span></td>
+              <td>do 1 000</td>
+              <td><a class="btn btn-line" href="../#playground" data-umami-event="trial_click" data-umami-event-place="pricing-starter">Začať zadarmo</a></td>
+            </tr>
+            <tr>
+              <td class="plan">Pro</td>
+              <td class="price">39 &euro;<span> / mesiac</span></td>
+              <td>do 5 000</td>
+              <td><a class="btn btn-line" href="../#playground" data-umami-event="trial_click" data-umami-event-place="pricing-pro">Začať zadarmo</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="pricing-note">Žiadny nový Stripe produkt, žiadna nová databáza. Kto už platí za Asistenta (alebo je vo voľnom pláne), dostane hľadač darčekov zadarmo pridaním jedného atribútu do script tagu.</p>
+    </div>
+  </section>
+
+  <section id="zapnutie">
+    <div class="wrap">
+      <p class="kicker">04</p>
+      <h2>Ako to zapnúť</h2>
+      <p class="sub">Ak už máte ARLing Asistenta nainštalovaného, stačí jeden atribút v existujúcom script tagu. Bez neho sa na vašom e-shope nič nemení.</p>
+      <pre><code>&lt;script src="https://arling-asistent.arling.workers.dev/widget.js"
+    data-tenant="ID_UCTU"
+    data-lang="auto"
+    data-gift="1"
+    defer&gt;&lt;/script&gt;</code></pre>
+      <p class="sub" style="margin-top:16px;">Vo WooCommerce pluginovi (odoslaný na wordpress.org, čaká na schválenie) pribudne pre hľadač darčekov jedno zaškrtávacie políčko v nastaveniach. Kým čaká na schválenie, plugin sa inštaluje rovnako ako doteraz, zo ZIP súboru z <a href="https://github.com/AndryRoby/arling-asistent" target="_blank" rel="noopener">GitHubu</a>. Návod pre Shoptet a Upgates (HTML kód e-shopu) je na <a href="../shoptet/">arling.sk/asistent/shoptet/</a>.</p>
+    </div>
+  </section>
+
+  <section id="limity">
+    <div class="wrap">
+      <p class="kicker">05</p>
+      <h2>Čo hľadač vie, a čo nie</h2>
+      <p class="sub">Stavaný tak, aby sľuboval len to, čo skutočne dokáže.</p>
+      <ul class="privacy-list">
+        <li><p><b>Vyberá len z vášho feedu.</b> Neodporúča nič, čo nie je vo vašom produktovom feede, a nič si nevymýšľa, presne ako bežný chat Asistenta.</p></li>
+        <li><p><b>Nepozná sklad nad rámec feedu.</b> Dostupnosť je taká, akú uvádza váš feed. Ak feed nie je aktuálny, reálny stav na sklade sa môže líšiť.</p></li>
+        <li><p><b>Nezabalí darček.</b> Nerieši balenie, darčekové poukazy ani doručenie na inú adresu, to zostáva na vašom e-shope pri objednávke.</p></li>
+        <li><p><b>Neukladá odpovede zákazníka.</b> Pre koho, rozpočet a záľuby sa nikde neukladajú, ani u nás, ani v databáze, presne tak ako obsah bežného rozhovoru.</p></li>
+        <li><p><b>Počíta sa do rovnakej kvóty.</b> Jedna relácia hľadača je jeden rozhovor, so session dedupe v KV rovnako ako v chate.</p></li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap">
+      <p class="kicker">06</p>
+      <h2>Otázky</h2>
+
+      <details>
+        <summary>Je hľadač darčekov nový produkt s vlastnou cenou?</summary>
+        <p>Nie. Je to režim existujúceho ARLing Asistenta, počíta sa do rovnakej mesačnej kvóty rozhovorov a nemá žiadny nový cenník. Zadarmo do 100 rozhovorov mesačne, potom 19 € do 1 000 alebo 39 € do 5 000 mesačne, presne ako bežný chat.</p>
+      </details>
+      <details>
+        <summary>Ako dlho trvá zapnutie?</summary>
+        <p>Ak už máte Asistenta nainštalovaného, pridáte atribút <code>data-gift="1"</code> do existujúceho <code>&lt;script&gt;</code> tagu, uložíte stránku a tlačidlo Nájdi darček sa objaví vedľa bubliny chatu. Bez tohto atribútu sa nič nemení.</p>
+      </details>
+      <details>
+        <summary>Odkiaľ hľadač vyberá produkty?</summary>
+        <p>Výhradne z toho istého produktového feedu, ktorý používa váš Asistent. Nič si nevymýšľa a nedoporúča produkty, ktoré nie sú vo vašom feede.</p>
+      </details>
+      <details>
+        <summary>Ukladáte, čo zákazník odpovedal (pre koho, rozpočet, záľuby)?</summary>
+        <p>Nie. Odpovede sa nikde neukladajú, ani u nás, ani v databáze, presne ako obsah bežného rozhovoru s Asistentom. Ukladáme len denné počítadlá kvôli mesačnému limitu a fakturácii.</p>
+      </details>
+      <details>
+        <summary>Čo ak sa do rozpočtu nezmestí dosť produktov?</summary>
+        <p>Rozpočet sa raz rozšíri o 30 % a hľadač doplní kandidátov. Ak ani potom nie je čo ponúknuť, hľadač to úprimne povie a ponúkne prepnúť do bežného chatu s Asistentom.</p>
+      </details>
+      <details>
+        <summary>Počíta sa jedna relácia hľadača ako jeden rozhovor?</summary>
+        <p>Áno. Jedna relácia hľadača darčekov (tri otázky a výsledok) sa počíta ako jeden rozhovor, rovnako ako v chate, s rovnakým session dedupe v mesačnej kvóte.</p>
+      </details>
+      <details>
+        <summary>Funguje to aj na Shoptete, WooCommerce alebo Shopify?</summary>
+        <p>Všade, kde beží Asistent. Na Shoptete a Upgates pridáte atribút do script tagu v HTML kóde. Vo WooCommerce pluginovi (čaká na schválenie na wordpress.org) pribudne jedno zaškrtávacie políčko v nastaveniach; kým čaká na schválenie, plugin sa inštaluje zo ZIP súboru z GitHubu.</p>
+      </details>
+
+      <div class="subscribe-ask">
+        <p class="sub" style="margin-bottom:14px">Chcete vedieť, keď hľadač darčekov dostane WooCommerce prepínač alebo Shopify appku?</p>
+        <form class="subscribe-form" data-subscribe data-source="asistent-gift-sk" data-lang="sk" data-thanks="subscribe-thanks" data-error="subscribe-error">
+          <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off">
+          <input type="email" name="email" placeholder="vas@email.sk" required>
+          <button class="btn btn-solid" type="submit">Dajte mi vedieť</button>
+          <p class="subscribe-privacy">Len e-mail o novinkách k ARLing Asistentovi. Odhlásenie kedykoľvek jedným klikom.</p>
+        </form>
+        <p id="subscribe-thanks" hidden>Ďakujeme, ozveme sa.</p>
+        <p id="subscribe-error" hidden>Niečo sa pokazilo, skúste to prosím znova alebo napíšte na andrej@arling.sk.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="closing-cta">
+    <div class="wrap" style="text-align:center;">
+      <p class="sub" style="margin:0 auto 18px;">Pridajte data-gift="1" do script tagu, alebo si to najprv vyskúšajte na ukážke. Zadarmo do 100 rozhovorov mesačne.</p>
+      <a class="btn btn-solid" href="../ukazka/" data-umami-event="demo_click" data-umami-event-place="closing">Vyskúšať na ukážke</a><a class="btn btn-line" href="../#playground" data-umami-event="trial_click" data-umami-event-place="closing">Vyskúšať s vlastným feedom</a>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <div class="cols">
+        <div>
+          <b>ARLing Asistent: Hľadač darčekov</b><br>
+          nástroj od <a href="https://arling.sk/">ARLing s. r. o.</a><br>
+          <a href="../gift-finder/" hreflang="en" lang="en">English</a>
+        </div>
+        <div>
+          IČO 56583486 · IČ DPH SK2122352100<br>
+          Ivanská cesta 19112/32E, 821 04 Bratislava<br>
+          <a href="mailto:andrej@arling.sk">andrej@arling.sk</a>
+        </div>
+        <div>
+          <a href="../">ARLing Asistent (hlavná stránka, živé demo)</a><br>
+          <a href="../ukazka/">Slovenská ukážka</a> · <a href="../shoptet/">Shoptet a Upgates</a><br>
+          <a href="https://github.com/AndryRoby/arling-asistent" target="_blank" rel="noopener">Zdrojový kód (GitHub)</a><br>
+          <a href="../llms.txt">llms.txt</a> · <a href="../sitemap.xml">sitemap.xml</a><br>
+          <a href="https://github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md" target="_blank" rel="noopener">DPA (čl. 28 GDPR)</a>
+        </div>
+      </div>
+      <p class="footer-note">Návštevnosť meriame vlastným nástrojom Umami bez cookies. Neukladá cookies ani odtlačok prehliadača.</p>
+    </div>
+  </footer>
+</main>
+
+<div class="sticky-cta" id="sticky-cta" hidden>
+  <div class="sticky-cta-inner">
+    <span class="sticky-cta-text">Zadarmo do 100 rozhovorov mesačne.</span>
+    <a class="btn btn-solid" href="../#playground" data-umami-event="trial_click" data-umami-event-place="sticky">Vyskúšať</a>
+    <button type="button" class="sticky-cta-close" id="sticky-cta-close" aria-label="Zavrieť lištu">&times;</button>
+  </div>
+</div>
+
+<script defer src="https://homelab.tailbf8f27.ts.net/script.js" data-website-id="09cc54da-8172-43b3-8aa2-84e3ab5a17f1"></script>
+<script src="../subscribe.js" defer></script>
+<script src="../sell.js" defer></script>
+</body>
+</html>

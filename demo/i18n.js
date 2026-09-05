@@ -242,6 +242,8 @@ export const DICT = {
   'footer.compare': { sk: 'Porovnanie (EN)', en: 'Compare' },
   'footer.demoSk': { sk: 'Slovenská ukážka', en: 'Slovak demo shop' },
   'footer.shoptet': { sk: 'Shoptet a Upgates', en: 'Shoptet and Upgates (Slovak, Czech)' },
+  'footer.giftFinder.text': { sk: 'Hľadač darčekov', en: 'Gift Finder' },
+  'footer.giftFinder.href': { sk: 'darceky/', en: 'gift-finder/' },
   'footer.note': { sk: 'Návštevnosť meriame vlastným, cookie-free nástrojom Umami. Neukladá cookies ani odtlačok prehliadača.', en: 'We measure traffic with our own cookie-free tool, Umami. It stores no cookies and no browser fingerprint.' },
 
   // ── sticky mobile CTA bar ────────────────────────────────────────────
@@ -442,6 +444,7 @@ export function applyI18n(lang) {
   document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => { el.setAttribute('placeholder', t(el.getAttribute('data-i18n-placeholder'), l)); });
   document.querySelectorAll('[data-i18n-aria-label]').forEach((el) => { el.setAttribute('aria-label', t(el.getAttribute('data-i18n-aria-label'), l)); });
   document.querySelectorAll('[data-i18n-title]').forEach((el) => { el.setAttribute('title', t(el.getAttribute('data-i18n-title'), l)); });
+  document.querySelectorAll('[data-i18n-href]').forEach((el) => { el.setAttribute('href', t(el.getAttribute('data-i18n-href'), l)); });
 
   document.title = t('meta.title', l);
   setMetaByName('description', t('meta.description', l));
