@@ -9,7 +9,7 @@ Demo a landing stránka: `demo/index.html` (naživo na https://arling.sk/asisten
 1. E-shop vloží URL feedu produktov a e-mail (`POST /v1/tenants`).
 2. Worker feed stiahne, znormalizuje, rozdelí na časti a uloží ako embeddings do Cloudflare Vectorize (`@cf/baai/bge-m3`). Feed sa obnovuje automaticky raz denne (cron).
 3. E-shop vloží jeden `<script>` tag, buď na `widget/widget.js` (GitHub Pages), alebo priamo na `GET /widget.js` z Workera (rovnaký súbor, worker ho servíruje zo svojej vlastnej domény, viď nižšie).
-4. Zákazník sa opýta widgetu na niečo; otázka sa zabedduje, nájde sa 8 najbližších produktov daného e-shopu vo Vectorize, a model (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`) odpovie výhradne z týchto produktov a kontaktných údajov obchodu, v jazyku zákazníka, do 120 slov, s najviac 3 odkazmi na produkty.
+4. Zákazník sa opýta widgetu na niečo; otázka sa zabedduje, nájde sa 8 najbližších produktov daného e-shopu vo Vectorize, a model (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`, teplota 0,2) odpovie výhradne z týchto produktov a kontaktných údajov obchodu, v jazyku zákazníka, do 120 slov, s najviac 3 odkazmi na produkty. Model vidí názov, cenu (na dve desatinné miesta, ako na kartách), dostupnosť, kategóriu aj popis produktu (popis je uložený v metadátach vektora, `worker/src/embed.js`). Keď v produktoch nič relevantné nie je, model vráti prázdnu odpoveď a worker zobrazí vlastnú správu s kontaktom obchodu (`FALLBACK_BY_LANG` v `worker/src/chat.js`), takže odmietnutie je vždy v správnej slovenčine alebo češtine; ostatné odpovede prejdú cez `polishAnswer` (ceny s dvoma desatinnými miestami, tabuľka známych preklepov modelu ako „neznám“ namiesto „neviem“).
 
 Súbory:
 
