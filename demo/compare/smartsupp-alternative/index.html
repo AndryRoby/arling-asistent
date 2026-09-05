@@ -195,6 +195,18 @@
   .cmp td:first-child { font-weight:600; color:var(--ink); width:22%; }
   .cmp td { color:var(--ink-2); }
   .cmp-note { color:var(--muted); font-size:13px; margin:14px 0 0; max-width:70ch; }
+  @media (max-width:660px) {
+    .cmp, .cmp tbody, .cmp tr, .cmp td { display:block; width:auto; }
+    .cmp { min-width:0; }
+    .cmp thead { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+    .cmp tr { padding:16px 0 14px; border-bottom:1px solid var(--line); }
+    .cmp td { border-bottom:0; padding:0; }
+    .cmp td:first-child { width:auto; font:400 18px/1.3 var(--serif); margin:0 0 10px; }
+    .cmp td:not(:first-child) { padding:2px 0 2px 12px; border-left:2px solid var(--line); }
+    .cmp td:not(:first-child) + td { margin-top:10px; }
+    .cmp td:last-child { border-left-color:var(--accent); }
+    .cmp td:not(:first-child)::before { content:attr(data-col); display:block; font:600 11.5px/1 var(--sans); text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:0 0 5px; }
+  }
 
   .price-cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:24px; }
   .price-col { border:1px solid var(--line); background:var(--paper-2); padding:22px 24px; min-width:0; }
@@ -282,15 +294,15 @@
             <tr><th></th><th>Smartsupp</th><th>ARLing Asistent</th></tr>
           </thead>
           <tbody>
-            <tr><td>Live chat with operators</td><td>Yes, the core product. Plans are sized by operators (1, 3, 5 or more) and by how long history is kept.</td><td>No operators, no inbox. If it cannot answer, it points to your contact email.</td></tr>
-            <tr><td>Channels</td><td>Live chat, WhatsApp, Messenger, email addresses.</td><td>Website widget only.</td></tr>
-            <tr><td>AI answers</td><td>Mira AI Agent, a separate plan from 20 EUR a month excl. VAT for 100 conversations.</td><td>Included in every plan, the free one too.</td></tr>
-            <tr><td>Product knowledge</td><td>Mira "knows up to 30,000 products" (Smartsupp's wording).</td><td>Up to 5,000 products per feed; answers only from that feed and your contact details.</td></tr>
-            <tr><td>Conversation history</td><td>Kept: 14 days on Free, 1 year on Solo and Plus, 3 years on Expert.</td><td>None. Daily counters only (conversations, product clicks).</td></tr>
-            <tr><td>Free tier</td><td>0 EUR: 25 conversations a month, 1 operator, 14-day history. Mira trial: 10 conversations, 25 more after onboarding.</td><td>0 EUR: 100 conversations a month, no card, no time limit.</td></tr>
-            <tr><td>First paid plan</td><td>Solo: 20 EUR a month excl. VAT, or 14 EUR a month billed yearly; 1 operator, unlimited conversations.</td><td>Starter: 19 EUR a month incl. VAT, up to 1,000 conversations.</td></tr>
-            <tr><td>Billing</td><td>CZK, EUR, PLN or USD. Prices exclude VAT, which is added based on your billing country.</td><td>EUR, VAT included, card through Stripe.</td></tr>
-            <tr><td>WooCommerce and Shopify</td><td>WordPress plugin, 20,000+ active installations; WooCommerce mentioned in its changelog.</td><td>One script tag on any shop; WooCommerce plugin in review at wordpress.org; Shopify app in preparation.</td></tr>
+            <tr><td>Live chat with operators</td><td data-col="Smartsupp">Yes, the core product. Plans are sized by operators (1, 3, 5 or more) and by how long history is kept.</td><td data-col="ARLing Asistent">No operators, no inbox. If it cannot answer, it points to your contact email.</td></tr>
+            <tr><td>Channels</td><td data-col="Smartsupp">Live chat, WhatsApp, Messenger, email addresses.</td><td data-col="ARLing Asistent">Website widget only.</td></tr>
+            <tr><td>AI answers</td><td data-col="Smartsupp">Mira AI Agent, a separate plan from 20 EUR a month excl. VAT for 100 conversations.</td><td data-col="ARLing Asistent">Included in every plan, the free one too.</td></tr>
+            <tr><td>Product knowledge</td><td data-col="Smartsupp">Mira "knows up to 30,000 products" (Smartsupp's wording).</td><td data-col="ARLing Asistent">Up to 5,000 products per feed; answers only from that feed and your contact details.</td></tr>
+            <tr><td>Conversation history</td><td data-col="Smartsupp">Kept: 14 days on Free, 1 year on Solo and Plus, 3 years on Expert.</td><td data-col="ARLing Asistent">None. Daily counters only (conversations, product clicks).</td></tr>
+            <tr><td>Free tier</td><td data-col="Smartsupp">0 EUR: 25 conversations a month, 1 operator, 14-day history. Mira trial: 10 conversations, 25 more after onboarding.</td><td data-col="ARLing Asistent">0 EUR: 100 conversations a month, no card, no time limit.</td></tr>
+            <tr><td>First paid plan</td><td data-col="Smartsupp">Solo: 20 EUR a month excl. VAT, or 14 EUR a month billed yearly; 1 operator, unlimited conversations.</td><td data-col="ARLing Asistent">Starter: 19 EUR a month incl. VAT, up to 1,000 conversations.</td></tr>
+            <tr><td>Billing</td><td data-col="Smartsupp">CZK, EUR, PLN or USD. Prices exclude VAT, which is added based on your billing country.</td><td data-col="ARLing Asistent">EUR, VAT included, card through Stripe.</td></tr>
+            <tr><td>WooCommerce and Shopify</td><td data-col="Smartsupp">WordPress plugin, 20,000+ active installations; WooCommerce mentioned in its changelog.</td><td data-col="ARLing Asistent">One script tag on any shop; WooCommerce plugin in review at wordpress.org; Shopify app in preparation.</td></tr>
           </tbody>
         </table>
       </div>

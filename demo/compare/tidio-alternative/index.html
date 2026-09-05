@@ -195,6 +195,18 @@
   .cmp td:first-child { font-weight:600; color:var(--ink); width:22%; }
   .cmp td { color:var(--ink-2); }
   .cmp-note { color:var(--muted); font-size:13px; margin:14px 0 0; max-width:70ch; }
+  @media (max-width:660px) {
+    .cmp, .cmp tbody, .cmp tr, .cmp td { display:block; width:auto; }
+    .cmp { min-width:0; }
+    .cmp thead { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+    .cmp tr { padding:16px 0 14px; border-bottom:1px solid var(--line); }
+    .cmp td { border-bottom:0; padding:0; }
+    .cmp td:first-child { width:auto; font:400 18px/1.3 var(--serif); margin:0 0 10px; }
+    .cmp td:not(:first-child) { padding:2px 0 2px 12px; border-left:2px solid var(--line); }
+    .cmp td:not(:first-child) + td { margin-top:10px; }
+    .cmp td:last-child { border-left-color:var(--accent); }
+    .cmp td:not(:first-child)::before { content:attr(data-col); display:block; font:600 11.5px/1 var(--sans); text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:0 0 5px; }
+  }
 
   .price-cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:24px; }
   .price-col { border:1px solid var(--line); background:var(--paper-2); padding:22px 24px; min-width:0; }
@@ -282,15 +294,15 @@
             <tr><th></th><th>Tidio</th><th>ARLing Asistent</th></tr>
           </thead>
           <tbody>
-            <tr><td>Live chat with human agents</td><td>Yes, the core product. Plans count "billable conversations", meaning conversations with a message from a human agent.</td><td>No. No agent seat, no inbox. If it cannot answer, it points to your contact email.</td></tr>
-            <tr><td>Tickets and email</td><td>Yes.</td><td>No.</td></tr>
-            <tr><td>Channels</td><td>Live chat, tickets, email, social media.</td><td>Website widget only.</td></tr>
-            <tr><td>AI answers</td><td>Lyro AI Agent, a paid add-on.</td><td>Included in every plan, the free one too.</td></tr>
-            <tr><td>Source of answers</td><td>Depends on your Lyro setup; see tidio.com.</td><td>Your product feed and contact details, nothing else. Product text is data, never instructions.</td></tr>
-            <tr><td>Conversation storage</td><td>Agents work from a shared inbox, so conversations are kept there.</td><td>None. Daily counters only (conversations, product clicks).</td></tr>
-            <tr><td>Free tier</td><td>$0: 50 billable conversations a month, 10 seats.</td><td>0 EUR: 100 conversations a month, no card, no time limit.</td></tr>
-            <tr><td>First paid plan</td><td>Starter: $290 a year ($24.17 a month) on tidio.com; the equivalent Customer Service plan on the Shopify App Store is $29 a month or $290 a year.</td><td>Starter: 19 EUR a month, up to 1,000 conversations.</td></tr>
-            <tr><td>WooCommerce and Shopify</td><td>WordPress plugin, 70,000+ active installations, WooCommerce integration; Shopify App Store app, 1,337 reviews.</td><td>One script tag on any shop; WooCommerce plugin in review at wordpress.org; Shopify app in preparation.</td></tr>
+            <tr><td>Live chat with human agents</td><td data-col="Tidio">Yes, the core product. Plans count "billable conversations", meaning conversations with a message from a human agent.</td><td data-col="ARLing Asistent">No. No agent seat, no inbox. If it cannot answer, it points to your contact email.</td></tr>
+            <tr><td>Tickets and email</td><td data-col="Tidio">Yes.</td><td data-col="ARLing Asistent">No.</td></tr>
+            <tr><td>Channels</td><td data-col="Tidio">Live chat, tickets, email, social media.</td><td data-col="ARLing Asistent">Website widget only.</td></tr>
+            <tr><td>AI answers</td><td data-col="Tidio">Lyro AI Agent, a paid add-on.</td><td data-col="ARLing Asistent">Included in every plan, the free one too.</td></tr>
+            <tr><td>Source of answers</td><td data-col="Tidio">Depends on your Lyro setup; see tidio.com.</td><td data-col="ARLing Asistent">Your product feed and contact details, nothing else. Product text is data, never instructions.</td></tr>
+            <tr><td>Conversation storage</td><td data-col="Tidio">Agents work from a shared inbox, so conversations are kept there.</td><td data-col="ARLing Asistent">None. Daily counters only (conversations, product clicks).</td></tr>
+            <tr><td>Free tier</td><td data-col="Tidio">$0: 50 billable conversations a month, 10 seats.</td><td data-col="ARLing Asistent">0 EUR: 100 conversations a month, no card, no time limit.</td></tr>
+            <tr><td>First paid plan</td><td data-col="Tidio">Starter: $290 a year ($24.17 a month) on tidio.com; the equivalent Customer Service plan on the Shopify App Store is $29 a month or $290 a year.</td><td data-col="ARLing Asistent">Starter: 19 EUR a month, up to 1,000 conversations.</td></tr>
+            <tr><td>WooCommerce and Shopify</td><td data-col="Tidio">WordPress plugin, 70,000+ active installations, WooCommerce integration; Shopify App Store app, 1,337 reviews.</td><td data-col="ARLing Asistent">One script tag on any shop; WooCommerce plugin in review at wordpress.org; Shopify app in preparation.</td></tr>
           </tbody>
         </table>
       </div>
