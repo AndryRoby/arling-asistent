@@ -52,6 +52,23 @@ function jsonResponse(obj, status = 200, headers = {}) {
   return new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json', ...headers } });
 }
 
+/**
+ * Detects Cloudflare Workers AI's own daily free-tier exhaustion error
+ * (thrown out of env.AI.run()/embedTexts() as an AiError, code 4006:
+ * "you have used up your daily free allocation of N neurons, please
+ * upgrade to Cloudflare's Workers Paid plan..."). This is an account-level
+ * billing limit, not a bug in this worker, so it gets its own honest
+ * response instead of falling into the generic internal_error/500
+ * catch-all below: 503 is the correct status for "temporarily out of
+ * capacity, try later", and the widget already shows a calm, translated
+ * "assistant is resting today" message for quota_exceeded (see
+ * widget.js's quotaExceeded string) that fits this case just as well.
+ */
+function isAiCapacityError(err) {
+  const message = String((err && err.message) || '');
+  return /daily free allocation/i.test(message) && /neurons/i.test(message);
+}
+
 function handleOptions(request, env) {
   const origin = request.headers.get('Origin') || '';
   const allowed = parseAllowedOrigins(env.ALLOWED_ORIGINS);
@@ -129,6 +146,10 @@ export default {
       }
       if (err instanceof ValidationError) {
         return jsonResponse({ error: 'validation_failed', issues: err.issues }, 400, corsFor(request, env));
+      }
+      if (isAiCapacityError(err)) {
+        console.error('[arling-asistent] Workers AI daily capacity exhausted:', err && err.message ? err.message : err);
+        return jsonResponse({ error: 'quota_exceeded' }, 503, corsFor(request, env));
       }
       // Previously silent: a 500 gave no clue at all in `wrangler tail`
       // (this catch produced a clean Response, so Cloudflare's own outcome
