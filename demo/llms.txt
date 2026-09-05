@@ -18,6 +18,22 @@ No conversation content is ever stored, by any component. The only stored state 
 
 Free up to 100 conversations a month, no card. Starter: 19 EUR/month, up to 1,000 conversations. Pro: 39 EUR/month, up to 5,000 conversations. The shop upgrades from its own account page (https://arling.sk/asistent/tenant/?t=ACCOUNT_ID, linked right after signup), pays by card through Stripe, and can cancel any time.
 
+## Pages
+
+- Main page (Slovak and English, `?lang=en`), trial form: https://arling.sk/asistent/
+- German page (Deutsch): https://arling.sk/asistent/de/
+- WooCommerce plugin (English): https://arling.sk/asistent/woocommerce/
+- Shopify (English): https://arling.sk/asistent/shopify/
+- Live demo: https://arling.sk/asistent/live/
+
+## Comparisons (English)
+
+Honest comparison pages. Competitor facts and prices were read from the competitors' public pricing pages on 5 September 2026 and are dated in the text; ARLing Asistent has no live chat with humans, no tickets and no multichannel inbox, and the pages say so.
+
+- Tidio alternative for WooCommerce and Shopify stores: https://arling.sk/asistent/compare/tidio-alternative/
+- Gorgias alternative for Shopify stores: https://arling.sk/asistent/compare/gorgias-alternative/
+- Smartsupp alternative (Czech, Slovak, German shops): https://arling.sk/asistent/compare/smartsupp-alternative/
+
 ## Links
 
 - Demo and signup: https://arling.sk/asistent/

@@ -14,6 +14,7 @@
 <link rel="canonical" href="https://arling.sk/asistent/" />
 <link rel="alternate" hreflang="sk" href="https://arling.sk/asistent/?lang=sk" />
 <link rel="alternate" hreflang="en" href="https://arling.sk/asistent/?lang=en" />
+<link rel="alternate" hreflang="de" href="https://arling.sk/asistent/de/" />
 <link rel="alternate" hreflang="x-default" href="https://arling.sk/asistent/" />
 <meta property="og:image" content="https://arling.sk/asistent/icon-512.png" />
 <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -142,6 +143,8 @@
   .lang-switch button + button { margin-left:-1px; }
   .lang-switch button:hover { border-color:var(--accent); color:var(--accent); position:relative; z-index:1; }
   .lang-switch button.lang-active { background:var(--ink); border-color:var(--ink); color:var(--paper); position:relative; z-index:1; }
+  .lang-switch a.lang-link { font:600 12px/1 var(--sans); padding:6px 9px; border:1px solid var(--line); background:var(--paper); color:var(--ink-2); text-decoration:none; margin-left:-1px; border-radius:0 4px 4px 0; }
+  .lang-switch a.lang-link:hover { border-color:var(--accent); color:var(--accent); position:relative; z-index:1; }
 
   .hero { padding:64px 0 40px; border-bottom:1px solid var(--line); }
   .hero h1 { font:400 clamp(30px,4.6vw,46px)/1.14 var(--serif); letter-spacing:-.01em; margin:0 0 18px; max-width:22ch; }
@@ -288,6 +291,7 @@
     <div class="lang-switch" role="group" aria-label="Jazyk stránky" data-i18n-aria-label="lang.switch.aria">
       <button type="button" data-set-lang="sk" aria-pressed="true" aria-label="Slovenčina" data-i18n-aria-label="lang.sk.aria">SK</button>
       <button type="button" data-set-lang="en" aria-pressed="false" aria-label="English" data-i18n-aria-label="lang.en.aria">EN</button>
+      <a class="lang-link" href="de/" hreflang="de" lang="de" aria-label="Deutsch" data-i18n-aria-label="lang.de.aria">DE</a>
     </div>
   </div>
 </header>
@@ -536,6 +540,8 @@
           <a href="https://github.com/AndryRoby/arling-asistent" target="_blank" rel="noopener" data-i18n="footer.sourceCode">Zdrojový kód (GitHub)</a><br>
           <a href="llms.txt">llms.txt</a> · <a href="sitemap.xml">sitemap.xml</a><br>
           <a href="https://github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md" target="_blank" rel="noopener" data-i18n="footer.dpa">DPA (GDPR čl. 28)</a>
+          <span data-i18n="footer.compare">Porovnanie (EN)</span>: <a href="compare/tidio-alternative/" hreflang="en">Tidio</a>, <a href="compare/gorgias-alternative/" hreflang="en">Gorgias</a>, <a href="compare/smartsupp-alternative/" hreflang="en">Smartsupp</a><br>
+          <a href="de/" hreflang="de" lang="de">Deutsch</a>
         </div>
       </div>
       <p class="footer-note" data-i18n="footer.note">Návštevnosť meriame vlastným, cookie-free nástrojom Umami. Neukladá cookies ani odtlačok prehliadača.</p>

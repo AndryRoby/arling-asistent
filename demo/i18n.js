@@ -43,6 +43,7 @@ export const DICT = {
   'lang.switch.aria': { sk: 'Jazyk stránky', en: 'Page language' },
   'lang.sk.aria': { sk: 'Slovenčina', en: 'Slovak' },
   'lang.en.aria': { sk: 'English', en: 'English' },
+  'lang.de.aria': { sk: 'Nemčina (samostatná stránka)', en: 'German (separate page)' },
 
   // ── hero ─────────────────────────────────────────────────────────────
   'hero.h1': {
@@ -232,6 +233,7 @@ export const DICT = {
   'footer.regIds': { sk: 'IČO 56583486 · IČ DPH SK2122352100', en: 'Company ID (IČO) 56583486 · VAT ID (IČ DPH) SK2122352100' },
   'footer.sourceCode': { sk: 'Zdrojový kód (GitHub)', en: 'Source code (GitHub)' },
   'footer.dpa': { sk: 'DPA (GDPR čl. 28)', en: 'DPA (GDPR Art. 28)' },
+  'footer.compare': { sk: 'Porovnanie (EN)', en: 'Compare' },
   'footer.note': { sk: 'Návštevnosť meriame vlastným, cookie-free nástrojom Umami. Neukladá cookies ani odtlačok prehliadača.', en: 'We measure traffic with our own cookie-free tool, Umami. It stores no cookies and no browser fingerprint.' },
 
   // ── sticky mobile CTA bar ────────────────────────────────────────────
