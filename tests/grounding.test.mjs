@@ -61,8 +61,32 @@ test('polishAnswer fixes known Slovak/Czech slips as whole words and gives prose
   assert.equal(polishAnswer('Neznámy výrobca.', 'sk'), 'Neznámy výrobca.'); // whole word only: "neznámy" is correct Slovak
   assert.equal(polishAnswer('Neviem, stojí 12.5 Kč.', 'cs'), 'Nevím, stojí 12.50 Kč.');
   assert.equal(polishAnswer('Neznám it, 9.5 EUR.', 'en'), 'Neznám it, 9.50 EUR.'); // no slip table for en
-  assert.equal(polishAnswer('Neznám, 9.5 EUR.', 'auto'), 'Neznám, 9.50 EUR.'); // language unknown: prices only
   assert.equal(polishAnswer('', 'sk'), '');
+});
+
+// Live regression, 2026-09-05: under lang "auto" the reply's own language
+// mirrors the customer's (see SYSTEM_PROMPT_AUTO), so a fixed slip table
+// cannot be chosen from the request's "auto" lang up front the way it can
+// for sk/cs. polishAnswer instead runs the same detectLangFromText
+// heuristic on the ANSWER text itself and applies that language's table,
+// including a new slip: "спросiť" (Cyrillic "спрос" + Latin "iť", observed
+// live when the model offers example questions under the meta-question
+// instructions) in place of "spýtať"/"zeptat".
+test('polishAnswer under lang "auto" detects the slip table from the answer\'s own language, not the (unknown) requested one', () => {
+  // The answer itself carries Slovak diacritics, so its own slips are still
+  // caught even though the caller only knows lang: "auto" up front.
+  assert.equal(polishAnswer('Neznám, 9.5 EUR.', 'auto'), 'Neviem, 9.50 EUR.');
+  assert.equal(polishAnswer('Nevím, stojí 12.5 Kč.', 'auto'), 'Nevím, stojí 12.50 Kč.'); // already correct Czech, untouched
+  // An answer with no sk/cs/de-detectable diacritics (plain English) has no
+  // slip table at all (same as a fixed "en"/"de" request): price formatting
+  // still applies, nothing else changes.
+  assert.equal(polishAnswer('We do not know, 9.5 EUR.', 'auto'), 'We do not know, 9.50 EUR.');
+});
+
+test('polishAnswer fixes the mixed-script "спросiť" slip (Cyrillic stem + Latin Slovak ending) for both a fixed sk/cs lang and "auto"', () => {
+  assert.equal(polishAnswer('Môžete ma спросiť, napríklad ako vybrať kávovar.', 'sk'), 'Môžete ma spýtať, napríklad ako vybrať kávovar.');
+  assert.equal(polishAnswer('Môžete ma спросiť, napríklad ako vybrať kávovar.', 'auto'), 'Môžete ma spýtať, napríklad ako vybrať kávovar.');
+  assert.equal(polishAnswer('Спросiť můžete i na cenu, jsme tu denně.', 'cs'), 'Zeptat můžete i na cenu, jsme tu denně.');
 });
 
 test("runChat: an empty model answer becomes the worker's own contact message in the requested language, with no product cards", async () => {

@@ -130,6 +130,11 @@ export default {
       if (err instanceof ValidationError) {
         return jsonResponse({ error: 'validation_failed', issues: err.issues }, 400, corsFor(request, env));
       }
+      // Previously silent: a 500 gave no clue at all in `wrangler tail`
+      // (this catch produced a clean Response, so Cloudflare's own outcome
+      // stayed "ok" with no exception recorded). Logging here is the only
+      // way to see what actually broke.
+      console.error('[arling-asistent] unhandled error:', err && err.stack ? err.stack : err);
       return jsonResponse({ error: 'internal_error' }, 500, corsFor(request, env));
     }
   },
