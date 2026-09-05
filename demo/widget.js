@@ -34,6 +34,14 @@
  *               language's own title string.
  * data-endpoint optional, the worker's origin. Defaults to this script's
  *               own origin, which is normally correct.
+ * data-gift     optional, "1" to add a second "Najst darcek" / "Find a gift"
+ *               button next to the chat bubble (Gift Finder: three short
+ *               questions - recipient, budget, interests - then up to 5
+ *               products from the shop's own feed with a one-line reason
+ *               each, via POST /v1/gift, see worker/src/gift.js). Absent (the
+ *               default) changes nothing at all: no extra button, no extra
+ *               markup, no extra network call, so every shop already
+ *               embedding this widget is unaffected until it opts in.
  *
  * Everything renders inside a Shadow DOM root so the host page's CSS can
  * never leak in or be broken by the widget's styles.
@@ -91,6 +99,25 @@
       quotaExceeded: 'Asistent si dnes oddychuje. Použite prosím kontaktnú stránku obchodu.',
       poweredBy: 'Napájané ARLing Asistentom',
       relatedProducts: 'Súvisiace produkty',
+      giftButton: 'Nájdi darček',
+      giftOpenLabel: 'Otvoriť hľadač darčekov',
+      giftTitle: 'Hľadač darčekov',
+      giftRecipientQuestion: 'Pre koho hľadáte darček?',
+      giftRecipients: ['Partner/ka', 'Mama', 'Otec', 'Dieťa', 'Kolega', 'Kamarát/ka', 'Sebe'],
+      giftRecipientPlaceholder: 'Alebo napíšte pre koho (napr. babka)',
+      giftBudgetQuestion: 'Aký je rozpočet?',
+      giftBudgetLabels: ['do 20 €', 'do 50 €', 'do 100 €', 'nad 100 €'],
+      giftInterestsQuestion: 'Čo má rád/rada?',
+      giftInterestsPlaceholder: 'Napríklad záhrada, káva, knihy...',
+      giftNext: 'Ďalej',
+      giftBack: 'Späť',
+      giftSubmit: 'Nájsť darčeky',
+      giftThinking: 'Hľadám vhodné darčeky…',
+      giftShowMore: 'Ukázať ďalšie',
+      giftAskElse: 'Opýtať sa na niečo iné',
+      giftWidenedNote: 'Pri tomto rozpočte sme nenašli dosť darčekov, tak sme ho mierne rozšírili.',
+      giftFewNote: 'Pre tento výber sme našli len niekoľko vhodných darčekov.',
+      giftEmptyNote: 'Pre tento výber sme nenašli vhodný darček. Skúste iný rozpočet alebo záujmy.',
     },
     cs: {
       openLabel: 'Otevřít chat s asistentem',
@@ -105,6 +132,25 @@
       quotaExceeded: 'Asistent si dnes odpočívá. Použijte prosím kontaktní stránku obchodu.',
       poweredBy: 'Poháněno ARLing Asistentem',
       relatedProducts: 'Související produkty',
+      giftButton: 'Najít dárek',
+      giftOpenLabel: 'Otevřít hledač dárků',
+      giftTitle: 'Hledač dárků',
+      giftRecipientQuestion: 'Pro koho hledáte dárek?',
+      giftRecipients: ['Partner/ka', 'Máma', 'Táta', 'Dítě', 'Kolega', 'Kamarád/ka', 'Sobě'],
+      giftRecipientPlaceholder: 'Nebo napište pro koho (např. babička)',
+      giftBudgetQuestion: 'Jaký je rozpočet?',
+      giftBudgetLabels: ['do 20 Kč', 'do 50 Kč', 'do 100 Kč', 'nad 100 Kč'],
+      giftInterestsQuestion: 'Co má rád/ráda?',
+      giftInterestsPlaceholder: 'Například zahrada, káva, knihy...',
+      giftNext: 'Další',
+      giftBack: 'Zpět',
+      giftSubmit: 'Najít dárky',
+      giftThinking: 'Hledám vhodné dárky…',
+      giftShowMore: 'Zobrazit další',
+      giftAskElse: 'Zeptat se na něco jiného',
+      giftWidenedNote: 'Pro tento rozpočet jsme nenašli dost dárků, tak jsme ho mírně rozšířili.',
+      giftFewNote: 'Pro tento výběr jsme našli jen několik vhodných dárků.',
+      giftEmptyNote: 'Pro tento výběr jsme nenašli vhodný dárek. Zkuste jiný rozpočet nebo zájmy.',
     },
     en: {
       openLabel: 'Open shop assistant chat',
@@ -119,6 +165,25 @@
       quotaExceeded: 'The assistant is resting today. Please use the shop\'s contact page.',
       poweredBy: 'Powered by ARLing Asistent',
       relatedProducts: 'Related products',
+      giftButton: 'Find a gift',
+      giftOpenLabel: 'Open gift finder',
+      giftTitle: 'Gift finder',
+      giftRecipientQuestion: 'Who is the gift for?',
+      giftRecipients: ['Partner', 'Mum', 'Dad', 'Child', 'Colleague', 'Friend', 'Myself'],
+      giftRecipientPlaceholder: 'Or type who it is for (e.g. grandma)',
+      giftBudgetQuestion: 'What is the budget?',
+      giftBudgetLabels: ['up to €20', 'up to €50', 'up to €100', 'over €100'],
+      giftInterestsQuestion: 'What do they like?',
+      giftInterestsPlaceholder: 'For example gardening, coffee, books...',
+      giftNext: 'Next',
+      giftBack: 'Back',
+      giftSubmit: 'Find gifts',
+      giftThinking: 'Looking for good gifts…',
+      giftShowMore: 'Show more',
+      giftAskElse: 'Ask something else',
+      giftWidenedNote: 'We did not find enough gifts at this budget, so we widened it slightly.',
+      giftFewNote: 'We only found a few gifts that fit this search.',
+      giftEmptyNote: 'We could not find a matching gift. Try a different budget or interests.',
     },
     de: {
       openLabel: 'Chat mit dem Assistenten öffnen',
@@ -133,6 +198,25 @@
       quotaExceeded: 'Der Assistent macht heute Pause. Bitte nutzen Sie die Kontaktseite des Shops.',
       poweredBy: 'Bereitgestellt von ARLing Asistent',
       relatedProducts: 'Passende Produkte',
+      giftButton: 'Geschenk finden',
+      giftOpenLabel: 'Geschenkfinder öffnen',
+      giftTitle: 'Geschenkfinder',
+      giftRecipientQuestion: 'Für wen ist das Geschenk?',
+      giftRecipients: ['Partner/in', 'Mama', 'Papa', 'Kind', 'Kollege/in', 'Freund/in', 'Mich selbst'],
+      giftRecipientPlaceholder: 'Oder schreiben Sie für wen (z. B. Oma)',
+      giftBudgetQuestion: 'Wie hoch ist das Budget?',
+      giftBudgetLabels: ['bis 20 €', 'bis 50 €', 'bis 100 €', 'über 100 €'],
+      giftInterestsQuestion: 'Was mag die Person?',
+      giftInterestsPlaceholder: 'Zum Beispiel Garten, Kaffee, Bücher...',
+      giftNext: 'Weiter',
+      giftBack: 'Zurück',
+      giftSubmit: 'Geschenke finden',
+      giftThinking: 'Suche passende Geschenke…',
+      giftShowMore: 'Mehr anzeigen',
+      giftAskElse: 'Etwas anderes fragen',
+      giftWidenedNote: 'Bei diesem Budget haben wir zu wenige Geschenke gefunden, daher haben wir es leicht erweitert.',
+      giftFewNote: 'Für diese Auswahl haben wir nur wenige passende Geschenke gefunden.',
+      giftEmptyNote: 'Wir haben kein passendes Geschenk gefunden. Versuchen Sie ein anderes Budget oder andere Interessen.',
     },
   };
 
@@ -160,6 +244,36 @@
   // attribute visits that came from a shop's widget, without any tracking
   // on the shop's page itself.
   var POWERED_BY_URL = 'https://arling.sk/asistent/?utm_source=widget&utm_medium=referral';
+
+  // ---------------------------------------------------------------------
+  // Gift Finder (data-gift="1" only): budget chip values, aligned by index
+  // with each language's giftBudgetLabels above. Ranges come from the
+  // product spec's fallback (20/50/100/100+); the tenant's own price spread
+  // is not exposed by GET /v1/tenants/:id/status today, so every tenant
+  // gets this same fixed fallback (see the build report for the alternative
+  // this rules out). "100+" is an open upper bound: max stays null.
+  // ---------------------------------------------------------------------
+  var GIFT_BUDGET_RANGES = [
+    { min: 0, max: 20 },
+    { min: 0, max: 50 },
+    { min: 0, max: 100 },
+    { min: 100, max: null },
+  ];
+
+  /**
+   * Best-effort Umami event, only when the host page already loads Umami
+   * (true for arling.sk's own demo page; a no-op on every other shop, which
+   * is correct: the widget must never load its own tracker onto someone
+   * else's site). No customer-typed text (recipient/interests) is ever sent
+   * as event data, only fixed, non-identifying fields.
+   */
+  function trackUmami(event, data) {
+    try {
+      if (window.umami && typeof window.umami.track === 'function') window.umami.track(event, data || {});
+    } catch (e) {
+      /* tracking must never break the widget */
+    }
+  }
 
   // ---------------------------------------------------------------------
   // Session id: one per browser tab, so the server counts one conversation
@@ -243,7 +357,7 @@
     return text + ' ' + (p.currency || '');
   }
 
-  function buildMarkup(strings) {
+  function buildMarkup(strings, giftEnabled) {
     return (
       '<button id="toggle" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="' + escapeHtml(strings.openLabel) + '">' +
       '<span class="toggle-icon" aria-hidden="true">•••</span>' +
@@ -261,6 +375,57 @@
       '<button id="send-btn" type="submit">' + escapeHtml(strings.send) + '</button>' +
       '</form>' +
       '<div class="footer"><a href="' + POWERED_BY_URL + '" target="_blank" rel="noopener">' + escapeHtml(strings.poweredBy) + '</a></div>' +
+      '</div>' +
+      (giftEnabled ? buildGiftMarkup(strings) : '')
+    );
+  }
+
+  /**
+   * Gift Finder markup (data-gift="1" only): a second launcher button plus
+   * its own dialog with three steps (recipient, budget, interests) and a
+   * results step, all inside the same shadow root as the chat panel above.
+   * Never called, and never present in the rendered markup, when the
+   * data-gift attribute is absent (see buildMarkup): a shop that has not
+   * opted in gets byte-identical behaviour to before this feature existed.
+   */
+  function buildGiftMarkup(strings) {
+    return (
+      '<button id="gift-toggle" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="' + escapeHtml(strings.giftOpenLabel) + '">' + escapeHtml(strings.giftButton) + '</button>' +
+      '<div id="gift-panel" role="dialog" aria-modal="true" aria-label="' + escapeHtml(strings.giftTitle) + '" hidden>' +
+        '<div class="panel-head">' +
+          '<span class="panel-title">' + escapeHtml(strings.giftTitle) + '</span>' +
+          '<button id="gift-close-btn" type="button" aria-label="' + escapeHtml(strings.closeLabel) + '">&times;</button>' +
+        '</div>' +
+        '<div id="gift-live" class="sr-only" aria-live="polite"></div>' +
+        '<div id="gift-body" class="gift-body">' +
+          '<div id="gift-step-recipient" class="gift-step">' +
+            '<p class="gift-question">' + escapeHtml(strings.giftRecipientQuestion) + '</p>' +
+            '<div id="gift-recipient-chips" class="gift-chips" role="group" aria-label="' + escapeHtml(strings.giftRecipientQuestion) + '"></div>' +
+            '<label class="sr-only" for="gift-recipient-input">' + escapeHtml(strings.giftRecipientPlaceholder) + '</label>' +
+            '<input id="gift-recipient-input" type="text" autocomplete="off" placeholder="' + escapeHtml(strings.giftRecipientPlaceholder) + '">' +
+            '<div class="gift-actions"><button type="button" id="gift-recipient-next" class="gift-btn-primary">' + escapeHtml(strings.giftNext) + '</button></div>' +
+          '</div>' +
+          '<div id="gift-step-budget" class="gift-step" hidden>' +
+            '<p class="gift-question">' + escapeHtml(strings.giftBudgetQuestion) + '</p>' +
+            '<div id="gift-budget-chips" class="gift-chips" role="group" aria-label="' + escapeHtml(strings.giftBudgetQuestion) + '"></div>' +
+            '<div class="gift-actions"><button type="button" id="gift-budget-back" class="gift-btn-secondary">' + escapeHtml(strings.giftBack) + '</button></div>' +
+          '</div>' +
+          '<div id="gift-step-interests" class="gift-step" hidden>' +
+            '<p class="gift-question">' + escapeHtml(strings.giftInterestsQuestion) + '</p>' +
+            '<div id="gift-interests-chips" class="gift-chips"></div>' +
+            '<label class="sr-only" for="gift-interests-input">' + escapeHtml(strings.giftInterestsPlaceholder) + '</label>' +
+            '<input id="gift-interests-input" type="text" autocomplete="off" placeholder="' + escapeHtml(strings.giftInterestsPlaceholder) + '">' +
+            '<div class="gift-actions"><button type="button" id="gift-interests-back" class="gift-btn-secondary">' + escapeHtml(strings.giftBack) + '</button><button type="button" id="gift-submit-btn" class="gift-btn-primary">' + escapeHtml(strings.giftSubmit) + '</button></div>' +
+          '</div>' +
+          '<div id="gift-step-results" class="gift-step" hidden>' +
+            '<p id="gift-note" class="gift-note" hidden></p>' +
+            '<div id="gift-results-list" class="gift-results" role="list" aria-label="' + escapeHtml(strings.giftTitle) + '"></div>' +
+            '<div class="gift-actions">' +
+              '<button type="button" id="gift-show-more" class="gift-btn-secondary" hidden>' + escapeHtml(strings.giftShowMore) + '</button>' +
+              '<button type="button" id="gift-ask-else" class="gift-btn-secondary">' + escapeHtml(strings.giftAskElse) + '</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
       '</div>'
     );
   }
@@ -351,13 +516,63 @@
       '.footer { padding:6px 10px; border-top:1px solid var(--line); background:var(--paper-2); text-align:center; }' +
       '.footer a { font:11px/1 var(--sans); color:var(--muted); text-decoration:none; }' +
       '.footer a:hover { color:var(--accent); }' +
+      // Gift Finder (data-gift="1" only): these rules simply have no effect
+      // when the widget renders without the gift markup at all.
+      '#gift-toggle {' +
+      '  position:absolute; bottom:8px; right:64px; white-space:nowrap;' +
+      '  padding:0 14px; height:40px; border-radius:20px; border:1px solid var(--line);' +
+      '  background:var(--paper); color:var(--ink); font:600 13px/1 var(--sans); cursor:pointer;' +
+      '  box-shadow:0 4px 14px rgba(0,0,0,.14);' +
+      '}' +
+      '#gift-toggle:hover { border-color:var(--accent); color:var(--accent); }' +
+      '#gift-toggle:focus-visible { outline:2px solid var(--ink); outline-offset:2px; }' +
+      ':host(.position-left) #gift-toggle { right:auto; left:64px; }' +
+      '#gift-panel {' +
+      '  position:absolute; bottom:68px; right:0; width:340px; max-width:calc(100vw - 40px);' +
+      '  height:480px; max-height:70vh; background:var(--paper); border:1px solid var(--line);' +
+      '  border-radius:8px; display:flex; flex-direction:column; overflow:hidden;' +
+      '  box-shadow:0 8px 28px rgba(0,0,0,.18); color:var(--ink);' +
+      '}' +
+      ':host(.position-left) #gift-panel { right:auto; left:0; }' +
+      '#gift-panel[hidden] { display:none; }' +
+      '.gift-body { flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; }' +
+      '.gift-step[hidden] { display:none; }' +
+      '.gift-question { font:600 14px/1.4 var(--sans); margin:0 0 10px; }' +
+      '.gift-chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }' +
+      '.gift-chip {' +
+      '  border:1px solid var(--line); background:var(--paper-2); color:var(--ink);' +
+      '  border-radius:16px; padding:6px 12px; font:13px/1 var(--sans); cursor:pointer;' +
+      '}' +
+      '.gift-chip:hover { border-color:var(--accent); color:var(--accent); }' +
+      '.gift-chip:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }' +
+      '#gift-recipient-input, #gift-interests-input {' +
+      '  width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:6px;' +
+      '  background:var(--paper); color:var(--ink); font:14px/1.4 var(--sans); margin-bottom:10px;' +
+      '}' +
+      '#gift-recipient-input:focus-visible, #gift-interests-input:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }' +
+      '.gift-actions { display:flex; gap:8px; margin-top:auto; padding-top:4px; }' +
+      '.gift-btn-primary, .gift-btn-secondary {' +
+      '  border-radius:6px; padding:9px 14px; font:600 13px/1 var(--sans); cursor:pointer;' +
+      '}' +
+      '.gift-btn-primary { border:1px solid var(--accent); background:var(--accent); color:#fff; }' +
+      '.gift-btn-primary:hover { filter:brightness(1.08); }' +
+      '.gift-btn-secondary { border:1px solid var(--line); background:var(--paper-2); color:var(--ink); }' +
+      '.gift-btn-secondary:hover { border-color:var(--accent); color:var(--accent); }' +
+      '.gift-btn-primary:focus-visible, .gift-btn-secondary:focus-visible { outline:2px solid var(--ink); outline-offset:1px; }' +
+      '.gift-note { font:13px/1.5 var(--sans); color:var(--ink-2); background:var(--accent-soft); border-radius:6px; padding:8px 10px; margin:0 0 10px; }' +
+      '.gift-note[hidden] { display:none; }' +
+      '.gift-results { display:flex; flex-direction:column; gap:8px; overflow-y:auto; flex:1; }' +
+      '.gift-card { align-items:flex-start; }' +
+      '.gift-why { font:12px/1.4 var(--sans); color:var(--ink-2); }' +
       '@media (max-width:480px) {' +
       '  :host { bottom:12px; right:12px; }' +
       '  :host(.position-left) { right:auto; left:12px; }' +
-      '  #panel {' +
+      '  #panel, #gift-panel {' +
       '    position:fixed; left:0; right:0; bottom:0; width:100%; max-width:100%;' +
       '    height:min(78vh, 560px); max-height:78vh; border-radius:14px 14px 0 0; border-bottom:none;' +
       '  }' +
+      '  #gift-toggle { bottom:64px; right:0; }' +
+      '  :host(.position-left) #gift-toggle { left:0; }' +
       '}';
     return style;
   }
@@ -391,6 +606,9 @@
     var COLOR = scriptEl.getAttribute('data-color') || 'auto';
     var POSITION = scriptEl.getAttribute('data-position') === 'left' ? 'left' : 'right';
     var ENDPOINT = (scriptEl.getAttribute('data-endpoint') || scriptOrigin(scriptEl)).replace(/\/$/, '');
+    // Absent (the default): no gift button, no gift markup, no gift network
+    // call, ever. Any value other than the exact "1" is treated as absent.
+    var GIFT_ENABLED = scriptEl.getAttribute('data-gift') === '1';
 
     if (!TENANT) {
       console.error('[arling-asistent] widget.js: missing required data-tenant attribute, widget not started.');
@@ -426,7 +644,7 @@
     document.body.appendChild(host);
 
     var root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = buildMarkup(t);
+    root.innerHTML = buildMarkup(t, GIFT_ENABLED);
     root.appendChild(buildStyle());
 
     var els = {
@@ -475,9 +693,270 @@
     }
 
     els.toggle.addEventListener('click', function () {
+      // giftEls/isGiftOpen below are declared with `var` inside the
+      // `if (GIFT_ENABLED)` block further down: `var` is hoisted to this
+      // whole function regardless of that block, so this reference is valid
+      // (and simply undefined/false, doing nothing here) even when the gift
+      // feature is not enabled at all.
+      if (GIFT_ENABLED && giftEls && !giftEls.panel.hidden) {
+        giftEls.panel.hidden = true;
+        giftEls.toggle.setAttribute('aria-expanded', 'false');
+        isGiftOpen = false;
+      }
       isOpen ? closePanel() : openPanel();
     });
     els.closeBtn.addEventListener('click', closePanel);
+
+    // -------------------------------------------------------------------
+    // Gift Finder (data-gift="1" only): three short steps (recipient,
+    // budget, interests), then up to 5 cards from POST /v1/gift. Every
+    // element referenced below only exists when GIFT_ENABLED is true (see
+    // buildGiftMarkup), so this whole block is a no-op, touching nothing,
+    // when the attribute is absent: no button, no markup, no request.
+    // -------------------------------------------------------------------
+
+    var giftEls, isGiftOpen = false;
+
+    if (GIFT_ENABLED) {
+      giftEls = {
+        toggle: root.getElementById('gift-toggle'),
+        panel: root.getElementById('gift-panel'),
+        closeBtn: root.getElementById('gift-close-btn'),
+        live: root.getElementById('gift-live'),
+        recipientChips: root.getElementById('gift-recipient-chips'),
+        recipientInput: root.getElementById('gift-recipient-input'),
+        recipientNext: root.getElementById('gift-recipient-next'),
+        budgetChips: root.getElementById('gift-budget-chips'),
+        budgetBack: root.getElementById('gift-budget-back'),
+        interestsInput: root.getElementById('gift-interests-input'),
+        interestsBack: root.getElementById('gift-interests-back'),
+        submitBtn: root.getElementById('gift-submit-btn'),
+        note: root.getElementById('gift-note'),
+        resultsList: root.getElementById('gift-results-list'),
+        showMoreBtn: root.getElementById('gift-show-more'),
+        askElseBtn: root.getElementById('gift-ask-else'),
+      };
+
+      var isGiftSending = false;
+      var giftRecipientValue = '';
+      var giftBudgetMin = null;
+      var giftBudgetMax = null;
+      var giftRemainingCandidates = [];
+
+      function buildGiftChips(container, labels, onPick) {
+        labels.forEach(function (label) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'gift-chip';
+          btn.textContent = label;
+          btn.addEventListener('click', function () { onPick(label); });
+          container.appendChild(btn);
+        });
+      }
+
+      buildGiftChips(giftEls.recipientChips, t.giftRecipients, function (label) {
+        giftRecipientValue = label;
+        giftEls.recipientInput.value = label;
+        showGiftStep('budget');
+      });
+
+      buildGiftChips(giftEls.budgetChips, t.giftBudgetLabels, function (label) {
+        var range = GIFT_BUDGET_RANGES[t.giftBudgetLabels.indexOf(label)];
+        giftBudgetMin = range.min;
+        giftBudgetMax = range.max;
+        showGiftStep('interests');
+      });
+
+      /** The first real interactive control of each step, for the focus-on-step-change below (a step's own heading paragraph is not focusable). */
+      function firstGiftFocusTarget(name) {
+        if (name === 'recipient') return giftEls.recipientInput;
+        if (name === 'budget') return (giftEls.budgetChips.children && giftEls.budgetChips.children[0]) || giftEls.budgetBack;
+        if (name === 'interests') return giftEls.interestsInput;
+        if (name === 'results') return giftEls.askElseBtn;
+        return null;
+      }
+
+      function showGiftStep(name) {
+        ['recipient', 'budget', 'interests', 'results'].forEach(function (key) {
+          var stepEl = root.getElementById('gift-step-' + key);
+          if (stepEl) stepEl.hidden = key !== name;
+        });
+        window.requestAnimationFrame(function () {
+          var focusTarget = firstGiftFocusTarget(name);
+          if (focusTarget && typeof focusTarget.focus === 'function') focusTarget.focus();
+        });
+      }
+
+      function resetGiftFlow() {
+        giftRecipientValue = '';
+        giftBudgetMin = null;
+        giftBudgetMax = null;
+        giftEls.recipientInput.value = '';
+        giftEls.interestsInput.value = '';
+        giftEls.note.hidden = true;
+        giftEls.resultsList.innerHTML = '';
+        giftEls.showMoreBtn.hidden = true;
+        giftRemainingCandidates = [];
+      }
+
+      function openGiftPanel() {
+        if (isOpen) closePanel();
+        isGiftOpen = true;
+        resetGiftFlow();
+        giftEls.panel.hidden = false;
+        giftEls.toggle.setAttribute('aria-expanded', 'true');
+        showGiftStep('recipient');
+        document.addEventListener('keydown', onGiftKeydown, true);
+        trackUmami('gift_open', {});
+      }
+
+      function closeGiftPanel() {
+        isGiftOpen = false;
+        giftEls.panel.hidden = true;
+        giftEls.toggle.setAttribute('aria-expanded', 'false');
+        giftEls.toggle.focus();
+        document.removeEventListener('keydown', onGiftKeydown, true);
+      }
+
+      function onGiftKeydown(evt) {
+        if (evt.key === 'Escape' && isGiftOpen) {
+          evt.stopPropagation();
+          closeGiftPanel();
+        }
+      }
+
+      giftEls.toggle.addEventListener('click', function () {
+        isGiftOpen ? closeGiftPanel() : openGiftPanel();
+      });
+      giftEls.closeBtn.addEventListener('click', closeGiftPanel);
+
+      giftEls.recipientNext.addEventListener('click', function () {
+        var val = giftEls.recipientInput.value.trim();
+        if (val) giftRecipientValue = val;
+        showGiftStep('budget');
+      });
+      giftEls.budgetBack.addEventListener('click', function () { showGiftStep('recipient'); });
+      giftEls.interestsBack.addEventListener('click', function () { showGiftStep('budget'); });
+
+      function appendGiftCard(list, item, withWhy) {
+        var card = document.createElement('a');
+        card.className = 'product-card gift-card';
+        card.setAttribute('role', 'listitem');
+        var productUrl = safeUrl(item.url);
+        card.href = productUrl || '#';
+        card.target = '_blank';
+        card.rel = 'noopener';
+        card.addEventListener('click', function () { trackUmami('gift_product_click', {}); });
+        var imageUrl = safeUrl(item.image);
+        var imgHtml = imageUrl ? '<img class="product-img" src="' + escapeHtml(imageUrl) + '" alt="" loading="lazy">' : '';
+        var priceText = formatPrice(item);
+        var whyHtml = withWhy && item.why ? '<span class="gift-why">' + escapeHtml(item.why) + '</span>' : '';
+        card.innerHTML =
+          imgHtml +
+          '<span class="product-body">' +
+          '<span class="product-title">' + escapeHtml(item.title || '') + '</span>' +
+          (priceText ? '<span class="product-price">' + escapeHtml(priceText) + '</span>' : '') +
+          whyHtml +
+          '</span>';
+        list.appendChild(card);
+      }
+
+      function showGiftNote(text) {
+        giftEls.note.hidden = false;
+        giftEls.note.textContent = text;
+      }
+
+      function showGiftThinking() {
+        showGiftStep('results');
+        giftEls.resultsList.innerHTML = '';
+        giftEls.showMoreBtn.hidden = true;
+        showGiftNote(t.giftThinking);
+      }
+
+      function renderGiftResults(data) {
+        var picks = Array.isArray(data.picks) ? data.picks : [];
+        var candidates = Array.isArray(data.candidates) ? data.candidates : [];
+        giftEls.resultsList.innerHTML = '';
+        var shownUrls = {};
+        picks.forEach(function (p) {
+          shownUrls[p.url] = true;
+          appendGiftCard(giftEls.resultsList, p, true);
+        });
+        giftRemainingCandidates = candidates.filter(function (c) { return !shownUrls[c.url]; });
+        giftEls.showMoreBtn.hidden = giftRemainingCandidates.length === 0;
+
+        if (picks.length === 0) {
+          showGiftNote(t.giftEmptyNote);
+        } else if (data.widened) {
+          showGiftNote(t.giftWidenedNote);
+        } else if (data.few) {
+          showGiftNote(t.giftFewNote);
+        } else {
+          giftEls.note.hidden = true;
+        }
+        giftEls.live.textContent = t.giftTitle + ': ' + picks.length;
+      }
+
+      giftEls.showMoreBtn.addEventListener('click', function () {
+        giftRemainingCandidates.forEach(function (c) { appendGiftCard(giftEls.resultsList, c, false); });
+        giftEls.showMoreBtn.hidden = true;
+      });
+
+      giftEls.askElseBtn.addEventListener('click', function () {
+        closeGiftPanel();
+        openPanel();
+      });
+
+      function doGiftSubmit() {
+        if (isGiftSending) return;
+        var interests = giftEls.interestsInput.value.trim();
+        isGiftSending = true;
+        giftEls.submitBtn.disabled = true;
+        showGiftThinking();
+        trackUmami('gift_submit', {});
+
+        fetch(ENDPOINT + '/v1/gift', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tenant: TENANT,
+            lang: API_LANG,
+            recipient: giftRecipientValue,
+            budget_min: giftBudgetMin,
+            budget_max: giftBudgetMax,
+            interests: interests,
+            session: SESSION_ID,
+          }),
+        }).then(function (res) {
+          if (res.status === 429) {
+            return res.json().catch(function () { return {}; }).then(function (body) {
+              var msg = body && body.error === 'quota_exceeded' ? t.quotaExceeded : t.rateLimited;
+              giftEls.resultsList.innerHTML = '';
+              giftEls.showMoreBtn.hidden = true;
+              showGiftNote(msg);
+            });
+          }
+          if (!res.ok) {
+            giftEls.resultsList.innerHTML = '';
+            giftEls.showMoreBtn.hidden = true;
+            showGiftNote(t.networkError);
+            return undefined;
+          }
+          return res.json().then(function (data) {
+            renderGiftResults(data || {});
+          });
+        }).catch(function () {
+          giftEls.resultsList.innerHTML = '';
+          giftEls.showMoreBtn.hidden = true;
+          showGiftNote(t.networkError);
+        }).then(function () {
+          isGiftSending = false;
+          giftEls.submitBtn.disabled = false;
+        });
+      }
+
+      giftEls.submitBtn.addEventListener('click', doGiftSubmit);
+    }
 
     // -------------------------------------------------------------------
     // Messages
