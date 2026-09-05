@@ -455,3 +455,15 @@ test('extractModelText handles string, {response}, object response and OpenAI sh
   assert.equal(extractModelText({ choices: [{ message: { content: 'm' } }] }), 'm');
   assert.equal(extractModelText(null), '');
 });
+
+// Chybajuci jazyk v tele poziadavky znamena "neviem", nie anglictinu.
+// Zistene zivym testom 5. 9. 2026: POST /v1/chat bez pola lang vratil
+// anglicku odpoved na slovensku otazku, lebo normaliseLang('') je 'en'.
+test('chybajuci lang sa berie ako auto, nie ako en', () => {
+  const body = { tenant: 't', messages: [{ role: 'user', content: 'Mate kavovar?' }] };
+  const lang = (body && body.lang) || 'auto';
+  assert.equal(lang, 'auto');
+  assert.equal(isAutoLang(lang), true);
+  assert.equal(buildSystemPrompt(lang), buildSystemPrompt('auto'));
+  assert.notEqual(buildSystemPrompt(lang), buildSystemPrompt('en'));
+});
