@@ -32,6 +32,16 @@ export default `/*
  *               server as-is so the assistant replies in whatever language
  *               the customer actually types in, message by message (see
  *               worker/src/chat.js).
+ * data-answer-lang optional, "auto" to make the assistant's replies follow
+ *               each customer's own message language (same server-side
+ *               detection as data-lang="auto") while data-lang still fixes
+ *               the widget's own chrome (buttons, placeholder, greeting,
+ *               title) to one language: for a shop whose page is itself
+ *               only ever in one language and wants its widget to match,
+ *               but still wants to serve a visitor who types in a different
+ *               language. Ignored when data-lang is already absent or
+ *               "auto" (the chrome then already implies auto-detected
+ *               answers too).
  * data-color    optional, "auto" (default, follows the visitor's OS
  *               light/dark setting), "light" or "dark" to force one.
  * data-position optional, "right" (default) or "left": which bottom corner
@@ -381,7 +391,11 @@ export default `/*
       '<div id="live" class="sr-only" aria-live="polite"></div>' +
       '<form id="form" class="composer">' +
       '<label class="sr-only" for="input">' + escapeHtml(strings.placeholder) + '</label>' +
-      '<input id="input" type="text" autocomplete="off" placeholder="' + escapeHtml(strings.placeholder) + '">' +
+      // A <textarea>, not an <input>, so Shift+Enter can insert a real
+      // newline (see the keydown listener in boot()); rows="1" plus the
+      // fixed height in buildStyle() keep it looking like the single-line
+      // box it replaces until the visitor actually adds a line break.
+      '<textarea id="input" autocomplete="off" rows="1" placeholder="' + escapeHtml(strings.placeholder) + '"></textarea>' +
       '<button id="send-btn" type="submit">' + escapeHtml(strings.send) + '</button>' +
       '</form>' +
       '<div class="footer"><a href="' + POWERED_BY_URL + '" target="_blank" rel="noopener">' + escapeHtml(strings.poweredBy) + '</a></div>' +
@@ -514,6 +528,7 @@ export default `/*
       '#input {' +
       '  flex:1; min-width:0; padding:9px 10px; border:1px solid var(--line); border-radius:6px;' +
       '  background:var(--paper); color:var(--ink); font:14px/1.4 var(--sans);' +
+      '  resize:none; max-height:88px; overflow-y:auto;' +
       '}' +
       '#input:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }' +
       '#send-btn {' +
@@ -605,14 +620,27 @@ export default `/*
 
     var TENANT = scriptEl.getAttribute('data-tenant');
     var LANG_ATTR = scriptEl.getAttribute('data-lang');
-    // An absent attribute, or an explicit "auto", both mean: let the server
-    // detect the reply language per message (API_LANG, sent as-is with every
-    // /v1/chat request, see chat.js isAutoLang/detectLangFromText), while the
-    // widget's own chrome (LANG, below) still needs one concrete language to
-    // render buttons/placeholder/greeting in right now.
-    var IS_AUTO_LANG = !LANG_ATTR || String(LANG_ATTR).trim().toLowerCase() === 'auto';
-    var API_LANG = IS_AUTO_LANG ? 'auto' : normaliseLang(LANG_ATTR);
-    var LANG = IS_AUTO_LANG ? resolveAutoLang() : API_LANG;
+    var ANSWER_LANG_ATTR = scriptEl.getAttribute('data-answer-lang');
+    // An absent data-lang, or an explicit "auto", means the widget's own
+    // chrome (LANG, below: buttons/placeholder/greeting/title) follows the
+    // visitor's browser language; a fixed code (e.g. "sk") keeps it constant
+    // for every visitor instead, e.g. a shop whose page around the widget is
+    // itself only ever in one language.
+    var LANG_IS_AUTO = !LANG_ATTR || String(LANG_ATTR).trim().toLowerCase() === 'auto';
+    // API_LANG is sent as "lang" with every /v1/chat and /v1/gift request and
+    // controls only which language the ASSISTANT REPLIES in (see chat.js
+    // isAutoLang/detectLangFromText): "auto" lets the server detect it from
+    // each message instead of a single fixed language. It follows
+    // LANG_IS_AUTO by default (data-lang="auto" or absent auto-detects both
+    // the chrome and the answers together, as before data-answer-lang
+    // existed), but data-answer-lang="auto" turns on answer auto-detection
+    // on its own, independently of a fixed data-lang: a shop can keep its
+    // chrome in one constant language (its own branding, e.g. a Slovak demo
+    // storefront) while the assistant itself still answers a visitor in
+    // whatever language they actually type, message by message.
+    var API_LANG_IS_AUTO = LANG_IS_AUTO || String(ANSWER_LANG_ATTR || '').trim().toLowerCase() === 'auto';
+    var API_LANG = API_LANG_IS_AUTO ? 'auto' : normaliseLang(LANG_ATTR);
+    var LANG = LANG_IS_AUTO ? resolveAutoLang() : normaliseLang(LANG_ATTR);
     var COLOR = scriptEl.getAttribute('data-color') || 'auto';
     var POSITION = scriptEl.getAttribute('data-position') === 'left' ? 'left' : 'right';
     var ENDPOINT = (scriptEl.getAttribute('data-endpoint') || scriptOrigin(scriptEl)).replace(/\\/$/, '');
@@ -1030,10 +1058,29 @@ export default `/*
       if (row) row.remove();
     }
 
+    // input.readOnly (not input.disabled) while a reply is pending: a
+    // disabled form control cannot hold focus, so disabling it here used to
+    // blur the input the moment the visitor sent a message, forcing them to
+    // click back into it for every follow-up question. readOnly still blocks
+    // typing during the request but never takes focus away. #send-btn has no
+    // such requirement (it is never the element we want focus to return to)
+    // and stays disabled, which also prevents a second send while one is in
+    // flight.
     function setSending(sending) {
       isSending = sending;
-      els.input.disabled = sending;
+      els.input.readOnly = sending;
       els.sendBtn.disabled = sending;
+      if (!sending) {
+        // Re-focus once the input is interactive again: covers both the
+        // reply having arrived (the visitor's next message goes straight
+        // back into the box) and the send having been triggered by clicking
+        // #send-btn, which takes focus itself on click before this ever
+        // runs. requestAnimationFrame mirrors openPanel()'s own focus call,
+        // giving the readOnly change a frame to apply first.
+        window.requestAnimationFrame(function () {
+          els.input.focus();
+        });
+      }
     }
 
     // -------------------------------------------------------------------
@@ -1078,13 +1125,34 @@ export default `/*
       }
     }
 
-    els.form.addEventListener('submit', function (evt) {
-      evt.preventDefault();
+    /** Shared by the form's "submit" handler (a click on #send-btn) and the Enter-key handler below. */
+    function trySend() {
       if (isSending) return;
       var text = els.input.value.trim();
       if (!text) return;
       els.input.value = '';
       sendMessage(text);
+      // Clicking #send-btn moves focus onto that button before this handler
+      // ever runs; Enter (handled below) never took focus off #input in the
+      // first place. Either way, focus belongs back in the input right away
+      // so the visitor can keep typing without clicking back into it.
+      els.input.focus();
+    }
+
+    els.form.addEventListener('submit', function (evt) {
+      evt.preventDefault();
+      trySend();
+    });
+
+    // #input is a <textarea> (see buildMarkup) so a customer can write a
+    // multi-line question: Enter sends the message, matching every other
+    // chat box's convention, and Shift+Enter inserts a real newline instead
+    // (the default browser behaviour for a textarea, left untouched here).
+    els.input.addEventListener('keydown', function (evt) {
+      if (evt.key === 'Enter' && !evt.shiftKey) {
+        evt.preventDefault();
+        trySend();
+      }
     });
 
     // -------------------------------------------------------------------

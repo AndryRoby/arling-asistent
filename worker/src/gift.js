@@ -42,9 +42,16 @@ import {
   ModelOutputError,
   capWords,
   retrieveCandidates,
+  topCategoryNames,
 } from './chat.js';
 import { checkAndRecordConversation } from './tenants.js';
 import { maybeNotifyQuota } from './notify.js';
+
+// Re-exported so existing callers (and tests) that import topCategoryNames
+// from gift.js keep working: the function itself now lives in chat.js,
+// shared with the shop_facts.shop_categories fact built for chat's own
+// meta-question handling (see chat.js buildUserPrompt/runChat).
+export { topCategoryNames };
 
 // How many candidates to pull from Vectorize for one gift search (wider than
 // chat.js's TOP_K=8: the model needs enough choice left after the code-side
@@ -139,19 +146,10 @@ export function composeGiftQuery({ recipient, interests, categories } = {}) {
   return parts.join(', ') || 'darcek gift geschenk darek';
 }
 
-/** Most common non-empty category name among a sample of candidates, most frequent first. */
-export function topCategoryNames(candidates, limit = GIFT_CATEGORY_SAMPLE_LIMIT) {
-  const counts = new Map();
-  for (const c of candidates || []) {
-    const name = String((c && c.category) || '').trim();
-    if (!name) continue;
-    counts.set(name, (counts.get(name) || 0) + 1);
-  }
-  return Array.from(counts.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, limit)
-    .map(([name]) => name);
-}
+// topCategoryNames (most common non-empty category name among a sample of
+// candidates, most frequent first) now lives in chat.js and is re-exported
+// above, so both chat.js's shop_facts and this file's gift-query enrichment
+// share one implementation.
 
 // ---------------------------------------------------------------------------
 // Budget + availability filtering

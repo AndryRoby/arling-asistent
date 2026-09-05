@@ -42,7 +42,12 @@ function makeElement(tag) {
     addEventListener(type, handler) { (el._listeners[type] = el._listeners[type] || []).push(handler); },
     removeEventListener() {},
     remove() {},
-    focus() {},
+    // Not a real focus manager (no notion of a single document.activeElement
+    // or blur-on-disable, which is exactly the browser behaviour the focus
+    // regression tests below cannot reproduce here): just a call counter, so
+    // a test can assert that the widget code attempted to focus a given
+    // element without needing a real DOM.
+    focus() { el._focusCalls = (el._focusCalls || 0) + 1; },
     get textContent() { return el._text; },
     set textContent(v) { el._text = v; },
     get className() { return el._className; },
@@ -97,7 +102,11 @@ function makeFakeWindowAndDocument({ dataTenant = 'tenant-123', dataLang = 'sk',
 
   const windowStub = {
     location: { href: 'https://shop.example/' },
-    requestAnimationFrame() {},
+    // Run synchronously (a real browser defers to the next frame): nothing
+    // in this file depends on that deferral, and running inline lets tests
+    // observe the focus() calls boot() schedules through it (openPanel,
+    // showGiftStep, setSending) without an extra microtask/rAF shim.
+    requestAnimationFrame(fn) { fn(); },
   };
   if (navigatorLanguage != null) windowStub.navigator = { language: navigatorLanguage };
   if (sessionStorage) windowStub.sessionStorage = sessionStorage;
@@ -402,6 +411,164 @@ test('widget.js ArlingAsistent.ask() is ignored while a reply is still pending',
   resolveFetch({ status: 200, ok: true, json: async () => ({ answer: 'ok', products: [] }) });
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(api.ask('tretia otázka'), true, 'after the reply arrived ask() works again');
+});
+
+// ---------------------------------------------------------------------------
+// Focus and keyboard: Enter sends, Shift+Enter inserts a newline, and focus
+// stays in #input across a send instead of forcing the visitor to click
+// back into it (see widget/widget.js setSending()/trySend()). Previously
+// #input was disabled while sending, and a disabled form control cannot
+// hold focus in a real browser: this fake DOM has no such side effect, so
+// these tests check what boot() itself does (readOnly vs. disabled, and
+// how many times it calls .focus()) rather than a real blur.
+// ---------------------------------------------------------------------------
+
+test('widget.js makes #input read-only (never disabled) while a reply is pending, and plain again once it resolves', async () => {
+  let resolveFetch;
+  const fetchImpl = () => new Promise((resolve) => { resolveFetch = resolve; });
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument();
+  runWidget(documentStub, windowStub, fetchImpl);
+  const root = body.children[0].shadowRoot;
+  const input = root.getElementById('input');
+
+  input.value = 'Aky kavovar do 100 eur?';
+  root.getElementById('form')._listeners.submit[0]({ preventDefault() {} });
+
+  assert.equal(input.readOnly, true, 'input must be read-only while a reply is pending');
+  assert.notEqual(input.disabled, true, 'input must never be disabled: that blurs it in a real browser');
+  assert.equal(root.getElementById('send-btn').disabled, true);
+
+  resolveFetch({ status: 200, ok: true, json: async () => ({ answer: 'ok', products: [] }) });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(input.readOnly, false);
+  assert.equal(root.getElementById('send-btn').disabled, false);
+});
+
+test('widget.js (re)focuses #input right when a send starts and again once the reply has rendered', async () => {
+  let resolveFetch;
+  const fetchImpl = () => new Promise((resolve) => { resolveFetch = resolve; });
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument();
+  runWidget(documentStub, windowStub, fetchImpl);
+  const root = body.children[0].shadowRoot;
+  const input = root.getElementById('input');
+
+  input.value = 'Aky kavovar do 100 eur?';
+  const beforeSend = input._focusCalls || 0;
+  root.getElementById('form')._listeners.submit[0]({ preventDefault() {} }); // as if #send-btn had just taken focus on click
+  assert.ok((input._focusCalls || 0) > beforeSend, 'sending must claim focus back for the input, e.g. after a Send-button click');
+
+  const afterSend = input._focusCalls;
+  resolveFetch({ status: 200, ok: true, json: async () => ({ answer: 'ok', products: [] }) });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.ok(input._focusCalls > afterSend, 'the input must be focused again once it is interactive, so the next question needs no extra click');
+});
+
+test('widget.js Enter sends the message; Shift+Enter is left alone so the textarea inserts its own newline', async () => {
+  const sentBodies = [];
+  const fetchImpl = async (url, opts) => {
+    sentBodies.push(JSON.parse(opts.body));
+    return { status: 200, ok: true, json: async () => ({ answer: 'ok', products: [] }) };
+  };
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument();
+  runWidget(documentStub, windowStub, fetchImpl);
+  const root = body.children[0].shadowRoot;
+  const input = root.getElementById('input');
+
+  input.value = 'Prvy riadok';
+  let prevented = false;
+  input._listeners.keydown[0]({ key: 'Enter', shiftKey: true, preventDefault() { prevented = true; } });
+  assert.equal(prevented, false, 'Shift+Enter must not be intercepted: the browser inserts the newline itself');
+  assert.equal(sentBodies.length, 0);
+  assert.equal(input.value, 'Prvy riadok'); // untouched by a Shift+Enter
+
+  input._listeners.keydown[0]({ key: 'Enter', shiftKey: false, preventDefault() { prevented = true; } });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(prevented, true, 'a plain Enter must be intercepted so the textarea does not also add a newline');
+  assert.equal(sentBodies.length, 1);
+  assert.equal(sentBodies[0].messages[0].content, 'Prvy riadok');
+  assert.equal(input.value, ''); // cleared exactly like a Send-button submit
+});
+
+test('widget.js Enter is ignored while a reply is already pending, same guard as the Send button', async () => {
+  let resolveFetch;
+  const fetchImpl = () => new Promise((resolve) => { resolveFetch = resolve; });
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument();
+  runWidget(documentStub, windowStub, fetchImpl);
+  const root = body.children[0].shadowRoot;
+  const input = root.getElementById('input');
+
+  input.value = 'Prva otazka';
+  root.getElementById('form')._listeners.submit[0]({ preventDefault() {} });
+
+  input.value = 'Druha otazka';
+  input._listeners.keydown[0]({ key: 'Enter', shiftKey: false, preventDefault() {} });
+  assert.equal(input.value, 'Druha otazka', 'a second message must not be sent (or cleared) while the first is still pending');
+
+  resolveFetch({ status: 200, ok: true, json: async () => ({ answer: 'ok', products: [] }) });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+});
+
+// ---------------------------------------------------------------------------
+// data-answer-lang: lets the assistant auto-detect the reply language while
+// data-lang keeps the widget's own chrome fixed (e.g. a single-language shop
+// that still wants to serve a visitor typing in a different language).
+// ---------------------------------------------------------------------------
+
+test('widget.js data-answer-lang="auto" sends lang: "auto" to the server while the chrome stays on the fixed data-lang', async () => {
+  let sentBody = null;
+  const fetchImpl = async (url, opts) => {
+    sentBody = JSON.parse(opts.body);
+    return { status: 200, ok: true, json: async () => ({ answer: 'ok', products: [] }) };
+  };
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument({
+    dataLang: 'sk',
+    navigatorLanguage: 'en-US', // proves the chrome is not merely "coincidentally" Slovak
+    extraAttrs: { 'data-answer-lang': 'auto' },
+  });
+  runWidget(documentStub, windowStub, fetchImpl);
+  const root = body.children[0].shadowRoot;
+
+  assert.match(root.innerHTML, /Napíšte otázku/); // sk placeholder: chrome follows the fixed data-lang, not the browser
+
+  root.getElementById('input').value = 'hello';
+  root.getElementById('form')._listeners.submit[0]({ preventDefault() {} });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(sentBody.lang, 'auto');
+});
+
+test('widget.js without data-answer-lang, a fixed data-lang still sends that same fixed lang to the server (unchanged behaviour)', async () => {
+  let sentBody = null;
+  const fetchImpl = async (url, opts) => {
+    sentBody = JSON.parse(opts.body);
+    return { status: 200, ok: true, json: async () => ({ answer: 'ok', products: [] }) };
+  };
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument({ dataLang: 'sk' });
+  runWidget(documentStub, windowStub, fetchImpl);
+  const root = body.children[0].shadowRoot;
+  root.getElementById('input').value = 'hello';
+  root.getElementById('form')._listeners.submit[0]({ preventDefault() {} });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(sentBody.lang, 'sk');
+});
+
+test('widget.js data-answer-lang is a no-op when data-lang is already absent or "auto" (chrome already implies auto-detected answers)', async () => {
+  let sentBody = null;
+  const fetchImpl = async (url, opts) => {
+    sentBody = JSON.parse(opts.body);
+    return { status: 200, ok: true, json: async () => ({ answer: 'ok', products: [] }) };
+  };
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument({
+    dataLang: null,
+    extraAttrs: { 'data-answer-lang': 'sk' }, // a nonsensical combination that must not break anything
+  });
+  runWidget(documentStub, windowStub, fetchImpl);
+  const root = body.children[0].shadowRoot;
+  root.getElementById('input').value = 'hello';
+  root.getElementById('form')._listeners.submit[0]({ preventDefault() {} });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(sentBody.lang, 'auto');
 });
 
 test('widget.js stylesheet keeps the panel closed while its hidden attribute is set (author display:flex must not beat [hidden])', () => {
