@@ -110,6 +110,77 @@
   var statusEl = document.getElementById('trial-status');
   var widgetMount = document.getElementById('trial-widget-note');
 
+  // ── "Your embed code" block ──────────────────────────────────────────
+  // Shown once the trial tenant is ready (see poll() below): the tenant id
+  // (for reference / support) and the real <script> snippet a visitor
+  // pastes into their own theme, each with its own Copy button. The
+  // widget.js origin here is always the production one, independent of the
+  // ?endpoint= override used to test this demo page itself against
+  // `wrangler dev` (see the file header comment).
+  var WIDGET_SCRIPT_ORIGIN = 'https://arling-asistent.arling.workers.dev';
+  var embedBlock = document.getElementById('trial-embed');
+  var embedIdInput = document.getElementById('trial-embed-id');
+  var embedSnippetPre = document.getElementById('trial-embed-snippet');
+  var embedCopyIdBtn = document.getElementById('trial-embed-copy-id');
+  var embedCopySnippetBtn = document.getElementById('trial-embed-copy-snippet');
+
+  function embedSnippetFor(tenantId) {
+    return '<script src="' + WIDGET_SCRIPT_ORIGIN + '/widget.js" data-tenant="' + tenantId + '" data-lang="auto" defer></script>';
+  }
+
+  function showEmbedCode(tenantId) {
+    if (!embedBlock) return;
+    if (embedIdInput) embedIdInput.value = tenantId;
+    if (embedSnippetPre) embedSnippetPre.textContent = embedSnippetFor(tenantId);
+    embedBlock.hidden = false;
+  }
+
+  function copyLabel() {
+    return (window.ASISTENT_I18N && typeof window.ASISTENT_I18N.t === 'function') ? window.ASISTENT_I18N.t('s3.embed.copy') : 'Kopírovať';
+  }
+
+  function copiedLabel() {
+    return (window.ASISTENT_I18N && typeof window.ASISTENT_I18N.t === 'function') ? window.ASISTENT_I18N.t('s3.embed.copied') : 'Skopírované';
+  }
+
+  /** Copies `text` to the clipboard and flashes the triggering button's label to "Copied" for 1.5s. */
+  function copyToClipboard(text, btn) {
+    function flash(ok) {
+      if (!btn) return;
+      btn.textContent = ok ? copiedLabel() : copyLabel();
+      setTimeout(function () { btn.textContent = copyLabel(); }, 1500);
+    }
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      navigator.clipboard.writeText(text).then(function () { flash(true); }, function () { flash(false); });
+      return;
+    }
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      flash(true);
+    } catch (e) {
+      flash(false);
+    }
+  }
+
+  if (embedCopyIdBtn) {
+    embedCopyIdBtn.addEventListener('click', function () {
+      copyToClipboard(embedIdInput ? embedIdInput.value : '', embedCopyIdBtn);
+    });
+  }
+  if (embedCopySnippetBtn) {
+    embedCopySnippetBtn.addEventListener('click', function () {
+      copyToClipboard(embedSnippetPre ? embedSnippetPre.textContent : '', embedCopySnippetBtn);
+    });
+  }
+
   function setStatus(text, tone) {
     statusEl.textContent = text;
     statusEl.className = 'trial-status' + (tone ? ' trial-status-' + tone : '');
@@ -160,6 +231,7 @@
           setStatus('Hotovo. Otvorte chat vpravo dole a opýtajte sa niečo o vašich produktoch.', 'ok');
           track('trial_ready', { lang: lang });
           injectWidget(tenantId, lang);
+          showEmbedCode(tenantId);
         } else if (data.status === 'error') {
           setStatus('Feed sa nepodarilo spracovať. Skontrolujte URL feedu, alebo napíšte na andrej@arling.sk.', 'error');
           track('trial_error', { lang: lang });

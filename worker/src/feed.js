@@ -304,9 +304,108 @@ export function parseFeed(rawText, feedUrl, options = {}) {
   return { type, products, truncated };
 }
 
+const FEED_FETCH_HEADERS = { 'user-agent': 'ARLingAsistentBot/1.0 (+https://arling.sk/asistent/)' };
+
+// ---------------------------------------------------------------------------
+// Pagination for feed formats that page their JSON instead of returning the
+// whole catalogue in one response.
+//
+// Shopify's public /products.json defaults to 30 products per page, so a
+// single unpaginated fetch silently truncates any shop with more than 30
+// products. WooCommerce's public Store API (/wp-json/wc/store/v1/products)
+// defaults to 10 per page. Both are paged with page=1,2,... until a page
+// comes back short (fewer items than the requested page size) or the
+// MAX_PRODUCTS cap is reached; a non-200 response stops the loop instead of
+// failing outright, so a transient error on a later page still returns
+// whatever was already fetched. maxPages below is a hard safety valve so a
+// misbehaving server that always returns a full page can never loop forever.
+// ---------------------------------------------------------------------------
+
+export const SHOPIFY_PRODUCTS_JSON_PAGE_SIZE = 250;
+export const WOOCOMMERCE_STORE_API_PAGE_SIZE = 100;
+
+/** True when the feed URL's path is Shopify's public /products.json endpoint, regardless of query string. */
+export function isShopifyProductsJsonUrl(feedUrl) {
+  try {
+    return /\/products\.json$/i.test(new URL(feedUrl).pathname);
+  } catch (e) {
+    return false;
+  }
+}
+
+/** True when the feed URL's path is WooCommerce's public Store API products list. */
+export function isWooCommerceStoreApiUrl(feedUrl) {
+  try {
+    return /\/wp-json\/wc\/store\/v1\/products\/?$/i.test(new URL(feedUrl).pathname);
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Fetches page=1,2,... of a paged JSON list endpoint, keeping any query
+ * params already on `feedUrl` and only setting/overriding the page-size
+ * param and `page`. Stops when a page returns fewer than `pageSize` items,
+ * MAX_PRODUCTS is reached, a non-first page is not ok, or `maxPages` is hit.
+ * Throws (like a plain single-page fetch would) if the first page fails.
+ */
+async function fetchPaginatedJsonList(feedUrl, fetchImpl, { sizeParam, pageSize, extractItems }) {
+  const items = [];
+  const maxPages = Math.ceil(MAX_PRODUCTS / pageSize) + 1; // safety valve: never loop forever
+  for (let page = 1; page <= maxPages; page++) {
+    const pageUrl = new URL(feedUrl);
+    pageUrl.searchParams.set(sizeParam, String(pageSize));
+    pageUrl.searchParams.set('page', String(page));
+
+    const res = await fetchImpl(pageUrl.toString(), { headers: FEED_FETCH_HEADERS });
+    if (!res.ok) {
+      if (page === 1) throw new Error(`feed_fetch_failed_${res.status}`);
+      break; // stop on non-200: keep whatever was already fetched
+    }
+
+    let pageItems;
+    try {
+      pageItems = extractItems(JSON.parse(await res.text()));
+    } catch (e) {
+      if (page === 1) throw e;
+      break;
+    }
+
+    items.push(...pageItems);
+    if (pageItems.length < pageSize) break; // short page: this was the last one
+    if (items.length >= MAX_PRODUCTS) break; // cap reached
+  }
+  return items;
+}
+
+function fetchShopifyProductsPaginated(feedUrl, fetchImpl) {
+  return fetchPaginatedJsonList(feedUrl, fetchImpl, {
+    sizeParam: 'limit',
+    pageSize: SHOPIFY_PRODUCTS_JSON_PAGE_SIZE,
+    extractItems: (parsed) => (parsed && Array.isArray(parsed.products) ? parsed.products : []),
+  });
+}
+
+function fetchWooCommerceStoreApiPaginated(feedUrl, fetchImpl) {
+  return fetchPaginatedJsonList(feedUrl, fetchImpl, {
+    sizeParam: 'per_page',
+    pageSize: WOOCOMMERCE_STORE_API_PAGE_SIZE,
+    extractItems: (parsed) => (Array.isArray(parsed) ? parsed : []),
+  });
+}
+
 /** Fetch a feed URL and parse it. `fetchImpl` is injectable for tests. */
 export async function fetchFeed(feedUrl, { fetchImpl = fetch, ...options } = {}) {
-  const res = await fetchImpl(feedUrl, { headers: { 'user-agent': 'ARLingAsistentBot/1.0 (+https://arling.sk/asistent/)' } });
+  if (isShopifyProductsJsonUrl(feedUrl)) {
+    const products = await fetchShopifyProductsPaginated(feedUrl, fetchImpl);
+    return parseFeed(JSON.stringify({ products }), feedUrl, options);
+  }
+  if (isWooCommerceStoreApiUrl(feedUrl)) {
+    const products = await fetchWooCommerceStoreApiPaginated(feedUrl, fetchImpl);
+    return parseFeed(JSON.stringify(products), feedUrl, options);
+  }
+
+  const res = await fetchImpl(feedUrl, { headers: FEED_FETCH_HEADERS });
   if (!res.ok) {
     throw new Error(`feed_fetch_failed_${res.status}`);
   }

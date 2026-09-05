@@ -189,6 +189,18 @@
   .trial-status-error { color:var(--accent); border-color:var(--accent); }
   .trial-widget-note { margin-top:14px; padding:10px 14px; background:var(--accent-soft); border:1px solid var(--accent); border-radius:4px; font-size:13.5px; color:var(--ink); }
 
+  .embed-block { margin-top:14px; padding:16px; border:1px solid var(--line); background:var(--paper); border-radius:4px; }
+  .embed-block-title { margin:0 0 12px; font:600 14px/1.3 var(--sans); }
+  .embed-field { margin:0 0 14px; }
+  .embed-field:last-of-type { margin-bottom:0; }
+  .embed-field label, .embed-field-label { display:block; font-size:12px; color:var(--muted); margin:0 0 5px; }
+  .embed-row { display:flex; gap:8px; }
+  .embed-row input { flex:1 1 auto; min-width:0; background:var(--paper-2); color:var(--ink); border:1px solid var(--line); border-radius:4px; padding:9px 10px; font:13px/1.3 var(--mono); }
+  .embed-snippet { margin:0 0 8px; padding:10px 12px; background:var(--paper-2); border:1px solid var(--line); border-radius:4px; font:12.5px/1.5 var(--mono); overflow-x:auto; white-space:pre-wrap; word-break:break-all; }
+  .embed-copy { flex:none; padding:9px 12px; font-size:13px; }
+  .embed-note { margin:10px 0 0; font-size:12.5px; color:var(--muted); }
+  @media (max-width:480px) { .embed-row { flex-wrap:wrap; } .embed-row input { flex-basis:100%; } }
+
   .pricing-table { width:100%; border-collapse:collapse; }
   .pricing-table th, .pricing-table td { text-align:left; padding:14px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
   .pricing-table th { font:600 12px/1 var(--sans); text-transform:uppercase; letter-spacing:.03em; color:var(--muted); }
@@ -410,6 +422,22 @@
         <p class="trial-hint" data-i18n="s3.hint">Feed sa použije len na vytvorenie skúšobného asistenta pre túto ukážku. Samotný rozhovor v chate sa nikde neukladá. Zadarmo do 100 rozhovorov mesačne, žiadna platobná karta.</p>
         <p class="trial-status" id="trial-status" role="status" hidden></p>
         <p class="trial-widget-note" id="trial-widget-note" hidden data-i18n="s3.widgetNote">Asistent je pripravený. Hľadajte okrúhle tlačidlo vpravo dole na tejto stránke.</p>
+        <div class="embed-block" id="trial-embed" hidden>
+          <p class="embed-block-title" data-i18n="s3.embed.title">Váš embed kód</p>
+          <div class="embed-field">
+            <label for="trial-embed-id" data-i18n="s3.embed.idLabel">ID skúšobného účtu</label>
+            <div class="embed-row">
+              <input type="text" id="trial-embed-id" readonly>
+              <button type="button" class="btn btn-line embed-copy" id="trial-embed-copy-id" data-i18n="s3.embed.copy">Kopírovať</button>
+            </div>
+          </div>
+          <div class="embed-field">
+            <p class="embed-field-label" data-i18n="s3.embed.snippetLabel">Kód na vloženie do stránky</p>
+            <pre class="embed-snippet" id="trial-embed-snippet"></pre>
+            <button type="button" class="btn btn-line embed-copy" id="trial-embed-copy-snippet" data-i18n="s3.embed.copy">Kopírovať</button>
+          </div>
+          <p class="embed-note" data-i18n="s3.embed.note">Vložte pred &lt;/body&gt; vo vašej šablóne, alebo použite WooCommerce plugin.</p>
+        </div>
       </div>
     </div>
   </section>

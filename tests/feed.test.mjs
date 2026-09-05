@@ -24,6 +24,10 @@ import {
   stripCdata,
   truncate,
   fetchFeed,
+  isShopifyProductsJsonUrl,
+  isWooCommerceStoreApiUrl,
+  SHOPIFY_PRODUCTS_JSON_PAGE_SIZE,
+  WOOCOMMERCE_STORE_API_PAGE_SIZE,
 } from '../worker/src/feed.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -173,4 +177,132 @@ test('fetchFeed downloads and parses using an injected fetch implementation', as
 test('fetchFeed throws a descriptive error on a non-OK response', async () => {
   const fakeFetch = async () => ({ ok: false, status: 404, text: async () => '' });
   await assert.rejects(() => fetchFeed('https://x/missing.xml', { fetchImpl: fakeFetch }), /feed_fetch_failed_404/);
+});
+
+// ---------------------------------------------------------------------------
+// Shopify /products.json and WooCommerce Store API pagination.
+//
+// Both endpoints default to a small page (Shopify: 30, WooCommerce Store
+// API: 10), so fetchFeed must ask for a full page (limit=250 / per_page=100)
+// and keep requesting page=2,3,... until a short page or the MAX_PRODUCTS
+// cap ends the loop, instead of silently returning only page 1.
+// ---------------------------------------------------------------------------
+
+function shopifyProduct(i) {
+  return { id: 1000 + i, title: `Shopify Product ${i}`, handle: `product-${i}`, variants: [{ price: '9.99', available: true }] };
+}
+
+function wooProduct(i) {
+  return { id: 2000 + i, name: `Woo Product ${i}`, permalink: `https://shop.example/product-${i}`, prices: { price: '999', currency_code: 'EUR', currency_minor_unit: 2 }, stock_status: 'instock' };
+}
+
+/** Builds a fake fetchImpl over paged JSON responses, keyed by page count, and records every requested URL. */
+function makePagedFetch(pagesOfItems, wrap) {
+  const calls = [];
+  const fetchImpl = async (url) => {
+    calls.push(url);
+    const u = new URL(url);
+    const page = Number(u.searchParams.get('page') || '1');
+    const items = pagesOfItems[page - 1];
+    if (items === undefined) return { ok: true, status: 200, text: async () => JSON.stringify(wrap([])) };
+    return { ok: true, status: 200, text: async () => JSON.stringify(wrap(items)) };
+  };
+  return { fetchImpl, calls };
+}
+
+test('isShopifyProductsJsonUrl / isWooCommerceStoreApiUrl detect the paginated endpoints by path only', () => {
+  assert.equal(isShopifyProductsJsonUrl('https://shop.example.com/products.json'), true);
+  assert.equal(isShopifyProductsJsonUrl('https://shop.example.com/products.json?collection_id=55'), true);
+  assert.equal(isShopifyProductsJsonUrl('https://shop.example.com/collections/all/products.json'), true);
+  assert.equal(isShopifyProductsJsonUrl('https://shop.example.com/feed.xml'), false);
+  assert.equal(isWooCommerceStoreApiUrl('https://eshop.example.sk/wp-json/wc/store/v1/products'), true);
+  assert.equal(isWooCommerceStoreApiUrl('https://eshop.example.sk/wp-json/wc/store/v1/products/'), true);
+  assert.equal(isWooCommerceStoreApiUrl('https://eshop.example.sk/wp-json/wc/store/v1/products/123'), false);
+  assert.equal(isWooCommerceStoreApiUrl('https://eshop.example.sk/feed.xml'), false);
+});
+
+test('fetchFeed paginates Shopify /products.json with limit=250 until a short page (250, 250, 40)', async () => {
+  const page1 = Array.from({ length: 250 }, (_, i) => shopifyProduct(i));
+  const page2 = Array.from({ length: 250 }, (_, i) => shopifyProduct(250 + i));
+  const page3 = Array.from({ length: 40 }, (_, i) => shopifyProduct(500 + i));
+  const { fetchImpl, calls } = makePagedFetch([page1, page2, page3], (items) => ({ products: items }));
+
+  const result = await fetchFeed('https://shop.example.com/products.json', { fetchImpl });
+
+  assert.equal(result.type, FEED_TYPES.SHOPIFY);
+  assert.equal(result.products.length, 540); // 250 + 250 + 40
+  assert.equal(result.truncated, false);
+  assert.equal(calls.length, 3); // stopped after the short (40-item) page, did not request a 4th
+  calls.forEach((url, idx) => {
+    const u = new URL(url);
+    assert.equal(u.searchParams.get('limit'), String(SHOPIFY_PRODUCTS_JSON_PAGE_SIZE));
+    assert.equal(u.searchParams.get('page'), String(idx + 1));
+  });
+});
+
+test('fetchFeed paginates WooCommerce Store API with per_page=100 until a short page (100, 100, 7)', async () => {
+  const page1 = Array.from({ length: 100 }, (_, i) => wooProduct(i));
+  const page2 = Array.from({ length: 100 }, (_, i) => wooProduct(100 + i));
+  const page3 = Array.from({ length: 7 }, (_, i) => wooProduct(200 + i));
+  const { fetchImpl, calls } = makePagedFetch([page1, page2, page3], (items) => items);
+
+  const result = await fetchFeed('https://eshop.example.sk/wp-json/wc/store/v1/products', { fetchImpl });
+
+  assert.equal(result.type, FEED_TYPES.WOOCOMMERCE);
+  assert.equal(result.products.length, 207); // 100 + 100 + 7
+  assert.equal(result.truncated, false);
+  assert.equal(calls.length, 3); // stopped after the short (7-item) page
+  calls.forEach((url, idx) => {
+    const u = new URL(url);
+    assert.equal(u.searchParams.get('per_page'), String(WOOCOMMERCE_STORE_API_PAGE_SIZE));
+    assert.equal(u.searchParams.get('page'), String(idx + 1));
+  });
+});
+
+test('fetchFeed pagination respects existing query params on the feed URL', async () => {
+  const page1 = Array.from({ length: 10 }, (_, i) => shopifyProduct(i)); // short first page: stops immediately
+  const { fetchImpl, calls } = makePagedFetch([page1], (items) => ({ products: items }));
+
+  await fetchFeed('https://shop.example.com/products.json?collection_id=55', { fetchImpl });
+
+  assert.equal(calls.length, 1);
+  const u = new URL(calls[0]);
+  assert.equal(u.searchParams.get('collection_id'), '55');
+  assert.equal(u.searchParams.get('limit'), String(SHOPIFY_PRODUCTS_JSON_PAGE_SIZE));
+});
+
+test('fetchFeed pagination stops at the MAX_PRODUCTS cap instead of looping forever', async () => {
+  // A server that always returns a full page: without the cap this would
+  // never terminate on its own except for the hard maxPages safety valve.
+  const fetchImpl = async (url) => {
+    const items = Array.from({ length: SHOPIFY_PRODUCTS_JSON_PAGE_SIZE }, (_, i) => shopifyProduct(i));
+    return { ok: true, status: 200, text: async () => JSON.stringify({ products: items }) };
+  };
+  let calls = 0;
+  const countingFetch = async (url) => { calls += 1; return fetchImpl(url); };
+
+  const result = await fetchFeed('https://shop.example.com/products.json', { fetchImpl: countingFetch });
+
+  assert.equal(result.products.length, MAX_PRODUCTS);
+  assert.equal(result.truncated, true);
+  assert.equal(calls, MAX_PRODUCTS / SHOPIFY_PRODUCTS_JSON_PAGE_SIZE); // exactly enough full pages to hit the cap, no more
+});
+
+test('fetchFeed pagination stops (without throwing) when a later page is non-200', async () => {
+  const page1 = Array.from({ length: 250 }, (_, i) => shopifyProduct(i));
+  const fetchImpl = async (url) => {
+    const page = Number(new URL(url).searchParams.get('page') || '1');
+    if (page === 1) return { ok: true, status: 200, text: async () => JSON.stringify({ products: page1 }) };
+    return { ok: false, status: 500, text: async () => '' };
+  };
+
+  const result = await fetchFeed('https://shop.example.com/products.json', { fetchImpl });
+
+  assert.equal(result.products.length, 250); // only page 1's items, loop stopped instead of throwing
+});
+
+test('fetchFeed still throws a descriptive error when the first Shopify/WooCommerce page is non-200', async () => {
+  const fetchImpl = async () => ({ ok: false, status: 503, text: async () => '' });
+  await assert.rejects(() => fetchFeed('https://shop.example.com/products.json', { fetchImpl }), /feed_fetch_failed_503/);
+  await assert.rejects(() => fetchFeed('https://eshop.example.sk/wp-json/wc/store/v1/products', { fetchImpl }), /feed_fetch_failed_503/);
 });
