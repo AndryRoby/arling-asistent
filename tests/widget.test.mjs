@@ -67,7 +67,17 @@ function makeElement(tag) {
   return el;
 }
 
-function makeFakeWindowAndDocument({ dataTenant = 'tenant-123', dataLang = 'sk', extraAttrs = {}, navigatorLanguage } = {}) {
+/** Minimal sessionStorage stand-in: a Map behind getItem/setItem, or one that throws (private mode, storage blocked). */
+function makeSessionStorage({ throws = false, initial = {} } = {}) {
+  const store = new Map(Object.entries(initial));
+  return {
+    getItem(key) { if (throws) throw new Error('storage blocked'); return store.has(key) ? store.get(key) : null; },
+    setItem(key, value) { if (throws) throw new Error('storage blocked'); store.set(key, String(value)); },
+    _store: store,
+  };
+}
+
+function makeFakeWindowAndDocument({ dataTenant = 'tenant-123', dataLang = 'sk', extraAttrs = {}, navigatorLanguage, sessionStorage } = {}) {
   const scriptEl = makeElement('script');
   scriptEl.src = 'https://arling-asistent.arling.workers.dev/widget.js';
   if (dataTenant != null) scriptEl.setAttribute('data-tenant', dataTenant);
@@ -90,6 +100,7 @@ function makeFakeWindowAndDocument({ dataTenant = 'tenant-123', dataLang = 'sk',
     requestAnimationFrame() {},
   };
   if (navigatorLanguage != null) windowStub.navigator = { language: navigatorLanguage };
+  if (sessionStorage) windowStub.sessionStorage = sessionStorage;
 
   return { windowStub, documentStub, scriptEl, body };
 }
@@ -242,4 +253,105 @@ test('widget.js only ever initialises once per page even if the script were some
   const context = vm.createContext(sandbox);
   assert.doesNotThrow(() => vm.runInContext(widgetSource, context, { filename: 'widget.js' }));
   assert.equal(body.children.length, 1);
+});
+
+// ---------------------------------------------------------------------------
+// Session id, quota_exceeded rendering, footer attribution
+// ---------------------------------------------------------------------------
+
+/** Boot the widget with a recording fetch stub, submit `text`, and return {sentBodies, root}. */
+async function submitMessages(texts, { fetchResponse, ...opts } = {}) {
+  const sentBodies = [];
+  const fetchImpl = async (url, fetchOpts) => {
+    sentBodies.push(JSON.parse(fetchOpts.body));
+    return fetchResponse || { status: 200, ok: true, json: async () => ({ answer: 'ok', products: [] }) };
+  };
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument(opts);
+  runWidget(documentStub, windowStub, fetchImpl);
+  const root = body.children[0].shadowRoot;
+  for (const text of texts) {
+    root.getElementById('input').value = text;
+    root.getElementById('form')._listeners.submit[0]({ preventDefault() {} });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  return { sentBodies, root, windowStub };
+}
+
+test('widget.js sends a 16-hex session id as "session" in every /v1/chat body, stable across messages in the same tab', async () => {
+  const storage = makeSessionStorage();
+  const { sentBodies } = await submitMessages(['Hello', 'And in blue?'], { sessionStorage: storage });
+  assert.equal(sentBodies.length, 2);
+  assert.match(sentBodies[0].session, /^[0-9a-f]{16}$/);
+  assert.equal(sentBodies[1].session, sentBodies[0].session);
+  assert.equal(storage._store.get('arling_asistent_session'), sentBodies[0].session); // persisted for the tab's lifetime
+});
+
+test('widget.js reuses the session id already in sessionStorage (same conversation after a page navigation)', async () => {
+  const storage = makeSessionStorage({ initial: { arling_asistent_session: 'deadbeefdeadbeef' } });
+  const { sentBodies } = await submitMessages(['Hello'], { sessionStorage: storage });
+  assert.equal(sentBodies[0].session, 'deadbeefdeadbeef');
+});
+
+test('widget.js replaces a malformed stored session id and still works without sessionStorage or when it throws', async () => {
+  const bad = makeSessionStorage({ initial: { arling_asistent_session: 'not-hex!' } });
+  const replaced = await submitMessages(['Hello'], { sessionStorage: bad });
+  assert.match(replaced.sentBodies[0].session, /^[0-9a-f]{16}$/);
+  assert.equal(bad._store.get('arling_asistent_session'), replaced.sentBodies[0].session);
+
+  const none = await submitMessages(['Hello']); // no sessionStorage on window at all
+  assert.match(none.sentBodies[0].session, /^[0-9a-f]{16}$/);
+
+  const throwing = await submitMessages(['Hello'], { sessionStorage: makeSessionStorage({ throws: true }) });
+  assert.match(throwing.sentBodies[0].session, /^[0-9a-f]{16}$/);
+});
+
+test('widget.js two separate tabs (separate sessionStorage) get different session ids', async () => {
+  const a = await submitMessages(['Hello'], { sessionStorage: makeSessionStorage() });
+  const b = await submitMessages(['Hello'], { sessionStorage: makeSessionStorage() });
+  assert.notEqual(a.sentBodies[0].session, b.sentBodies[0].session);
+});
+
+const QUOTA_MESSAGES = {
+  sk: 'Asistent si dnes oddychuje. Použite prosím kontaktnú stránku obchodu.',
+  cs: 'Asistent si dnes odpočívá. Použijte prosím kontaktní stránku obchodu.',
+  en: "The assistant is resting today. Please use the shop's contact page.",
+  de: 'Der Assistent macht heute Pause. Bitte nutzen Sie die Kontaktseite des Shops.',
+};
+
+for (const lang of Object.keys(QUOTA_MESSAGES)) {
+  test(`widget.js renders the calm quota_exceeded message in ${lang} on a 429 {error:"quota_exceeded"}, with no mention of billing or limits`, async () => {
+    const fetchResponse = { status: 429, ok: false, json: async () => ({ error: 'quota_exceeded' }) };
+    const { root } = await submitMessages(['Hello'], { dataLang: lang, fetchResponse, sessionStorage: makeSessionStorage() });
+    const messages = root.getElementById('messages');
+    // children: the user's bubble row, then the assistant's reply row (thinking row was removed via remove(), which the fake DOM ignores, so filter by text instead).
+    const texts = messages.children.map((row) => row.children[0].textContent);
+    assert.ok(texts.includes(QUOTA_MESSAGES[lang]), `expected ${lang} message, got ${JSON.stringify(texts)}`);
+    const reply = QUOTA_MESSAGES[lang];
+    assert.doesNotMatch(reply, /billing|plan|quota|limit|upgrade|kvót|limit|tarif|Abo|Kontingent/i);
+  });
+}
+
+test('widget.js shows the rate-limited message (not the quota one) on a 429 without quota_exceeded', async () => {
+  const fetchResponse = { status: 429, ok: false, json: async () => ({ error: 'rate_limited' }) };
+  const { root } = await submitMessages(['Hello'], { dataLang: 'en', fetchResponse, sessionStorage: makeSessionStorage() });
+  const texts = root.getElementById('messages').children.map((row) => row.children[0].textContent);
+  assert.ok(texts.includes('Too many messages at once. Please try again shortly.'));
+  assert.equal(texts.includes(QUOTA_MESSAGES.en), false);
+});
+
+test('widget.js keeps the "Powered by ARLing Asistent" footer link and tags it with utm_source=widget&utm_medium=referral', () => {
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument({ dataLang: 'en' });
+  runWidget(documentStub, windowStub);
+  const html = body.children[0].shadowRoot.innerHTML;
+  assert.match(html, /<div class="footer"><a href="https:\/\/arling\.sk\/asistent\/\?utm_source=widget&utm_medium=referral" target="_blank" rel="noopener">Powered by ARLing Asistent<\/a><\/div>/);
+});
+
+test('widget.js sets no cookies and never touches localStorage (only sessionStorage for the session id)', () => {
+  assert.doesNotMatch(widgetSource, /document\.cookie/);
+  // The header comment may mention localStorage as something the widget
+  // avoids; what must not exist is an actual access to it.
+  assert.doesNotMatch(widgetSource, /localStorage\.\w/); // property access such as localStorage.setItem (the prose "localStorage. The" has a space after the dot)
+  assert.doesNotMatch(widgetSource, /localStorage\s*\[/);
+  assert.doesNotMatch(widgetSource, /['"]localStorage['"]/);
+  assert.match(widgetSource, /sessionStorage/);
 });

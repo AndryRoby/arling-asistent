@@ -6,7 +6,8 @@
  * ingestion (download, normalise, embed, upsert to Vectorize) in the
  * background via ctx.waitUntil so the HTTP response does not wait for the
  * whole feed to be embedded. GET /v1/tenants/:id/status lets the demo page
- * poll until ingestion finishes.
+ * poll until ingestion finishes, and gives the shop's dashboard its monthly
+ * usage (see tenantStatusResponse for the public contract).
  */
 
 import {
@@ -21,6 +22,10 @@ import {
   DuplicateDomainError,
   D1ConstraintError,
   PLANS,
+  conversationsUsedThisMonth,
+  monthPeriod,
+  usagePercent,
+  publicPlanName,
 } from './tenants.js';
 import { fetchFeed } from './feed.js';
 import { embedAndUpsertProducts } from './embed.js';
@@ -122,24 +127,52 @@ export async function createTenantFromRequest(env, { feedUrl, domain, email }, {
   return tenant;
 }
 
-export async function tenantStatusResponse(env, tenantId) {
+/**
+ * The public GET /v1/tenants/:id/status body. The tenant id sits in the
+ * embed script of every shop page, so this is a public capability: it
+ * carries usage and plan facts the shop's own dashboard needs, and never
+ * contact_email or billing_ref (the Stripe subscription id). Those stay
+ * available to the admin-token routes only (`includeBilling`, used by
+ * handleSetPlanRoute below).
+ *
+ * Contract (shared with the arling.sk dashboard page):
+ *   { id, domain, plan ("free"|"starter"|"pro"), status, monthly_quota,
+ *     conversations_used (current UTC calendar month), usage_percent
+ *     (integer 0..100), period_start ("YYYY-MM-01"), period_end (first day
+ *     of next month), product_count, valid_until (or null), last_ingest
+ *     (ISO or null) }
+ * `used_this_month` and `last_ingested_at` are kept as aliases of
+ * conversations_used / last_ingest for the WordPress plugin and the Shopify
+ * admin page, which still read the older names.
+ */
+export async function tenantStatusResponse(env, tenantId, { now = new Date(), includeBilling = false } = {}) {
   const tenant = await getTenantById(env.DB, tenantId);
   if (!tenant) return null;
-  return {
+  const conversationsUsed = conversationsUsedThisMonth(tenant, now);
+  const period = monthPeriod(now);
+  const lastIngest = tenant.last_ingested_at || null;
+  const body = {
     id: tenant.id,
     domain: tenant.domain,
+    plan: publicPlanName(tenant.plan),
     status: tenant.status,
-    plan: tenant.plan,
     monthly_quota: tenant.monthly_quota,
-    used_this_month: tenant.used_this_month,
+    conversations_used: conversationsUsed,
+    usage_percent: usagePercent(conversationsUsed, tenant.monthly_quota),
+    period_start: period.period_start,
+    period_end: period.period_end,
     product_count: tenant.product_count || 0,
-    last_ingested_at: tenant.last_ingested_at,
-    // Both null until a PATCH /v1/tenants/:id/plan call sets them (see
-    // handleSetPlanRoute below): a free/never-upgraded tenant simply has no
-    // billing reference or expiry yet.
-    billing_ref: tenant.billing_ref || null,
+    // Null until a PATCH /v1/tenants/:id/plan call sets it (see
+    // handleSetPlanRoute below): a free/never-upgraded tenant has no expiry.
     valid_until: tenant.valid_until || null,
+    last_ingest: lastIngest,
+    used_this_month: conversationsUsed,
+    last_ingested_at: lastIngest,
   };
+  if (includeBilling) {
+    body.billing_ref = tenant.billing_ref || null;
+  }
+  return body;
 }
 
 // ---------------------------------------------------------------------------
@@ -295,6 +328,8 @@ export async function handleSetPlanRoute(request, env, tenantId) {
 
   await setTenantPlan(env.DB, tenantId, { plan, monthlyQuota, billingRef, validUntil });
 
-  const updated = await tenantStatusResponse(env, tenantId);
+  // Admin caller (licence-service webhook): echo billing_ref back so it can
+  // confirm what was stored. The public status route never includes it.
+  const updated = await tenantStatusResponse(env, tenantId, { includeBilling: true });
   return jsonResponse(updated, 200, headers);
 }

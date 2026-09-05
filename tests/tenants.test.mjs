@@ -25,8 +25,16 @@ import { isPrivateHost,
   PLANS,
   DEFAULT_FREE_QUOTA,
   SQL,
+  isValidSessionId,
+  conversationSessionKey,
+  CONVERSATION_SESSION_TTL_SECONDS,
+  monthPeriod,
+  usagePercent,
+  conversationsUsedThisMonth,
+  publicPlanName,
 } from '../worker/src/tenants.js';
 import { createMockD1 } from './helpers/mock-d1.mjs';
+import { createMockKV } from './helpers/mock-cf.mjs';
 
 test('normaliseDomain accepts a bare domain or a full URL and lowercases it', () => {
   assert.equal(normaliseDomain('Shop.Example.SK'), 'shop.example.sk');
@@ -250,4 +258,145 @@ test('validateTenantInput rejects feeds on localhost and private networks', () =
   for (const h of ['www.allbirds.com', '8.8.8.8', '172.15.0.1', '172.32.0.1', 'shop.example.co.uk']) {
     assert.equal(isPrivateHost(h), false, h);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Session-based conversation counting (one conversation = one widget session)
+// ---------------------------------------------------------------------------
+
+async function sessionTenant(monthlyQuota = 10) {
+  const db = createMockD1();
+  const now = new Date('2026-09-04T10:00:00Z');
+  const tenant = await createTenant(db, { domain: 'shop.sk', feedUrl: 'https://shop.sk/feed.xml', contactEmail: 'a@shop.sk' }, { now, monthlyQuota });
+  return { db, now, tenant, kv: createMockKV() };
+}
+
+test('checkAndRecordConversation counts the same session only once: a second message in the same session is allowed without incrementing', async () => {
+  const { db, now, tenant, kv } = await sessionTenant();
+  const first = await checkAndRecordConversation(db, tenant.id, { now, session: 'a1b2c3d4e5f60718', kv });
+  assert.equal(first.allowed, true);
+  assert.equal(first.counted, true);
+  assert.equal(first.used, 1);
+  assert.equal(first.quota, 10);
+
+  const second = await checkAndRecordConversation(db, tenant.id, { now, session: 'a1b2c3d4e5f60718', kv });
+  assert.equal(second.allowed, true);
+  assert.equal(second.counted, false);
+  assert.equal(second.used, 1);
+
+  assert.equal((await getTenantById(db, tenant.id)).used_this_month, 1);
+  assert.equal(db._counters.get(`${tenant.id}::2026-09-04`).conversations, 1);
+});
+
+test('checkAndRecordConversation counts a different session again', async () => {
+  const { db, now, tenant, kv } = await sessionTenant();
+  await checkAndRecordConversation(db, tenant.id, { now, session: 'a1b2c3d4e5f60718', kv });
+  const other = await checkAndRecordConversation(db, tenant.id, { now, session: 'ffffffff00000000', kv });
+  assert.equal(other.allowed, true);
+  assert.equal(other.counted, true);
+  assert.equal(other.used, 2);
+  assert.equal((await getTenantById(db, tenant.id)).used_this_month, 2);
+});
+
+test('checkAndRecordConversation remembers a counted session in KV under conv:{tenant}:{session} with a 24h TTL', async () => {
+  const { db, now, tenant, kv } = await sessionTenant();
+  await checkAndRecordConversation(db, tenant.id, { now, session: 'a1b2c3d4e5f60718', kv });
+  const key = conversationSessionKey(tenant.id, 'a1b2c3d4e5f60718');
+  assert.equal(key, `conv:${tenant.id}:a1b2c3d4e5f60718`);
+  assert.ok(kv._store.has(key));
+  assert.equal(kv._puts.length, 1);
+  assert.equal(kv._puts[0].options.expirationTtl, CONVERSATION_SESSION_TTL_SECONDS);
+  assert.equal(CONVERSATION_SESSION_TTL_SECONDS, 86400);
+});
+
+test('checkAndRecordConversation fails open when KV errors: the request is counted, never refused', async () => {
+  const { db, now, tenant } = await sessionTenant();
+  const brokenKv = {
+    async get() { throw new Error('simulated KV outage'); },
+    async put() { throw new Error('simulated KV outage'); },
+  };
+  const first = await checkAndRecordConversation(db, tenant.id, { now, session: 'a1b2c3d4e5f60718', kv: brokenKv });
+  assert.equal(first.allowed, true);
+  assert.equal(first.counted, true);
+  const second = await checkAndRecordConversation(db, tenant.id, { now, session: 'a1b2c3d4e5f60718', kv: brokenKv });
+  assert.equal(second.allowed, true);
+  assert.equal(second.counted, true); // no dedupe possible without KV: counted again, as before sessions existed
+  assert.equal((await getTenantById(db, tenant.id)).used_this_month, 2);
+});
+
+test('checkAndRecordConversation counts once per request when no session is sent (older embeds) or the session is malformed', async () => {
+  const { db, now, tenant, kv } = await sessionTenant();
+  await checkAndRecordConversation(db, tenant.id, { now, kv });
+  await checkAndRecordConversation(db, tenant.id, { now, kv });
+  await checkAndRecordConversation(db, tenant.id, { now, session: 'not a valid session id!', kv });
+  await checkAndRecordConversation(db, tenant.id, { now, session: 'not a valid session id!', kv });
+  assert.equal((await getTenantById(db, tenant.id)).used_this_month, 4);
+  assert.equal(kv._puts.length, 0); // nothing usable to remember
+});
+
+test('checkAndRecordConversation does not mark a session as counted when the quota refuses it', async () => {
+  const { db, now, tenant, kv } = await sessionTenant(1);
+  await checkAndRecordConversation(db, tenant.id, { now, session: 'a1b2c3d4e5f60718', kv });
+  const refused = await checkAndRecordConversation(db, tenant.id, { now, session: 'ffffffff00000000', kv });
+  assert.equal(refused.allowed, false);
+  assert.equal(refused.reason, 'quota_exceeded');
+  assert.equal(kv._store.has(conversationSessionKey(tenant.id, 'ffffffff00000000')), false);
+});
+
+test('checkAndRecordConversation lets an already-counted session continue even after the quota filled up (never cut off mid-conversation)', async () => {
+  const { db, now, tenant, kv } = await sessionTenant(1);
+  const first = await checkAndRecordConversation(db, tenant.id, { now, session: 'a1b2c3d4e5f60718', kv });
+  assert.equal(first.allowed, true);
+  const followUp = await checkAndRecordConversation(db, tenant.id, { now, session: 'a1b2c3d4e5f60718', kv });
+  assert.equal(followUp.allowed, true);
+  assert.equal(followUp.counted, false);
+  const newcomer = await checkAndRecordConversation(db, tenant.id, { now, session: 'ffffffff00000000', kv });
+  assert.equal(newcomer.allowed, false);
+});
+
+test('isValidSessionId accepts the widget shape (16 hex) and similar short tokens, rejects junk and oversized keys', () => {
+  assert.equal(isValidSessionId('a1b2c3d4e5f60718'), true);
+  assert.equal(isValidSessionId('sess_abc123'), true);
+  assert.equal(isValidSessionId(''), false);
+  assert.equal(isValidSessionId(undefined), false);
+  assert.equal(isValidSessionId(12345678), false);
+  assert.equal(isValidSessionId('short'), false);
+  assert.equal(isValidSessionId('has spaces and : colons'), false);
+  assert.equal(isValidSessionId('x'.repeat(65)), false);
+});
+
+// ---------------------------------------------------------------------------
+// Status helpers (period, usage percent, public plan)
+// ---------------------------------------------------------------------------
+
+test('monthPeriod returns the first day of the current UTC month and of the next one, including the December rollover', () => {
+  assert.deepEqual(monthPeriod(new Date('2026-09-05T23:59:59Z')), { period_start: '2026-09-01', period_end: '2026-10-01' });
+  assert.deepEqual(monthPeriod(new Date('2026-12-31T12:00:00Z')), { period_start: '2026-12-01', period_end: '2027-01-01' });
+});
+
+test('usagePercent is an integer 0..100 rounded down, clamped, and treats a zero quota as fully used', () => {
+  assert.equal(usagePercent(0, 100), 0);
+  assert.equal(usagePercent(79, 100), 79);
+  assert.equal(usagePercent(80, 100), 80);
+  assert.equal(usagePercent(799, 1000), 79);
+  assert.equal(usagePercent(100, 100), 100);
+  assert.equal(usagePercent(150, 100), 100);
+  assert.equal(usagePercent(1, 3), 33);
+  assert.equal(usagePercent(5, 0), 100);
+  assert.equal(Number.isInteger(usagePercent(2, 3)), true);
+});
+
+test('conversationsUsedThisMonth reports the stored count only for the current month, and 0 once the month has rolled over', () => {
+  const tenant = { quota_month: '2026-09', used_this_month: 42 };
+  assert.equal(conversationsUsedThisMonth(tenant, new Date('2026-09-20T00:00:00Z')), 42);
+  assert.equal(conversationsUsedThisMonth(tenant, new Date('2026-10-01T00:00:01Z')), 0);
+  assert.equal(conversationsUsedThisMonth(null), 0);
+});
+
+test('publicPlanName maps starter/pro through and anything else (free, legacy trial, garbage) to free', () => {
+  assert.equal(publicPlanName('starter'), 'starter');
+  assert.equal(publicPlanName('pro'), 'pro');
+  assert.equal(publicPlanName('free'), 'free');
+  assert.equal(publicPlanName('trial'), 'free');
+  assert.equal(publicPlanName(undefined), 'free');
 });

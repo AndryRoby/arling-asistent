@@ -81,16 +81,28 @@ export function createMockVectorize({ noMetadataIndex = false } = {}) {
   };
 }
 
-/** Mock Workers KV namespace: get/put with expirationTtl accepted but not enforced (tests control time explicitly instead). */
+/**
+ * Mock Workers KV namespace: get/put/delete with expirationTtl accepted but
+ * not enforced (tests control time explicitly instead). Every put is also
+ * recorded in `_puts` ({key, value, options}) so a test can assert on the
+ * TTL a caller asked for (e.g. the 24h conversation-session dedupe key in
+ * tenants.js) without the mock having to simulate expiry.
+ */
 export function createMockKV() {
   const store = new Map();
+  const puts = [];
   return {
     async get(key) {
       return store.has(key) ? store.get(key) : null;
     },
-    async put(key, value) {
+    async put(key, value, options) {
       store.set(key, value);
+      puts.push({ key, value, options: options || {} });
+    },
+    async delete(key) {
+      store.delete(key);
     },
     _store: store,
+    _puts: puts,
   };
 }

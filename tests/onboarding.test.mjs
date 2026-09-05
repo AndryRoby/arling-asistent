@@ -423,7 +423,7 @@ test('handleSetPlanRoute accepts an explicit monthly_quota override instead of t
   assert.equal(body.monthly_quota, 2500);
 });
 
-test('handleSetPlanRoute stores billing_ref and valid_until, returned by both the PATCH response and GET status', async () => {
+test('handleSetPlanRoute stores billing_ref and valid_until: the admin PATCH response echoes both, the public GET status shows valid_until only', async () => {
   const env = makeEnv();
   const tenant = await createTenantFromRequest(env, { feedUrl: 'https://shop.sk/feed.xml', domain: 'plan7.sk', email: 'a@plan7.sk' });
   const res = await handleSetPlanRoute(planRequest({ plan: 'pro', billing_ref: 'sub_123', valid_until: '2026-11-01' }), env, tenant.id);
@@ -431,9 +431,15 @@ test('handleSetPlanRoute stores billing_ref and valid_until, returned by both th
   assert.equal(body.billing_ref, 'sub_123');
   assert.equal(body.valid_until, '2026-11-01');
 
+  // The tenant id is public (it sits in every shop page's embed script), so
+  // the public status must never carry the Stripe subscription id.
   const status = await tenantStatusResponse(env, tenant.id);
-  assert.equal(status.billing_ref, 'sub_123');
   assert.equal(status.valid_until, '2026-11-01');
+  assert.equal('billing_ref' in status, false);
+  assert.equal('contact_email' in status, false);
+
+  const adminView = await tenantStatusResponse(env, tenant.id, { includeBilling: true });
+  assert.equal(adminView.billing_ref, 'sub_123');
 });
 
 test('handleSetPlanRoute clears billing_ref/valid_until to null when a later call omits them (e.g. downgrade to free)', async () => {
@@ -461,4 +467,78 @@ test('handleSetPlanRoute returns 400 on invalid JSON body', async () => {
   const tenant = await createTenantFromRequest(env, { feedUrl: 'https://shop.sk/feed.xml', domain: 'plan10.sk', email: 'a@plan10.sk' });
   const res = await handleSetPlanRoute(new Request('https://x/', { method: 'PATCH', headers: { 'X-Admin-Token': ADMIN_TOKEN }, body: '{not json' }), env, tenant.id);
   assert.equal(res.status, 400);
+});
+
+// ---------------------------------------------------------------------------
+// Public status contract (GET /v1/tenants/:id/status)
+// ---------------------------------------------------------------------------
+
+test('tenantStatusResponse follows the public contract: usage fields, period bounds, last_ingest, no billing_ref and no contact_email', async () => {
+  const env = makeEnv();
+  const tenant = await createTenantFromRequest(env, { feedUrl: 'https://shop.sk/feed.xml', domain: 'contract.sk', email: 'owner@contract.sk' });
+  const now = new Date('2026-09-05T12:00:00Z');
+  const row = env.DB._tenants.get(tenant.id);
+  row.quota_month = '2026-09';
+  row.used_this_month = 37;
+  row.monthly_quota = 100;
+
+  const status = await tenantStatusResponse(env, tenant.id, { now });
+  assert.equal(status.id, tenant.id);
+  assert.equal(status.domain, 'contract.sk');
+  assert.equal(status.plan, 'free');
+  assert.equal(status.status, TENANT_STATUS.READY);
+  assert.equal(status.monthly_quota, 100);
+  assert.equal(status.conversations_used, 37);
+  assert.equal(status.usage_percent, 37);
+  assert.equal(status.period_start, '2026-09-01');
+  assert.equal(status.period_end, '2026-10-01');
+  assert.equal(status.product_count, 1);
+  assert.equal(status.valid_until, null);
+  assert.equal(status.last_ingest, row.last_ingested_at);
+  assert.match(status.last_ingest, /^2\d{3}-\d{2}-\d{2}T/); // ISO timestamp stamped by ingestion
+  assert.equal('billing_ref' in status, false);
+  assert.equal('contact_email' in status, false);
+  assert.equal(JSON.stringify(status).includes('owner@contract.sk'), false);
+  // Older consumers (WordPress plugin, Shopify admin page) still read these names.
+  assert.equal(status.used_this_month, 37);
+  assert.equal(status.last_ingested_at, row.last_ingested_at);
+});
+
+test('tenantStatusResponse reports conversations_used 0 and usage_percent 0 once the month has rolled over past the stored quota_month', async () => {
+  const env = makeEnv();
+  const tenant = await createTenantFromRequest(env, { feedUrl: 'https://shop.sk/feed.xml', domain: 'rollover.sk', email: 'a@rollover.sk' });
+  const row = env.DB._tenants.get(tenant.id);
+  row.quota_month = '2026-08';
+  row.used_this_month = 90;
+  const status = await tenantStatusResponse(env, tenant.id, { now: new Date('2026-09-02T00:00:00Z') });
+  assert.equal(status.conversations_used, 0);
+  assert.equal(status.usage_percent, 0);
+  assert.equal(status.period_start, '2026-09-01');
+});
+
+test('tenantStatusResponse reports a legacy "trial" plan as "free" (the public contract knows only free/starter/pro) and last_ingest null before any ingestion', async () => {
+  const env = makeEnv();
+  const tenant = await createTenantFromRequest(env, { feedUrl: 'https://shop.sk/feed.xml', domain: 'legacy-trial.sk', email: 'a@legacy-trial.sk' });
+  const row = env.DB._tenants.get(tenant.id);
+  row.plan = 'trial';
+  row.last_ingested_at = null;
+  const status = await tenantStatusResponse(env, tenant.id);
+  assert.equal(status.plan, 'free');
+  assert.equal(status.last_ingest, null);
+  assert.equal(status.last_ingested_at, null);
+});
+
+test('handleTenantStatusRoute (public GET) never returns billing_ref even after a plan with one was set', async () => {
+  const env = makeEnv();
+  const tenant = await createTenantFromRequest(env, { feedUrl: 'https://shop.sk/feed.xml', domain: 'public-status.sk', email: 'a@public-status.sk' });
+  await handleSetPlanRoute(planRequest({ plan: 'starter', billing_ref: 'sub_secret', valid_until: '2026-12-01' }), env, tenant.id);
+  const res = await handleTenantStatusRoute(new Request('https://x/'), env, tenant.id);
+  const text = await res.text();
+  assert.equal(text.includes('sub_secret'), false);
+  assert.equal(text.includes('billing_ref'), false);
+  assert.equal(text.includes('contact_email'), false);
+  const body = JSON.parse(text);
+  assert.equal(body.plan, 'starter');
+  assert.equal(body.valid_until, '2026-12-01');
+  assert.equal(typeof body.usage_percent, 'number');
 });
