@@ -12,6 +12,9 @@
 <meta property="og:url" content="https://arling.sk/asistent/" />
 <meta property="og:locale" content="sk_SK" />
 <link rel="canonical" href="https://arling.sk/asistent/" />
+<link rel="alternate" hreflang="sk" href="https://arling.sk/asistent/?lang=sk" />
+<link rel="alternate" hreflang="en" href="https://arling.sk/asistent/?lang=en" />
+<link rel="alternate" hreflang="x-default" href="https://arling.sk/asistent/" />
 <meta property="og:image" content="https://arling.sk/asistent/icon-512.png" />
 <link rel="icon" href="favicon.svg" type="image/svg+xml" />
 <link rel="alternate icon" href="favicon.ico" />
@@ -27,6 +30,7 @@
   "description": "AI predajný asistent pre e-shopy: nastaví sa z produktového feedu (Google Shopping XML, Shopify, WooCommerce, generický XML) za 10 minút, beží na Cloudflare Workers a neukladá obsah rozhovorov, len počítadlá.",
   "applicationCategory": "BusinessApplication",
   "operatingSystem": "Any (web browser, jeden <script> tag)",
+  "inLanguage": ["sk", "en"],
   "offers": [
     { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/#cennik" },
     { "@type": "Offer", "name": "Starter", "price": "19", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/#cennik" },
@@ -131,6 +135,13 @@
   nav.main a { font-size:14px; margin-left:20px; text-decoration:none; color:var(--ink-2); white-space:nowrap; }
   nav.main a:first-child { margin-left:0; }
   nav.main a:hover { color:var(--accent); }
+  .lang-switch { display:flex; align-items:center; gap:0; margin-left:20px; }
+  .lang-switch button { font:600 12px/1 var(--sans); padding:6px 9px; border:1px solid var(--line); background:var(--paper); color:var(--ink-2); cursor:pointer; appearance:none; -webkit-appearance:none; }
+  .lang-switch button:first-child { border-radius:4px 0 0 4px; }
+  .lang-switch button:last-child { border-radius:0 4px 4px 0; }
+  .lang-switch button + button { margin-left:-1px; }
+  .lang-switch button:hover { border-color:var(--accent); color:var(--accent); position:relative; z-index:1; }
+  .lang-switch button.lang-active { background:var(--ink); border-color:var(--ink); color:var(--paper); position:relative; z-index:1; }
 
   .hero { padding:64px 0 40px; border-bottom:1px solid var(--line); }
   .hero h1 { font:400 clamp(30px,4.6vw,46px)/1.14 var(--serif); letter-spacing:-.01em; margin:0 0 18px; max-width:22ch; }
@@ -247,35 +258,39 @@
 </head>
 <body>
 
-<a class="skip" href="#playground">Skočiť na skúšobnú verziu</a>
+<a class="skip" href="#playground" data-i18n="skip">Skočiť na skúšobnú verziu</a>
 <header class="top">
   <div class="wrap">
     <div class="brand">
       <a class="wordmark" href="https://arling.sk/asistent/">ARLing Asistent</a>
-      <a class="wordmark-sub" href="https://arling.sk/">nástroj ARLing</a>
+      <a class="wordmark-sub" href="https://arling.sk/" data-i18n="brand.sub">nástroj ARLing</a>
     </div>
     <nav class="main" aria-label="Stránka">
-      <a href="#how">Ako to funguje</a>
-      <a href="#playground">Vyskúšať</a>
-      <a href="#cennik">Cenník</a>
-      <a href="#privacy">Súkromie</a>
-      <a href="#faq">Otázky</a>
+      <a href="#how" data-i18n="nav.how">Ako to funguje</a>
+      <a href="#playground" data-i18n="nav.try">Vyskúšať</a>
+      <a href="#cennik" data-i18n="nav.pricing">Cenník</a>
+      <a href="#privacy" data-i18n="nav.privacy">Súkromie</a>
+      <a href="#faq" data-i18n="nav.faq">Otázky</a>
     </nav>
+    <div class="lang-switch" role="group" aria-label="Jazyk stránky" data-i18n-aria-label="lang.switch.aria">
+      <button type="button" data-set-lang="sk" aria-pressed="true" aria-label="Slovenčina" data-i18n-aria-label="lang.sk.aria">SK</button>
+      <button type="button" data-set-lang="en" aria-pressed="false" aria-label="English" data-i18n-aria-label="lang.en.aria">EN</button>
+    </div>
   </div>
 </header>
 
 <main>
   <div class="hero">
     <div class="wrap">
-      <h1>Predajný asistent pre váš e-shop, nastavený za 10 minút z feedu.</h1>
-      <p class="lead">Vložíte URL produktového feedu a e-mail. Asistent odpovedá zákazníkom z vašich skutočných produktov, v ich jazyku, a vždy pridá odkazy na konkrétny tovar. Bez ukladania rozhovorov, bez cookies.</p>
-      <a class="btn btn-solid" href="#playground" data-umami-event="trial_click" data-umami-event-place="hero">Začať zadarmo</a><a class="btn btn-line" href="https://github.com/AndryRoby/arling-asistent" target="_blank" rel="noopener">Zdrojový kód na GitHube</a>
+      <h1 data-i18n="hero.h1">Predajný asistent pre váš e-shop, nastavený za 10 minút z feedu.</h1>
+      <p class="lead" data-i18n="hero.lead">Vložíte URL produktového feedu a e-mail. Asistent odpovedá zákazníkom z vašich skutočných produktov, v ich jazyku, a vždy pridá odkazy na konkrétny tovar. Bez ukladania rozhovorov, bez cookies.</p>
+      <a class="btn btn-solid" href="#playground" data-umami-event="trial_click" data-umami-event-place="hero" data-i18n="cta.startFree">Začať zadarmo</a><a class="btn btn-line" href="https://github.com/AndryRoby/arling-asistent" target="_blank" rel="noopener" data-i18n="hero.source">Zdrojový kód na GitHube</a>
       <ul class="facts">
-        <li><b>4</b> formáty feedu</li>
-        <li><b>0</b> rozhovorov sa ukladá</li>
-        <li><b>100</b> rozhovorov/mesiac zadarmo</li>
-        <li>SK · CS · EN · DE</li>
-        <li>beží na Cloudflare Workers</li>
+        <li data-i18n-html="hero.fact.formats"><b>4</b> formáty feedu</li>
+        <li data-i18n-html="hero.fact.stored"><b>0</b> rozhovorov sa ukladá</li>
+        <li data-i18n-html="hero.fact.free"><b>100</b> rozhovorov/mesiac zadarmo</li>
+        <li data-i18n="hero.fact.langs">SK · CS · EN · DE</li>
+        <li data-i18n="hero.fact.infra">beží na Cloudflare Workers</li>
       </ul>
     </div>
   </div>
@@ -283,20 +298,20 @@
   <section id="how">
     <div class="wrap">
       <p class="kicker">01</p>
-      <h2>Ako to funguje</h2>
-      <p class="sub">Tri kroky, žiadna inštalácia na strane servera, žiadny obchodník.</p>
+      <h2 data-i18n="s1.h2">Ako to funguje</h2>
+      <p class="sub" data-i18n="s1.sub">Tri kroky, žiadna inštalácia na strane servera, žiadny obchodník.</p>
       <ol class="rules">
         <li>
-          <b>Vložíte URL feedu a e-mail.</b>
-          <p>Podporujeme Google Shopping RSS/XML (aj Heureka formát), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON a bežný XML feed so značkami <code>item/name/price/url</code>.</p>
+          <b data-i18n="s1.r1.title">Vložíte URL feedu a e-mail.</b>
+          <p data-i18n-html="s1.r1.body">Podporujeme Google Shopping RSS/XML (aj Heureka formát), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON a bežný XML feed so značkami <code>item/name/price/url</code>.</p>
         </li>
         <li>
-          <b>Feed sa spracuje na embeddings.</b>
-          <p>Worker stiahne feed, popisy skráti a rozdelí na časti a uloží do Cloudflare Vectorize (najviac 5000 produktov). Feed sa obnovuje automaticky raz denne.</p>
+          <b data-i18n="s1.r2.title">Feed sa spracuje na embeddings.</b>
+          <p data-i18n-html="s1.r2.body">Worker stiahne feed, popisy skráti a rozdelí na časti a uloží do Cloudflare Vectorize (najviac 5000 produktov). Feed sa obnovuje automaticky raz denne.</p>
         </li>
         <li>
-          <b>Vložíte jeden <code>&lt;script&gt;</code> tag.</b>
-          <p>Asistent sa zobrazí vpravo dole na stránke. Odpovedá výhradne z vášho feedu a obchodných kontaktov, nikdy si nič nevymýšľa; ak nevie, odporučí kontaktovať obchod.</p>
+          <b data-i18n-html="s1.r3.title">Vložíte jeden <code>&lt;script&gt;</code> tag.</b>
+          <p data-i18n-html="s1.r3.body">Asistent sa zobrazí vpravo dole na stránke. Odpovedá výhradne z vášho feedu a obchodných kontaktov, nikdy si nič nevymýšľa; ak nevie, odporučí kontaktovať obchod.</p>
         </li>
       </ol>
     </div>
@@ -305,54 +320,54 @@
   <section id="cennik">
     <div class="wrap">
       <p class="kicker">02</p>
-      <h2>Cenník</h2>
-      <p class="sub">Zadarmo navždy do 100 rozhovorov mesačne, bez karty. Nad tento limit jednoduchá cena podľa počtu rozhovorov za mesiac. Ročné predplatné zatiaľ neponúkame, len mesačné.</p>
+      <h2 data-i18n="s2.h2">Cenník</h2>
+      <p class="sub" data-i18n="s2.sub">Zadarmo navždy do 100 rozhovorov mesačne, bez karty. Nad tento limit jednoduchá cena podľa počtu rozhovorov za mesiac. Ročné predplatné zatiaľ neponúkame, len mesačné.</p>
       <div class="pricing-table-wrap">
         <table class="pricing-table">
           <thead>
-            <tr><th>Plán</th><th>Cena</th><th>Rozhovory / mesiac</th><th></th></tr>
+            <tr><th data-i18n="s2.th.plan">Plán</th><th data-i18n="s2.th.price">Cena</th><th data-i18n="s2.th.conversations">Rozhovory / mesiac</th><th></th></tr>
           </thead>
           <tbody>
             <tr>
               <td class="plan">Free</td>
               <td class="price">0&nbsp;&euro;</td>
-              <td>do 100</td>
-              <td><a class="btn btn-line" href="#playground" data-umami-event="trial_click" data-umami-event-place="pricing">Začať zadarmo</a></td>
+              <td data-i18n="pricing.limit.free">do 100</td>
+              <td><a class="btn btn-line" href="#playground" data-umami-event="trial_click" data-umami-event-place="pricing" data-i18n="cta.startFree">Začať zadarmo</a></td>
             </tr>
             <tr>
               <td class="plan">Starter</td>
               <td class="price">19 &euro;<span> / mesiac</span></td>
-              <td>do 1&nbsp;000</td>
-              <td><a class="btn btn-line" href="#playground" data-umami-event="trial_click" data-umami-event-place="pricing">Začať zadarmo</a></td>
+              <td data-i18n="pricing.limit.starter">do 1&nbsp;000</td>
+              <td><a class="btn btn-line" href="#playground" data-umami-event="trial_click" data-umami-event-place="pricing" data-i18n="cta.startFree">Začať zadarmo</a></td>
             </tr>
             <tr>
               <td class="plan">Growth</td>
               <td class="price">39 &euro;<span> / mesiac</span></td>
-              <td>do 5&nbsp;000</td>
-              <td><a class="btn btn-line" href="#playground" data-umami-event="trial_click" data-umami-event-place="pricing">Začať zadarmo</a></td>
+              <td data-i18n="pricing.limit.growth">do 5&nbsp;000</td>
+              <td><a class="btn btn-line" href="#playground" data-umami-event="trial_click" data-umami-event-place="pricing" data-i18n="cta.startFree">Začať zadarmo</a></td>
             </tr>
           </tbody>
         </table>
       </div>
-      <p class="pricing-note">Do 100 rozhovorov mesačne zadarmo, navždy, bez platobnej karty. Platba cez Stripe sa spustí, až keď mesačný počet prekročíte; presné napojenie na Stripe je v príprave (pozrite README v repozitári). Ročné predplatné zatiaľ nie je v ponuke.</p>
+      <p class="pricing-note" data-i18n="s2.note">Do 100 rozhovorov mesačne zadarmo, navždy, bez platobnej karty. Platba cez Stripe sa spustí, až keď mesačný počet prekročíte; presné napojenie na Stripe je v príprave (pozrite README v repozitári). Ročné predplatné zatiaľ nie je v ponuke.</p>
 
       <div class="pro-objections">
-        <p class="objections-label">Predtým, než začnete</p>
+        <p class="objections-label" data-i18n="s2.objections.label">Predtým, než začnete</p>
         <details>
-          <summary>Ukladáte rozhovory zákazníkov?</summary>
-          <p>Nie. Obsah rozhovoru sa nikde neukladá, ani u nás, ani v databáze. Ukladáme len počítadlá: koľko rozhovorov a kliknutí na produkt sa za deň udialo, kvôli fakturácii a mesačnému limitu.</p>
+          <summary data-i18n="obj1.q">Ukladáte rozhovory zákazníkov?</summary>
+          <p data-i18n="obj1.a">Nie. Obsah rozhovoru sa nikde neukladá, ani u nás, ani v databáze. Ukladáme len počítadlá: koľko rozhovorov a kliknutí na produkt sa za deň udialo, kvôli fakturácii a mesačnému limitu.</p>
         </details>
         <details>
-          <summary>Máte zmluvu podľa čl. 28 GDPR?</summary>
-          <p>Áno. ARLing s. r. o. je pri spracúvaní správ návštevníkov vášho e-shopu sprostredkovateľom. Vzor zmluvy: <a href="https://github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md" target="_blank" rel="noopener">Zmluva o spracúvaní osobných údajov (DPA)</a>.</p>
+          <summary data-i18n="obj2.q">Máte zmluvu podľa čl. 28 GDPR?</summary>
+          <p data-i18n-html="obj2.a">Áno. ARLing s. r. o. je pri spracúvaní správ návštevníkov vášho e-shopu sprostredkovateľom. Vzor zmluvy: <a href="https://github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md" target="_blank" rel="noopener">Zmluva o spracúvaní osobných údajov (DPA)</a>.</p>
         </details>
         <details>
-          <summary>Ako zrušiť, keď mi to nesadne?</summary>
-          <p>Voľný plán do 100 rozhovorov mesačne nemá žiadny záväzok ani kartu, jednoducho ho prestanete používať. Platené predplatné nad týmto limitom pôjde cez Stripe a pôjde zrušiť kedykoľvek, rovnako ako pri ostatných nástrojoch ARLing.</p>
+          <summary data-i18n="obj3.q">Ako zrušiť, keď mi to nesadne?</summary>
+          <p data-i18n="obj3.a">Voľný plán do 100 rozhovorov mesačne nemá žiadny záväzok ani kartu, jednoducho ho prestanete používať. Platené predplatné nad týmto limitom pôjde cez Stripe a pôjde zrušiť kedykoľvek, rovnako ako pri ostatných nástrojoch ARLing.</p>
         </details>
         <details>
-          <summary>Čo ak môj feed nie je v žiadnom z podporovaných formátov?</summary>
-          <p>Podporujeme Google Shopping RSS/XML (aj Heureka so značkami <code>g:</code>), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON a bežný XML feed so značkami <code>item/name/price/url/description/image</code>. Iný formát vyskúšajte vo formulári nižšie; ak ho spracovanie odmietne, napíšte na andrej@arling.sk s ukážkou feedu.</p>
+          <summary data-i18n="obj4.q">Čo ak môj feed nie je v žiadnom z podporovaných formátov?</summary>
+          <p data-i18n-html="obj4.a">Podporujeme Google Shopping RSS/XML (aj Heureka so značkami <code>g:</code>), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON a bežný XML feed so značkami <code>item/name/price/url/description/image</code>. Iný formát vyskúšajte vo formulári nižšie; ak ho spracovanie odmietne, napíšte na andrej@arling.sk s ukážkou feedu.</p>
         </details>
       </div>
     </div>
@@ -361,22 +376,22 @@
   <section id="playground">
     <div class="wrap">
       <p class="kicker">03</p>
-      <h2>Vyskúšajte to s vlastným feedom</h2>
-      <p class="sub">Zadajte URL feedu produktov a e-mail. Za pár minút sa vpravo dole na tejto stránke objaví chat s vašimi vlastnými produktmi. Doménu odvodíme automaticky z URL feedu.</p>
+      <h2 data-i18n="s3.h2">Vyskúšajte to s vlastným feedom</h2>
+      <p class="sub" data-i18n="s3.sub">Zadajte URL feedu produktov a e-mail. Za pár minút sa vpravo dole na tejto stránke objaví chat s vašimi vlastnými produktmi. Doménu odvodíme automaticky z URL feedu.</p>
 
       <div class="trial">
         <form id="trial-form" novalidate>
           <div class="trial-grid">
             <div class="field">
-              <label for="trial-feed-url">URL feedu produktov</label>
-              <input type="url" id="trial-feed-url" name="feed_url" placeholder="https://vasobchod.sk/feed.xml" required>
+              <label for="trial-feed-url" data-i18n="s3.label.feed">URL feedu produktov</label>
+              <input type="url" id="trial-feed-url" name="feed_url" placeholder="https://vasobchod.sk/feed.xml" data-i18n-placeholder="s3.placeholder.feed" required>
             </div>
             <div class="field">
-              <label for="trial-email">E-mail</label>
-              <input type="email" id="trial-email" name="email" placeholder="vy@vasobchod.sk" required>
+              <label for="trial-email" data-i18n="s3.label.email">E-mail</label>
+              <input type="email" id="trial-email" name="email" placeholder="vy@vasobchod.sk" data-i18n-placeholder="s3.placeholder.email" required>
             </div>
             <div class="field">
-              <label for="trial-lang">Jazyk</label>
+              <label for="trial-lang" data-i18n="s3.label.lang">Jazyk</label>
               <select id="trial-lang" name="lang">
                 <option value="sk">Slovenčina</option>
                 <option value="cs">Čeština</option>
@@ -385,13 +400,13 @@
               </select>
             </div>
             <div class="field">
-              <button class="btn btn-solid" id="trial-submit" type="submit">Spustiť skúšobnú verziu</button>
+              <button class="btn btn-solid" id="trial-submit" type="submit" data-i18n="s3.submit">Spustiť skúšobnú verziu</button>
             </div>
           </div>
         </form>
-        <p class="trial-hint">Feed sa použije len na vytvorenie skúšobného asistenta pre túto ukážku. Samotný rozhovor v chate sa nikde neukladá. Zadarmo do 100 rozhovorov mesačne, žiadna platobná karta.</p>
+        <p class="trial-hint" data-i18n="s3.hint">Feed sa použije len na vytvorenie skúšobného asistenta pre túto ukážku. Samotný rozhovor v chate sa nikde neukladá. Zadarmo do 100 rozhovorov mesačne, žiadna platobná karta.</p>
         <p class="trial-status" id="trial-status" role="status" hidden></p>
-        <p class="trial-widget-note" id="trial-widget-note" hidden>Asistent je pripravený. Hľadajte okrúhle tlačidlo vpravo dole na tejto stránke.</p>
+        <p class="trial-widget-note" id="trial-widget-note" hidden data-i18n="s3.widgetNote">Asistent je pripravený. Hľadajte okrúhle tlačidlo vpravo dole na tejto stránke.</p>
       </div>
     </div>
   </section>
@@ -399,14 +414,14 @@
   <section id="privacy">
     <div class="wrap">
       <p class="kicker">04</p>
-      <h2>Súkromie ako vlastnosť, nie dodatok</h2>
-      <p class="sub">Widget je postavený tak, aby o návštevníkoch vášho e-shopu vedel čo najmenej.</p>
+      <h2 data-i18n="s4.h2">Súkromie ako vlastnosť, nie dodatok</h2>
+      <p class="sub" data-i18n="s4.sub">Widget je postavený tak, aby o návštevníkoch vášho e-shopu vedel čo najmenej.</p>
       <ul class="privacy-list">
-        <li><p><b>Rozhovory sa neukladajú.</b> Obsah správ nikde nepretrváva, ani u nás, ani v databáze. Ukladáme len denné počítadlá rozhovorov a kliknutí na produkt, kvôli mesačnému limitu a fakturácii.</p></li>
-        <li><p><b>Žiadne cookies.</b> Widget nepoužíva cookies ani localStorage okrem voliteľného identifikátora relácie, ktorý žije len v pamäti prehliadača a mizne pri zatvorení stránky.</p></li>
-        <li><p><b>Feed produktov je jediný zdroj pravdy.</b> Asistent odpovedá len z toho, čo je vo vašom feede a v kontaktných údajoch, nikdy si nič nevymýšľa a text produktov berie ako dáta, nie ako pokyny.</p></li>
-        <li><p><b>Zmluva podľa čl. 28 GDPR.</b> ARLing s. r. o. je pri spracúvaní správ návštevníkov vášho e-shopu sprostredkovateľom. Vzor zmluvy: <a href="https://github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md" target="_blank" rel="noopener">Zmluva o spracúvaní osobných údajov (DPA)</a>.</p></li>
-        <li><p><b>Beh na globálnej sieti Cloudflare.</b> Presná EU-only lokalita spracovania Workers AI nie je Cloudflare verejne garantovaná; DPA preto počíta so štandardnými zmluvnými doložkami (SCC) a certifikáciou Cloudflare podľa EU Cloud Code of Conduct.</p></li>
+        <li><p data-i18n-html="s4.item1"><b>Rozhovory sa neukladajú.</b> Obsah správ nikde nepretrváva, ani u nás, ani v databáze. Ukladáme len denné počítadlá rozhovorov a kliknutí na produkt, kvôli mesačnému limitu a fakturácii.</p></li>
+        <li><p data-i18n-html="s4.item2"><b>Žiadne cookies.</b> Widget nepoužíva cookies ani localStorage okrem voliteľného identifikátora relácie, ktorý žije len v pamäti prehliadača a mizne pri zatvorení stránky.</p></li>
+        <li><p data-i18n-html="s4.item3"><b>Feed produktov je jediný zdroj pravdy.</b> Asistent odpovedá len z toho, čo je vo vašom feede a v kontaktných údajoch, nikdy si nič nevymýšľa a text produktov berie ako dáta, nie ako pokyny.</p></li>
+        <li><p data-i18n-html="s4.item4"><b>Zmluva podľa čl. 28 GDPR.</b> ARLing s. r. o. je pri spracúvaní správ návštevníkov vášho e-shopu sprostredkovateľom. Vzor zmluvy: <a href="https://github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md" target="_blank" rel="noopener">Zmluva o spracúvaní osobných údajov (DPA)</a>.</p></li>
+        <li><p data-i18n-html="s4.item5"><b>Beh na globálnej sieti Cloudflare.</b> Presná EU-only lokalita spracovania Workers AI nie je Cloudflare verejne garantovaná; DPA preto počíta so štandardnými zmluvnými doložkami (SCC) a certifikáciou Cloudflare podľa EU Cloud Code of Conduct.</p></li>
       </ul>
     </div>
   </section>
@@ -414,63 +429,63 @@
   <section id="faq">
     <div class="wrap">
       <p class="kicker">05</p>
-      <h2>Otázky</h2>
+      <h2 data-i18n="faqs.h2">Otázky</h2>
 
       <details>
-        <summary>Ako dlho trvá nastavenie?</summary>
-        <p>Vložíte URL feedu produktov a e-mail. Worker feed stiahne, rozdelí na časti a uloží ako embeddings, zvyčajne do pár minút podľa veľkosti katalógu (limit je 5000 produktov). Potom stačí vložiť jeden <code>&lt;script&gt;</code> tag do e-shopu.</p>
+        <summary data-i18n="faq.setup.q">Ako dlho trvá nastavenie?</summary>
+        <p data-i18n-html="faq.setup.a">Vložíte URL feedu produktov a e-mail. Worker feed stiahne, rozdelí na časti a uloží ako embeddings, zvyčajne do pár minút podľa veľkosti katalógu (limit je 5000 produktov). Potom stačí vložiť jeden <code>&lt;script&gt;</code> tag do e-shopu.</p>
       </details>
       <details>
-        <summary>Aké formáty feedu podporujete?</summary>
-        <p>Google Shopping RSS/XML (aj Heureka formát so značkami <code>g:</code>), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON a bežný XML feed so značkami <code>item/name/price/url/description/image</code>.</p>
+        <summary data-i18n="faq.formats.q">Aké formáty feedu podporujete?</summary>
+        <p data-i18n-html="faq.formats.a">Google Shopping RSS/XML (aj Heureka formát so značkami <code>g:</code>), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON a bežný XML feed so značkami <code>item/name/price/url/description/image</code>.</p>
       </details>
       <details>
-        <summary>Ukladáte rozhovory zákazníkov?</summary>
-        <p>Nie. Obsah rozhovoru sa nikde neukladá, ani u nás, ani v databáze. Ukladáme len počítadlá: koľko rozhovorov a kliknutí na produkt sa za deň udialo, kvôli fakturácii a mesačnému limitu.</p>
+        <summary data-i18n="obj1.q">Ukladáte rozhovory zákazníkov?</summary>
+        <p data-i18n="obj1.a">Nie. Obsah rozhovoru sa nikde neukladá, ani u nás, ani v databáze. Ukladáme len počítadlá: koľko rozhovorov a kliknutí na produkt sa za deň udialo, kvôli fakturácii a mesačnému limitu.</p>
       </details>
       <details>
-        <summary>V akom jazyku asistent odpovedá?</summary>
-        <p>Slovensky, česky, anglicky alebo nemecky, podľa nastavenia widgetu na stránke (<code>data-lang</code>). Odpoveď je vždy len z produktov vo vašom feede, nikdy si nič nevymýšľa.</p>
+        <summary data-i18n="faq.lang.q">V akom jazyku asistent odpovedá?</summary>
+        <p data-i18n-html="faq.lang.a">Slovensky, česky, anglicky alebo nemecky, podľa nastavenia widgetu na stránke (<code>data-lang</code>). Odpoveď je vždy len z produktov vo vašom feede, nikdy si nič nevymýšľa.</p>
       </details>
       <details>
-        <summary>Čo ak asistent nevie odpovedať?</summary>
-        <p>Ak sa vo feede nenájde nič relevantné k otázke, asistent to jasne povie a odporučí zákazníkovi kontaktovať obchod priamo, na e-mail zadaný pri nastavení.</p>
+        <summary data-i18n="faq.cantanswer.q">Čo ak asistent nevie odpovedať?</summary>
+        <p data-i18n="faq.cantanswer.a">Ak sa vo feede nenájde nič relevantné k otázke, asistent to jasne povie a odporučí zákazníkovi kontaktovať obchod priamo, na e-mail zadaný pri nastavení.</p>
       </details>
       <details>
-        <summary>Funguje to aj na Shoptete, WooCommerce alebo Shopify?</summary>
-        <p>Skript funguje na akomkoľvek e-shope hneď, stačí vložiť jeden <code>&lt;script&gt;</code> tag do administrácie alebo šablóny. Samostatný WooCommerce plugin a Shopify aplikácia (inštalácia na klik) sú v príprave, pozrite README v repozitári pre aktuálny stav.</p>
+        <summary data-i18n="faq.platforms.q">Funguje to aj na Shoptete, WooCommerce alebo Shopify?</summary>
+        <p data-i18n-html="faq.platforms.a">Skript funguje na akomkoľvek e-shope hneď, stačí vložiť jeden <code>&lt;script&gt;</code> tag do administrácie alebo šablóny. Samostatný WooCommerce plugin a Shopify aplikácia (inštalácia na klik) sú v príprave, pozrite README v repozitári pre aktuálny stav.</p>
       </details>
       <details>
-        <summary>Čo je zadarmo?</summary>
-        <p>Do 100 rozhovorov mesačne, navždy, bez platobnej karty. Vyskúšať si to môžete priamo na tejto stránke s vlastným feedom, chat sa objaví vpravo dole.</p>
+        <summary data-i18n="faq.free.q">Čo je zadarmo?</summary>
+        <p data-i18n="faq.free.a">Do 100 rozhovorov mesačne, navždy, bez platobnej karty. Vyskúšať si to môžete priamo na tejto stránke s vlastným feedom, chat sa objaví vpravo dole.</p>
       </details>
       <details>
-        <summary>Kde bežia dáta?</summary>
-        <p>Na globálnej sieti Cloudflare (Workers, Vectorize, D1). Presná EU-only lokalita spracovania nie je Cloudflare verejne garantovaná, preto zmluva o spracúvaní osobných údajov (DPA) medzi ARLingom a e-shopom počíta so štandardnými zmluvnými doložkami (SCC) a Cloudflare EU Cloud Code of Conduct.</p>
+        <summary data-i18n="faq.datalocation.q">Kde bežia dáta?</summary>
+        <p data-i18n="faq.datalocation.a">Na globálnej sieti Cloudflare (Workers, Vectorize, D1). Presná EU-only lokalita spracovania nie je Cloudflare verejne garantovaná, preto zmluva o spracúvaní osobných údajov (DPA) medzi ARLingom a e-shopom počíta so štandardnými zmluvnými doložkami (SCC) a Cloudflare EU Cloud Code of Conduct.</p>
       </details>
       <details>
-        <summary>Ako funguje platba a fakturácia?</summary>
-        <p>Do 100 rozhovorov mesačne je používanie úplne zadarmo, bez karty. Platba cez Stripe sa spustí, až keď mesačný počet prekročíte; presné napojenie na Stripe je v príprave, pozrite README v repozitári.</p>
+        <summary data-i18n="faq.billing.q">Ako funguje platba a fakturácia?</summary>
+        <p data-i18n="faq.billing.a">Do 100 rozhovorov mesačne je používanie úplne zadarmo, bez karty. Platba cez Stripe sa spustí, až keď mesačný počet prekročíte; presné napojenie na Stripe je v príprave, pozrite README v repozitári.</p>
       </details>
 
       <div class="subscribe-ask">
-        <p class="sub" style="margin-bottom:14px">Chcete vedieť, keď pribudne WooCommerce plugin, Shopify aplikácia alebo platené predplatné?</p>
+        <p class="sub" style="margin-bottom:14px" data-i18n="subscribe.ask">Chcete vedieť, keď pribudne WooCommerce plugin, Shopify aplikácia alebo platené predplatné?</p>
         <form class="subscribe-form" data-subscribe data-source="asistent" data-lang="sk" data-thanks="subscribe-thanks" data-error="subscribe-error">
           <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off">
-          <input type="email" name="email" placeholder="vas@email.sk" required>
-          <button class="btn btn-solid" type="submit">Dajte mi vedieť</button>
-          <p class="subscribe-privacy trial-hint">Len e-mail o novinkách k ARLing Asistentovi. Odhlásenie kedykoľvek jedným klikom.</p>
+          <input type="email" name="email" placeholder="vas@email.sk" data-i18n-placeholder="subscribe.email.placeholder" required>
+          <button class="btn btn-solid" type="submit" data-i18n="subscribe.btn">Dajte mi vedieť</button>
+          <p class="subscribe-privacy trial-hint" data-i18n="subscribe.privacy">Len e-mail o novinkách k ARLing Asistentovi. Odhlásenie kedykoľvek jedným klikom.</p>
         </form>
-        <p id="subscribe-thanks" hidden>Ďakujeme, ozveme sa.</p>
-        <p id="subscribe-error" hidden>Niečo sa pokazilo, skúste to prosím znova alebo napíšte na andrej@arling.sk.</p>
+        <p id="subscribe-thanks" hidden data-i18n="subscribe.thanks">Ďakujeme, ozveme sa.</p>
+        <p id="subscribe-error" hidden data-i18n="subscribe.error">Niečo sa pokazilo, skúste to prosím znova alebo napíšte na andrej@arling.sk.</p>
       </div>
     </div>
   </section>
 
   <section id="closing-cta">
     <div class="wrap" style="text-align:center;">
-      <p class="sub" style="margin:0 auto 18px;">Vložte URL feedu a e-mail. Zadarmo do 100 rozhovorov mesačne, bez platobnej karty.</p>
-      <a class="btn btn-solid" href="#playground" data-umami-event="trial_click" data-umami-event-place="closing">Začať zadarmo</a>
+      <p class="sub" style="margin:0 auto 18px;" data-i18n="closing.sub">Vložte URL feedu a e-mail. Zadarmo do 100 rozhovorov mesačne, bez platobnej karty.</p>
+      <a class="btn btn-solid" href="#playground" data-umami-event="trial_click" data-umami-event-place="closing" data-i18n="cta.startFree">Začať zadarmo</a>
     </div>
   </section>
 
@@ -479,33 +494,34 @@
       <div class="cols">
         <div>
           <b>ARLing Asistent</b><br>
-          nástroj <a href="https://arling.sk/">ARLing s. r. o.</a>
+          <span data-i18n="footer.tool">nástroj</span> <a href="https://arling.sk/">ARLing s. r. o.</a>
         </div>
         <div>
-          IČO 56583486 · IČ DPH SK2122352100<br>
+          <span data-i18n="footer.regIds">IČO 56583486 · IČ DPH SK2122352100</span><br>
           Ivanská cesta 19112/32E, 821 04 Bratislava<br>
           <a href="mailto:andrej@arling.sk">andrej@arling.sk</a>
         </div>
         <div>
-          <a href="https://github.com/AndryRoby/arling-asistent" target="_blank" rel="noopener">Zdrojový kód (GitHub)</a><br>
+          <a href="https://github.com/AndryRoby/arling-asistent" target="_blank" rel="noopener" data-i18n="footer.sourceCode">Zdrojový kód (GitHub)</a><br>
           <a href="llms.txt">llms.txt</a> · <a href="sitemap.xml">sitemap.xml</a><br>
-          <a href="https://github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md" target="_blank" rel="noopener">DPA (GDPR čl. 28)</a>
+          <a href="https://github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md" target="_blank" rel="noopener" data-i18n="footer.dpa">DPA (GDPR čl. 28)</a>
         </div>
       </div>
-      <p class="footer-note">Návštevnosť meriame vlastným, cookie-free nástrojom Umami. Neukladá cookies ani odtlačok prehliadača.</p>
+      <p class="footer-note" data-i18n="footer.note">Návštevnosť meriame vlastným, cookie-free nástrojom Umami. Neukladá cookies ani odtlačok prehliadača.</p>
     </div>
   </footer>
 </main>
 
 <div class="sticky-cta" id="sticky-cta" hidden>
   <div class="sticky-cta-inner">
-    <span class="sticky-cta-text">Zadarmo do 100 rozhovorov mesačne.</span>
-    <a class="btn btn-solid" href="#playground" data-umami-event="trial_click" data-umami-event-place="sticky">Začať zadarmo</a>
-    <button type="button" class="sticky-cta-close" id="sticky-cta-close" aria-label="Zavrieť lištu">&times;</button>
+    <span class="sticky-cta-text" data-i18n="sticky.text">Zadarmo do 100 rozhovorov mesačne.</span>
+    <a class="btn btn-solid" href="#playground" data-umami-event="trial_click" data-umami-event-place="sticky" data-i18n="cta.startFree">Začať zadarmo</a>
+    <button type="button" class="sticky-cta-close" id="sticky-cta-close" aria-label="Zavrieť lištu" data-i18n-aria-label="sticky.close.aria">&times;</button>
   </div>
 </div>
 
 <script defer src="https://homelab.tailbf8f27.ts.net/script.js" data-website-id="09cc54da-8172-43b3-8aa2-84e3ab5a17f1"></script>
+<script type="module" src="i18n.js"></script>
 <script src="subscribe.js" defer></script>
 <script src="app.js" defer></script>
 <script src="sell.js" defer></script>

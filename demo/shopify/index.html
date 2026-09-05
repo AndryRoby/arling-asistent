@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://homelab.tailbf8f27.ts.net; connect-src 'self' https://homelab.tailbf8f27.ts.net; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<title>ARLing Asistent for Shopify: AI shopping assistant</title>
+<meta name="description" content="AI shopping assistant for Shopify stores, added with one script tag while the full app listing is in preparation. Runs on Cloudflare Workers, stores no customer conversations. Free up to 100 conversations a month, then from 19 EUR a month." />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="ARLing Asistent for Shopify: AI shopping assistant" />
+<meta property="og:description" content="AI shopping assistant for Shopify stores, added with one script tag while the full app listing is in preparation. Runs on Cloudflare Workers, stores no customer conversations. Free up to 100 conversations a month, then from 19 EUR a month." />
+<meta property="og:url" content="https://arling.sk/asistent/shopify/" />
+<meta property="og:locale" content="en_US" />
+<link rel="canonical" href="https://arling.sk/asistent/shopify/" />
+<meta property="og:image" content="https://arling.sk/asistent/icon-512.png" />
+<link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+<link rel="alternate icon" href="../favicon.ico" />
+<link rel="apple-touch-icon" href="../icon-192.png" />
+<link rel="manifest" href="../manifest.json" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "ARLing Asistent for Shopify",
+  "url": "https://arling.sk/asistent/shopify/",
+  "description": "AI shopping assistant for Shopify stores: reads your store's public /products.json feed and answers customer questions from your own catalogue, with links to matching products. A one-click Shopify app listing is in preparation; today the widget is added with one script tag in the theme. No conversation content stored, only daily aggregate counters.",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Shopify (theme script tag today; app-store listing in preparation)",
+  "inLanguage": ["en"],
+  "offers": [
+    { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/shopify/#pricing" },
+    { "@type": "Offer", "name": "Starter", "price": "19", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/shopify/#pricing" },
+    { "@type": "Offer", "name": "Growth", "price": "39", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/shopify/#pricing" }
+  ],
+  "author": {
+    "@type": "Organization",
+    "name": "ARLing s. r. o.",
+    "url": "https://arling.sk/",
+    "email": "andrej@arling.sk",
+    "address": { "@type": "PostalAddress", "streetAddress": "Ivanská cesta 19112/32E", "addressLocality": "Bratislava", "postalCode": "821 04", "addressCountry": "SK" }
+  }
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Is there a Shopify app yet?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Not yet listed in the Shopify App Store. The app (one-click install, embedded settings page, OAuth) is in preparation; the underlying Worker and theme extension already exist and are being finished before submission to Shopify's app review." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I use it today, before the app is live?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Fill in the trial form on the main ARLing Asistent page with your store's product feed URL (https://your-store.myshopify.com/products.json) and your e-mail to get a tenant ID, then add the widget script tag with that tenant ID to your theme, just before the closing </body> tag in theme.liquid." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does it read my product catalogue automatically?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. It reads your store's public /products.json feed, the same endpoint Shopify already serves to any visitor's browser, and refreshes it automatically once a day." }
+    },
+    {
+      "@type": "Question",
+      "name": "Do you store customer conversations?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. Conversation content is never stored, only daily aggregate counters (conversations, product clicks) used to enforce the monthly plan quota." }
+    },
+    {
+      "@type": "Question",
+      "name": "What data leaves my store?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Only your public product feed data, your store's domain, and the e-mail address you enter in the trial form when you request a tenant ID. No customer or order data is sent." }
+    },
+    {
+      "@type": "Question",
+      "name": "What will change once the app is live?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Installing from the Shopify App Store, an embedded settings page, and automatic theme-block setup, no manual script tag or theme edit. This page will be updated to reflect that install path once the listing is approved." }
+    }
+  ]
+}
+</script>
+
+<style>
+  :root {
+    --paper:#f6f2ea; --paper-2:#fbf9f4; --ink:#1b1a17; --ink-2:#4a4741; --muted:#66625a; --line:#d9d2c4;
+    --accent:#b23a1d; --accent-soft:#f3e2dc; --ok:#2f6f3e; --warn:#9a6b00;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --sans:system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"Cascadia Code",Consolas,Menlo,monospace;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper:#151412; --paper-2:#1d1b18; --ink:#efe9de; --ink-2:#c9c2b5; --muted:#8f887b; --line:#2e2b26; --accent:#e0623f; --accent-soft:#3a1f17; --ok:#7fbf8e; --warn:#caa552; }
+  }
+  * { box-sizing:border-box; }
+  html { background:var(--paper); }
+  body { margin:0; color:var(--ink); background:var(--paper); font:16px/1.55 var(--sans); -webkit-font-smoothing:antialiased; }
+  a { color:inherit; text-decoration-color:var(--line); text-underline-offset:3px; }
+  a:hover { text-decoration-color:var(--accent); }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+  img { max-width:100%; height:auto; display:block; }
+  [hidden] { display:none !important; }
+  .skip { position:absolute; left:-999px; top:8px; background:var(--ink); color:var(--paper); padding:8px 12px; z-index:10; }
+  .skip:focus { left:8px; }
+  .wrap { max-width:1040px; margin:0 auto; padding:0 24px; min-width:0; }
+  code { font:13.5px/1.4 var(--mono); background:var(--paper-2); border:1px solid var(--line); border-radius:3px; padding:1px 5px; overflow-wrap:anywhere; }
+
+  header.top { border-bottom:1px solid var(--line); }
+  header.top .wrap { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px 24px; padding:18px 24px; }
+  .brand { display:flex; align-items:baseline; flex-wrap:wrap; gap:2px 10px; min-width:0; }
+  .wordmark { font:600 21px/1.25 var(--serif); text-decoration:none; overflow-wrap:anywhere; }
+  .wordmark-sub { font:13px/1 var(--sans); color:var(--muted); letter-spacing:.02em; text-decoration:none; white-space:nowrap; }
+  .wordmark-sub:hover { color:var(--accent); }
+  nav.main { display:flex; flex-wrap:wrap; }
+  nav.main a { font-size:14px; margin-left:20px; text-decoration:none; color:var(--ink-2); white-space:nowrap; }
+  nav.main a:first-child { margin-left:0; }
+  nav.main a:hover { color:var(--accent); }
+
+  .hero { padding:64px 0 40px; border-bottom:1px solid var(--line); }
+  .hero h1 { font:400 clamp(30px,4.6vw,46px)/1.14 var(--serif); letter-spacing:-.01em; margin:0 0 18px; max-width:22ch; }
+  .hero p.lead { font-size:18px; color:var(--ink-2); max-width:60ch; margin:0 0 26px; }
+  .facts { list-style:none; margin:22px 0 0; padding:0; display:flex; flex-wrap:wrap; gap:8px 0; color:var(--muted); font-size:14px; }
+  .facts li + li::before { content:"·"; margin:0 10px; color:var(--line); }
+  .facts b { color:var(--ink); font-weight:600; }
+
+  .btn { display:inline-block; font:600 15px/1 var(--sans); padding:13px 18px; border-radius:4px; text-decoration:none; cursor:pointer; border:2px solid transparent; appearance:none; -webkit-appearance:none; }
+  .btn-solid { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .btn-solid:hover { background:var(--ink); border-color:var(--ink); color:var(--paper); }
+  .btn-line { border:2px solid var(--ink); color:var(--ink); background:transparent; }
+  .btn-line:hover { border-color:var(--accent); color:var(--accent); }
+  .btn + .btn { margin-left:10px; }
+  .btn:disabled { opacity:.6; cursor:default; }
+
+  section { padding:44px 0; border-bottom:1px solid var(--line); }
+  section[id], header.top { scroll-margin-top:14px; }
+  .kicker { font:400 14px/1 var(--serif); color:var(--accent); letter-spacing:.06em; text-transform:uppercase; margin:0 0 10px; }
+  h2 { font:400 28px/1.2 var(--serif); margin:0 0 8px; letter-spacing:-.005em; max-width:30ch; }
+  .sub { color:var(--ink-2); max-width:64ch; margin:0 0 24px; }
+
+  .rules { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:26px 32px; margin:0; padding:0; list-style:none; counter-reset:r; }
+  .rules li { padding-top:14px; border-top:1px solid var(--line); min-width:0; }
+  .rules li::before { counter-increment:r; content:counter(r,decimal-leading-zero); font:400 14px/1 var(--serif); color:var(--accent); display:block; margin-bottom:8px; }
+  .rules b { display:block; font-weight:600; margin-bottom:4px; }
+  .rules p { margin:0; color:var(--ink-2); font-size:15px; overflow-wrap:anywhere; }
+
+  .pricing-table { width:100%; border-collapse:collapse; }
+  .pricing-table th, .pricing-table td { text-align:left; padding:14px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .pricing-table th { font:600 12px/1 var(--sans); text-transform:uppercase; letter-spacing:.03em; color:var(--muted); }
+  .pricing-table td.plan { font:600 16px/1.3 var(--sans); }
+  .pricing-table td.price { font:400 26px/1 var(--serif); white-space:nowrap; }
+  .pricing-table td.price span { font:13px/1 var(--sans); color:var(--muted); }
+  .pricing-table-wrap { overflow-x:auto; }
+  .pricing-table .btn { white-space:nowrap; }
+  @media (max-width:480px) {
+    .pricing-table th, .pricing-table td { padding:12px 6px; }
+    .pricing-table td.price { font-size:21px; }
+    .pricing-table .btn { padding:9px 12px; font-size:13px; }
+  }
+  .pricing-note { color:var(--ink-2); font-size:14px; margin:16px 0 0; }
+
+  .privacy-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:14px; }
+  .privacy-list li { display:flex; gap:12px; align-items:flex-start; }
+  .privacy-list li::before { content:"\2022"; color:var(--accent); flex-shrink:0; font-family:var(--serif); }
+  .privacy-list p { margin:0; color:var(--ink-2); }
+  .privacy-list b { color:var(--ink); }
+
+  .pro-objections { margin-top:28px; }
+  .objections-label { margin:0 0 4px; font:600 13px/1 var(--sans); letter-spacing:.03em; text-transform:uppercase; color:var(--ink-2); }
+
+  .ask { display:flex; flex-wrap:wrap; align-items:center; gap:14px 24px; margin-top:6px; }
+  .ask p { margin:0; color:var(--ink-2); max-width:56ch; }
+  .hp { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+  .subscribe-ask { border-top:1px solid var(--line); margin-top:20px; padding-top:20px; }
+  .subscribe-form { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  .subscribe-form input[type="email"] { height:44px; min-width:0; flex:1 1 240px; padding:0 14px; border:1px solid var(--line); border-radius:4px; background:var(--paper-2); color:var(--ink); font:15px/1 var(--sans); }
+  .subscribe-form .btn { flex:none; }
+  #subscribe-thanks { color:var(--ok); font-weight:600; }
+  #subscribe-error { color:var(--accent); font-weight:600; }
+  .subscribe-privacy { flex-basis:100%; margin:0; }
+  @media (max-width:480px) { .subscribe-form input[type="email"], .subscribe-form button { width:100%; } }
+
+  details { border-top:1px solid var(--line); padding:14px 0; }
+  details:last-of-type { border-bottom:1px solid var(--line); }
+  summary { cursor:pointer; font:400 18px/1.3 var(--serif); list-style:none; display:flex; justify-content:space-between; gap:12px; }
+  summary::-webkit-details-marker { display:none; }
+  summary::after { content:"+"; color:var(--accent); flex:none; font-family:var(--sans); }
+  details[open] summary::after { content:"\2013"; }
+  details p { color:var(--ink-2); margin:10px 0 0; max-width:70ch; overflow-wrap:anywhere; }
+
+  footer { padding:32px 0 56px; color:var(--muted); font-size:14px; }
+  footer .cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:20px 32px; }
+  footer b { color:var(--ink); font-weight:600; }
+  footer a { color:var(--ink-2); }
+  .footer-note { margin-top:14px; font-size:12px; color:var(--muted); }
+
+  @media (max-width:480px) {
+    .hero { padding:44px 0 32px; }
+    nav.main a { margin-left:12px; }
+    .wordmark-sub { display:none; }
+    .btn + .btn { margin-left:0; margin-top:10px; }
+  }
+
+  .sticky-cta { position:fixed; left:0; right:0; bottom:0; z-index:30; background:var(--paper-2); border-top:1px solid var(--line); }
+  .sticky-cta-inner { display:flex; align-items:center; gap:10px; max-width:1040px; margin:0 auto; padding:10px 14px; }
+  .sticky-cta-text { flex:1 1 auto; min-width:0; font-size:12.5px; color:var(--ink-2); overflow-wrap:anywhere; }
+  .sticky-cta .btn { flex:none; padding:10px 14px; font-size:13.5px; margin:0; }
+  .sticky-cta-close { flex:none; width:30px; height:30px; border:1px solid var(--line); background:var(--paper); color:var(--ink-2); border-radius:4px; cursor:pointer; font:16px/1 var(--sans); padding:0; }
+  .sticky-cta-close:hover { border-color:var(--accent); color:var(--accent); }
+  @media (min-width:761px) { .sticky-cta { display:none !important; } }
+  @media print { .sticky-cta { display:none !important; } }
+</style>
+</head>
+<body>
+
+<a class="skip" href="#install">Skip to installation steps</a>
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <a class="wordmark" href="../">ARLing Asistent</a>
+      <a class="wordmark-sub" href="https://arling.sk/">an ARLing tool</a>
+    </div>
+    <nav class="main" aria-label="Page">
+      <a href="#install">Install</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#faq">FAQ</a>
+      <a href="../">Live demo</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <div class="wrap">
+      <h1>AI shopping assistant for Shopify, add the widget in minutes.</h1>
+      <p class="lead">The one-click Shopify app is in preparation. Meanwhile, get a tenant ID from the trial form on the main page and add one script tag to your theme: it already reads your store's public <code>/products.json</code> feed and answers shoppers from your real catalogue. Free up to 100 conversations a month, no card.</p>
+      <a class="btn btn-solid" href="#install" data-umami-event="trial_click" data-umami-event-place="hero">See how to add it</a><a class="btn btn-line" href="../#playground" data-umami-event="demo_click" data-umami-event-place="hero">Try the live demo first</a>
+      <ul class="facts">
+        <li><b>0</b> conversations stored</li>
+        <li><b>100</b> conversations/month free</li>
+        <li>reads <code>/products.json</code> directly</li>
+        <li>runs on Cloudflare Workers</li>
+      </ul>
+    </div>
+  </div>
+
+  <section id="install">
+    <div class="wrap">
+      <p class="kicker">01</p>
+      <h2>How to add it today</h2>
+      <p class="sub">Honest status: the Shopify app listing (one-click install, embedded settings) is in preparation, not yet in the Shopify App Store. Until then, the widget is added by hand with one script tag, the same underlying assistant either way.</p>
+      <ol class="rules">
+        <li>
+          <b>Get a tenant ID.</b>
+          <p>Fill in the <a href="../#playground">trial form on the main ARLing Asistent page</a> with your store's feed URL (<code>https://your-store.myshopify.com/products.json</code>) and your e-mail. You will see the assistant working live on that page, and get a tenant ID for your own store.</p>
+        </li>
+        <li>
+          <b>Add the widget to your theme.</b>
+          <p>In the Shopify admin, go to <b>Online Store &gt; Themes &gt; Edit code</b>, open <code>theme.liquid</code>, and add the script tag below just before <code>&lt;/body&gt;</code>, replacing <code>TENANT_ID</code> with the id from step 1.</p>
+        </li>
+        <li>
+          <b>What is coming.</b>
+          <p>A Shopify app (OAuth install, embedded settings page, theme-block widget, no code) is in preparation. This page will switch to "Install from the Shopify App Store" once that listing is approved.</p>
+        </li>
+      </ol>
+      <p class="sub" style="margin-top:26px; margin-bottom:8px;">Script tag to add before <code>&lt;/body&gt;</code> in <code>theme.liquid</code>:</p>
+      <pre style="overflow-x:auto; background:var(--paper-2); border:1px solid var(--line); border-radius:4px; padding:14px 16px; margin:0;"><code>&lt;script src="https://arling-asistent.arling.workers.dev/widget.js"
+        data-tenant="TENANT_ID"
+        data-lang="en"
+        data-color="auto"
+        defer&gt;&lt;/script&gt;</code></pre>
+    </div>
+  </section>
+
+  <section id="pricing">
+    <div class="wrap">
+      <p class="kicker">02</p>
+      <h2>Pricing</h2>
+      <p class="sub">Free forever up to 100 conversations a month, no card. Above that, a simple price by monthly conversation volume, billed through Stripe once you go over the free limit.</p>
+      <div class="pricing-table-wrap">
+        <table class="pricing-table">
+          <thead>
+            <tr><th>Plan</th><th>Price</th><th>Conversations / month</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="plan">Free</td>
+              <td class="price">0&nbsp;&euro;</td>
+              <td>up to 100</td>
+              <td><a class="btn btn-line" href="#install" data-umami-event="trial_click" data-umami-event-place="pricing">See how to add it</a></td>
+            </tr>
+            <tr>
+              <td class="plan">Starter</td>
+              <td class="price">19 &euro;<span> / month</span></td>
+              <td>up to 1,000</td>
+              <td><a class="btn btn-line" href="#install" data-umami-event="trial_click" data-umami-event-place="pricing">See how to add it</a></td>
+            </tr>
+            <tr>
+              <td class="plan">Growth</td>
+              <td class="price">39 &euro;<span> / month</span></td>
+              <td>up to 5,000</td>
+              <td><a class="btn btn-line" href="#install" data-umami-event="trial_click" data-umami-event-place="pricing">See how to add it</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="pricing-note">Free up to 100 conversations a month, forever, no payment card. Nothing is charged automatically: the assistant keeps working on the free tier until you ask to move to a paid plan. No annual plan yet, monthly billing only.</p>
+
+      <div class="pro-objections">
+        <p class="objections-label">Before you add it</p>
+        <details>
+          <summary>Do you store customer conversations?</summary>
+          <p>No. The content of a conversation is never stored, not by us, not in any database. We only keep daily counters: how many conversations and product-link clicks happened, for billing and the monthly limit.</p>
+        </details>
+        <details>
+          <summary>Do you have a GDPR Article 28 agreement?</summary>
+          <p>Yes. ARLing s. r. o. acts as processor for the messages your store's visitors send. Template agreement: <a href="https://github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md" target="_blank" rel="noopener">Data Processing Agreement (DPA)</a>. The template is written in Slovak; an English translation is available on request at andrej@arling.sk.</p>
+        </details>
+        <details>
+          <summary>How do I cancel if it does not work out?</summary>
+          <p>Remove the script tag from <code>theme.liquid</code> and the widget stops appearing immediately, no card and no commitment on the free plan. A paid plan above the free limit runs through Stripe and can be cancelled any time.</p>
+        </details>
+        <details>
+          <summary>What if I do not want to edit theme code?</summary>
+          <p>Editing one line in <code>theme.liquid</code> is the only manual step while the Shopify app is in preparation. Once the app is live, install will be one click from the Shopify App Store, with no code and an embedded settings page instead.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section id="privacy">
+    <div class="wrap">
+      <p class="kicker">03</p>
+      <h2>What it answers, and what it knows</h2>
+      <p class="sub">Built to know as little as possible about your shoppers.</p>
+      <ul class="privacy-list">
+        <li><p><b>Answers from your catalogue only.</b> Shoppers ask in their own words ("do you have a waterproof jacket under 80 euros?") and the assistant replies using only your own <code>/products.json</code> catalogue, with up to three linked products per answer, in the shopper's language (Slovak, Czech, English or German).</p></li>
+        <li><p><b>Says so when it does not know.</b> If nothing in your catalogue matches the question, the assistant says that plainly and points to your store's contact e-mail instead of guessing.</p></li>
+        <li><p><b>Conversations are not stored.</b> Only daily aggregate counters (conversations, product clicks) are kept, to enforce the monthly plan quota, never the message content.</p></li>
+        <li><p><b>Only public feed data is used.</b> The tenant setup uses your store's public <code>/products.json</code> feed (data Shopify already serves to any visitor's browser), your domain, and the e-mail you enter in the trial form. No customer or order data is read.</p></li>
+        <li><p><b>GDPR Article 28 agreement.</b> ARLing s. r. o. acts as processor for the messages your store's visitors send. Template: <a href="https://github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md" target="_blank" rel="noopener">Data Processing Agreement (DPA)</a>, written in Slovak, English translation on request.</p></li>
+        <li><p><b>Runs on Cloudflare's global network.</b> Cloudflare does not publicly guarantee EU-only processing location for Workers AI; the DPA relies on Standard Contractual Clauses (SCC) and Cloudflare's EU Cloud Code of Conduct certification.</p></li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap">
+      <p class="kicker">04</p>
+      <h2>FAQ</h2>
+
+      <details>
+        <summary>Is there a Shopify app yet?</summary>
+        <p>Not yet listed in the Shopify App Store. The app (one-click install, embedded settings page, OAuth) is in preparation; the underlying Worker and theme extension already exist and are being finished before submission to Shopify's app review.</p>
+      </details>
+      <details>
+        <summary>How do I use it today, before the app is live?</summary>
+        <p>Fill in the <a href="../#playground">trial form on the main ARLing Asistent page</a> with your store's product feed URL (<code>https://your-store.myshopify.com/products.json</code>) and your e-mail to get a tenant ID, then add the widget script tag with that tenant ID to your theme, just before the closing <code>&lt;/body&gt;</code> tag in <code>theme.liquid</code>.</p>
+      </details>
+      <details>
+        <summary>Does it read my product catalogue automatically?</summary>
+        <p>Yes. It reads your store's public <code>/products.json</code> feed, the same endpoint Shopify already serves to any visitor's browser, and refreshes it automatically once a day.</p>
+      </details>
+      <details>
+        <summary>Do you store customer conversations?</summary>
+        <p>No. Conversation content is never stored, only daily aggregate counters (conversations, product clicks) used to enforce the monthly plan quota.</p>
+      </details>
+      <details>
+        <summary>What data leaves my store?</summary>
+        <p>Only your public product feed data, your store's domain, and the e-mail address you enter in the trial form when you request a tenant ID. No customer or order data is sent.</p>
+      </details>
+      <details>
+        <summary>What will change once the app is live?</summary>
+        <p>Installing from the Shopify App Store, an embedded settings page, and automatic theme-block setup, no manual script tag or theme edit. This page will be updated to reflect that install path once the listing is approved.</p>
+      </details>
+
+      <div class="subscribe-ask">
+        <p class="sub" style="margin-bottom:14px">Want an e-mail when the Shopify app goes live?</p>
+        <form class="subscribe-form" data-subscribe data-source="asistent-shopify" data-lang="en" data-thanks="subscribe-thanks" data-error="subscribe-error">
+          <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off">
+          <input type="email" name="email" placeholder="you@email.com" required>
+          <button class="btn btn-solid" type="submit">Notify me</button>
+          <p class="subscribe-privacy trial-hint">Only email about ARLing Asistent news. Unsubscribe any time with one click.</p>
+        </form>
+        <p id="subscribe-thanks" hidden>Thanks, we'll be in touch.</p>
+        <p id="subscribe-error" hidden>Something went wrong, please try again or write to andrej@arling.sk.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="closing-cta">
+    <div class="wrap" style="text-align:center;">
+      <p class="sub" style="margin:0 auto 18px;">Get a tenant ID from the trial form, add one script tag, free up to 100 conversations a month.</p>
+      <a class="btn btn-solid" href="#install" data-umami-event="trial_click" data-umami-event-place="closing">See how to add it</a>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <div class="cols">
+        <div>
+          <b>ARLing Asistent for Shopify</b><br>
+          a tool by <a href="https://arling.sk/">ARLing s. r. o.</a>
+        </div>
+        <div>
+          Company ID (IČO) 56583486 · VAT ID (IČ DPH) SK2122352100<br>
+          Ivanská cesta 19112/32E, 821 04 Bratislava, Slovakia<br>
+          <a href="mailto:andrej@arling.sk">andrej@arling.sk</a>
+        </div>
+        <div>
+          <a href="../">ARLing Asistent (main page, live demo)</a><br>
+          <a href="https://github.com/AndryRoby/arling-asistent" target="_blank" rel="noopener">Source code (GitHub)</a><br>
+          <a href="../llms.txt">llms.txt</a> · <a href="../sitemap.xml">sitemap.xml</a><br>
+          <a href="https://github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md" target="_blank" rel="noopener">DPA (GDPR Art. 28)</a>
+        </div>
+      </div>
+      <p class="footer-note">We measure traffic with our own cookie-free tool, Umami. It stores no cookies and no browser fingerprint.</p>
+    </div>
+  </footer>
+</main>
+
+<div class="sticky-cta" id="sticky-cta" hidden>
+  <div class="sticky-cta-inner">
+    <span class="sticky-cta-text">Free up to 100 conversations a month.</span>
+    <a class="btn btn-solid" href="#install" data-umami-event="trial_click" data-umami-event-place="sticky">See how to add it</a>
+    <button type="button" class="sticky-cta-close" id="sticky-cta-close" aria-label="Close bar">&times;</button>
+  </div>
+</div>
+
+<script defer src="https://homelab.tailbf8f27.ts.net/script.js" data-website-id="09cc54da-8172-43b3-8aa2-84e3ab5a17f1"></script>
+<script src="../subscribe.js" defer></script>
+<script src="../sell.js" defer></script>
+</body>
+</html>
