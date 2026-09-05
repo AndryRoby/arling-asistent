@@ -40,24 +40,15 @@ foreach ( $arling_asistent_options as $arling_asistent_option ) {
 }
 
 /*
- * Status transients are keyed by tenant id (arling_asistent_status_{id}),
- * so they cannot be enumerated by name. They expire on their own within
- * Arling_Asistent_Admin::STATUS_CACHE_TTL (30 seconds) regardless, but we
- * still remove the one for the tenant we just forgot above, if any, using
- * the id captured before the loop deleted it.
+ * The status transient is keyed by tenant id (arling_asistent_status_{id}),
+ * so remove the one for the tenant we just forgot above, using the id
+ * captured before the loop deleted it. Any other stray transient from an
+ * id that is no longer connected (e.g. disconnect followed by a fresh
+ * connect under a new id) is not queried for directly here (that would
+ * need a direct database query, which uninstall.php should avoid): it
+ * expires on its own within Arling_Asistent_Admin::STATUS_CACHE_TTL, 30
+ * seconds, regardless.
  */
-global $wpdb;
 if ( $arling_asistent_tenant_id ) {
 	delete_transient( 'arling_asistent_status_' . $arling_asistent_tenant_id );
 }
-
-// Belt and braces: sweep any stray arling_asistent_status_* transients
-// (and their timeout siblings) directly, in case of an id captured under
-// a previous connection that was since replaced.
-$wpdb->query(
-	$wpdb->prepare(
-		"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
-		$wpdb->esc_like( '_transient_arling_asistent_status_' ) . '%',
-		$wpdb->esc_like( '_transient_timeout_arling_asistent_status_' ) . '%'
-	)
-);
