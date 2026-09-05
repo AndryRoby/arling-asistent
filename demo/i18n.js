@@ -54,8 +54,6 @@ export const DICT = {
     en: 'Paste your product feed URL and an email address. The assistant answers customers from your real products, in their language, and always adds links to specific items. No conversations stored, no cookies.',
   },
   'cta.startFree': { sk: 'Začať zadarmo', en: 'Start for free' },
-  'cta.comingSoon': { sk: 'Čoskoro', en: 'Coming soon' },
-  'cta.upgrade': { sk: 'Prejsť na platený plán', en: 'Upgrade' },
   'hero.source': { sk: 'Zdrojový kód na GitHube', en: 'Source code on GitHub' },
   'hero.fact.formats': { sk: '<b>4</b> formáty feedu', en: '<b>4</b> feed formats' },
   'hero.fact.stored': { sk: '<b>0</b> rozhovorov sa ukladá', en: '<b>0</b> conversations stored' },
@@ -95,8 +93,8 @@ export const DICT = {
   'pricing.limit.starter': { sk: 'do 1 000', en: 'up to 1,000' },
   'pricing.limit.growth': { sk: 'do 5 000', en: 'up to 5,000' },
   's2.note': {
-    sk: 'Do 100 rozhovorov mesačne zadarmo, navždy, bez platobnej karty. Platba cez Stripe sa spustí, až keď mesačný počet prekročíte; presné napojenie na Stripe je v príprave (pozrite README v repozitári). Ročné predplatné zatiaľ nie je v ponuke.',
-    en: 'Free up to 100 conversations a month, forever, no card. Billing via Stripe kicks in only once you go over the monthly count; the exact Stripe wiring is in preparation (see the README in the repository). No annual plan yet.',
+    sk: 'Do 100 rozhovorov mesačne zadarmo, navždy, bez platobnej karty. Nad tento limit prejde e-shop na plán Starter (19 € mesačne, do 1 000 rozhovorov) alebo Pro (39 € mesačne, do 5 000) zo stránky svojho účtu, ktorej odkaz dostane hneď po vytvorení účtu. Platba kartou cez Stripe, zrušiť kedykoľvek. Ročné predplatné zatiaľ nie je v ponuke.',
+    en: 'Free up to 100 conversations a month, forever, no payment card. Above that, the shop upgrades to Starter (19 EUR a month, up to 1,000 conversations) or Pro (39 EUR a month, up to 5,000) from its account page, linked right after the account is created. Card payment through Stripe, cancel any time. No annual plan yet.',
   },
   's2.objections.label': { sk: 'Predtým, než začnete', en: 'Before you start' },
 
@@ -112,7 +110,7 @@ export const DICT = {
   },
   'obj3.q': { sk: 'Ako zrušiť, keď mi to nesadne?', en: 'How do I cancel if it does not work out?' },
   'obj3.a': {
-    sk: 'Voľný plán do 100 rozhovorov mesačne nemá žiadny záväzok ani kartu, jednoducho ho prestanete používať. Platené predplatné nad týmto limitom pôjde cez Stripe a pôjde zrušiť kedykoľvek, rovnako ako pri ostatných nástrojoch ARLing.',
+    sk: 'Voľný plán do 100 rozhovorov mesačne nemá žiadny záväzok ani kartu, jednoducho ho prestanete používať. Platené predplatné nad týmto limitom ide cez Stripe a dá sa zrušiť kedykoľvek, rovnako ako pri ostatných nástrojoch ARLing.',
     en: 'The free plan up to 100 conversations a month has no commitment and no card, you simply stop using it. A paid plan above that limit runs through Stripe and can be cancelled any time, same as every other ARLing tool.',
   },
   'obj4.q': { sk: 'Čo ak môj feed nie je v žiadnom z podporovaných formátov?', en: 'What if my feed is not in any of the supported formats?' },
@@ -147,6 +145,7 @@ export const DICT = {
     sk: 'Vložte pred </body> vo vašej šablóne, alebo použite WooCommerce plugin.',
     en: 'Paste before </body> in your theme, or use the WooCommerce plugin.',
   },
+  's3.embed.tenantPage': { sk: 'Používanie a prechod na platený plán:', en: 'Usage and upgrade:' },
 
   // ── section 04: privacy ──────────────────────────────────────────────
   's4.h2': { sk: 'Súkromie ako vlastnosť, nie dodatok', en: 'Privacy as a feature, not an afterthought' },
@@ -196,8 +195,8 @@ export const DICT = {
   },
   'faq.platforms.q': { sk: 'Funguje to aj na Shoptete, WooCommerce alebo Shopify?', en: 'Does this work on Shoptet, WooCommerce or Shopify?' },
   'faq.platforms.a': {
-    sk: 'Skript funguje na akomkoľvek e-shope hneď, stačí vložiť jeden <code>&lt;script&gt;</code> tag do administrácie alebo šablóny. Samostatný WooCommerce plugin a Shopify aplikácia (inštalácia na klik) sú v príprave, pozrite README v repozitári pre aktuálny stav.',
-    en: 'The script works on any e-shop right away, you just add one <code>&lt;script&gt;</code> tag to the admin or theme. A dedicated <a href="woocommerce/">WooCommerce plugin</a> and <a href="shopify/">Shopify app</a> (one-click install) are in preparation; see those pages, or the README in the repository, for current status.',
+    sk: 'Skript funguje na akomkoľvek e-shope hneď, stačí vložiť jeden <code>&lt;script&gt;</code> tag do administrácie alebo šablóny. Samostatný <a href="woocommerce/">WooCommerce plugin</a> je odoslaný na wordpress.org a čaká na schválenie (dovtedy sa inštaluje zo ZIP súboru z GitHubu), <a href="shopify/">Shopify aplikácia</a> je v príprave.',
+    en: 'The script works on any e-shop right away, you just add one <code>&lt;script&gt;</code> tag to the admin or theme. The dedicated <a href="woocommerce/">WooCommerce plugin</a> has been submitted to wordpress.org and is awaiting review (until then it installs from a ZIP file from GitHub); the <a href="shopify/">Shopify app</a> is in preparation.',
   },
   'faq.free.q': { sk: 'Čo je zadarmo?', en: 'What is free?' },
   'faq.free.a': {
@@ -211,11 +210,11 @@ export const DICT = {
   },
   'faq.billing.q': { sk: 'Ako funguje platba a fakturácia?', en: 'How does payment and billing work?' },
   'faq.billing.a': {
-    sk: 'Do 100 rozhovorov mesačne je používanie úplne zadarmo, bez karty. Platba cez Stripe sa spustí, až keď mesačný počet prekročíte; presné napojenie na Stripe je v príprave, pozrite README v repozitári.',
-    en: 'Up to 100 conversations a month, use is completely free, no card. Billing via Stripe kicks in only once you go over the monthly count; the exact Stripe wiring is in preparation, see the README in the repository.',
+    sk: 'Do 100 rozhovorov mesačne je používanie úplne zadarmo, bez karty. Nad tento limit prejdete na plán Starter (19 € mesačne, do 1 000 rozhovorov) alebo Pro (39 € mesačne, do 5 000 rozhovorov) zo stránky svojho účtu (arling.sk/asistent/tenant/?t=id účtu), ktorej odkaz dostanete hneď po vytvorení účtu. Platíte kartou cez Stripe, potvrdenie a faktúru pošle Stripe e-mailom, zrušiť sa dá kedykoľvek.',
+    en: 'Up to 100 conversations a month, use is completely free, no card. Above that you upgrade to Starter (19 EUR a month, up to 1,000 conversations) or Pro (39 EUR a month, up to 5,000) from your account page (arling.sk/asistent/tenant/?t=your account id), linked right after the account is created. You pay by card through Stripe, Stripe e-mails the receipt and invoice, and you can cancel any time.',
   },
 
-  'subscribe.ask': { sk: 'Chcete vedieť, keď pribudne WooCommerce plugin, Shopify aplikácia alebo platené predplatné?', en: 'Want to know when the WooCommerce plugin, the Shopify app, or paid billing go live?' },
+  'subscribe.ask': { sk: 'Chcete vedieť, keď WooCommerce plugin prejde schválením na wordpress.org alebo pribudne Shopify aplikácia?', en: 'Want to know when the WooCommerce plugin is approved on wordpress.org, or when the Shopify app goes live?' },
   'subscribe.email.placeholder': { sk: 'vas@email.sk', en: 'you@email.com' },
   'subscribe.btn': { sk: 'Dajte mi vedieť', en: 'Notify me' },
   'subscribe.privacy': { sk: 'Len e-mail o novinkách k ARLing Asistentovi. Odhlásenie kedykoľvek jedným klikom.', en: 'Only email about ARLing Asistent news. Unsubscribe any time with one click.' },

@@ -34,7 +34,7 @@
   "offers": [
     { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/#cennik" },
     { "@type": "Offer", "name": "Starter", "price": "19", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/#cennik" },
-    { "@type": "Offer", "name": "Growth", "price": "39", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/#cennik" }
+    { "@type": "Offer", "name": "Pro", "price": "39", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/#cennik" }
   ],
   "author": {
     "@type": "Organization",
@@ -79,7 +79,7 @@
     {
       "@type": "Question",
       "name": "Funguje to aj na Shoptete, WooCommerce alebo Shopify?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Skript funguje na akomkoľvek e-shope hneď, stačí vložiť jeden <script> tag do administrácie alebo šablóny. Samostatný WooCommerce plugin a Shopify aplikácia (inštalácia na klik) sú v príprave, pozrite README v repozitári pre aktuálny stav." }
+      "acceptedAnswer": { "@type": "Answer", "text": "Skript funguje na akomkoľvek e-shope hneď, stačí vložiť jeden <script> tag do administrácie alebo šablóny. Samostatný WooCommerce plugin je odoslaný na wordpress.org a čaká na schválenie (dovtedy sa inštaluje zo ZIP súboru z GitHubu), Shopify aplikácia je v príprave." }
     },
     {
       "@type": "Question",
@@ -94,7 +94,7 @@
     {
       "@type": "Question",
       "name": "Ako funguje platba a fakturácia?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Do 100 rozhovorov mesačne je používanie úplne zadarmo, bez karty. Platba cez Stripe sa spustí, až keď mesačný počet prekročíte; presné napojenie na Stripe je v príprave, pozrite README v repozitári." }
+      "acceptedAnswer": { "@type": "Answer", "text": "Do 100 rozhovorov mesačne je používanie úplne zadarmo, bez karty. Nad tento limit prejde e-shop na plán Starter (19 EUR mesačne, do 1 000 rozhovorov) alebo Pro (39 EUR mesačne, do 5 000 rozhovorov) zo stránky svojho účtu, ktorej odkaz dostane hneď po vytvorení účtu. Platí sa kartou cez Stripe, zrušiť sa dá kedykoľvek." }
     }
   ]
 }
@@ -351,20 +351,19 @@
               <td class="plan">Starter</td>
               <td class="price">19 &euro;<span> / mesiac</span></td>
               <td data-i18n="pricing.limit.starter">do 1&nbsp;000</td>
-              <!-- Owner: fill data-stripe-link with the Stripe Payment Link URL for the 19 EUR/month price (STRIPE_LINK_STARTER placeholder, see README "Platby cez Stripe"). Empty = button stays "Coming soon" and disabled. -->
-              <td><a class="btn btn-line" id="btn-plan-starter" href="#playground" data-stripe-link="https://buy.stripe.com/5kQcMZ1fA6tZaoWaOh4ko03" data-umami-event="upgrade_click" data-umami-event-place="pricing-starter" data-i18n="cta.upgrade">Prejsť na platený plán</a></td>
+              <!-- Paid plans are bought from the tenant page (tenant/?t=ID, linked after trial creation): the Stripe Payment Link needs the tenant id in client_reference_id, so here the button starts the free trial. -->
+              <td><a class="btn btn-line" id="btn-plan-starter" href="#playground" data-umami-event="trial_click" data-umami-event-place="pricing-starter" data-i18n="cta.startFree">Začať zadarmo</a></td>
             </tr>
             <tr>
-              <td class="plan">Growth</td>
+              <td class="plan">Pro</td>
               <td class="price">39 &euro;<span> / mesiac</span></td>
               <td data-i18n="pricing.limit.growth">do 5&nbsp;000</td>
-              <!-- Owner: fill data-stripe-link with the Stripe Payment Link URL for the 39 EUR/month price (STRIPE_LINK_PRO placeholder, see README "Platby cez Stripe"). Empty = button stays "Coming soon" and disabled. -->
-              <td><a class="btn btn-line" id="btn-plan-pro" href="#playground" data-stripe-link="https://buy.stripe.com/14AdR30bw05BgNk3lP4ko04" data-umami-event="upgrade_click" data-umami-event-place="pricing-pro" data-i18n="cta.upgrade">Prejsť na platený plán</a></td>
+              <td><a class="btn btn-line" id="btn-plan-pro" href="#playground" data-umami-event="trial_click" data-umami-event-place="pricing-pro" data-i18n="cta.startFree">Začať zadarmo</a></td>
             </tr>
           </tbody>
         </table>
       </div>
-      <p class="pricing-note" data-i18n="s2.note">Do 100 rozhovorov mesačne zadarmo, navždy, bez platobnej karty. Platba cez Stripe sa spustí, až keď mesačný počet prekročíte; presné napojenie na Stripe je v príprave (pozrite README v repozitári). Ročné predplatné zatiaľ nie je v ponuke.</p>
+      <p class="pricing-note" data-i18n="s2.note">Do 100 rozhovorov mesačne zadarmo, navždy, bez platobnej karty. Nad tento limit prejde e-shop na plán Starter (19 € mesačne, do 1 000 rozhovorov) alebo Pro (39 € mesačne, do 5 000) zo stránky svojho účtu, ktorej odkaz dostane hneď po vytvorení účtu. Platba kartou cez Stripe, zrušiť kedykoľvek. Ročné predplatné zatiaľ nie je v ponuke.</p>
 
       <div class="pro-objections">
         <p class="objections-label" data-i18n="s2.objections.label">Predtým, než začnete</p>
@@ -378,7 +377,7 @@
         </details>
         <details>
           <summary data-i18n="obj3.q">Ako zrušiť, keď mi to nesadne?</summary>
-          <p data-i18n="obj3.a">Voľný plán do 100 rozhovorov mesačne nemá žiadny záväzok ani kartu, jednoducho ho prestanete používať. Platené predplatné nad týmto limitom pôjde cez Stripe a pôjde zrušiť kedykoľvek, rovnako ako pri ostatných nástrojoch ARLing.</p>
+          <p data-i18n="obj3.a">Voľný plán do 100 rozhovorov mesačne nemá žiadny záväzok ani kartu, jednoducho ho prestanete používať. Platené predplatné nad týmto limitom ide cez Stripe a dá sa zrušiť kedykoľvek, rovnako ako pri ostatných nástrojoch ARLing.</p>
         </details>
         <details>
           <summary data-i18n="obj4.q">Čo ak môj feed nie je v žiadnom z podporovaných formátov?</summary>
@@ -437,6 +436,7 @@
             <button type="button" class="btn btn-line embed-copy" id="trial-embed-copy-snippet" data-i18n="s3.embed.copy">Kopírovať</button>
           </div>
           <p class="embed-note" data-i18n="s3.embed.note">Vložte pred &lt;/body&gt; vo vašej šablóne, alebo použite WooCommerce plugin.</p>
+          <p class="embed-note"><span data-i18n="s3.embed.tenantPage">Používanie a prechod na platený plán:</span> <a id="trial-tenant-link" href="tenant/">arling.sk/asistent/tenant/</a></p>
         </div>
       </div>
     </div>
@@ -484,7 +484,7 @@
       </details>
       <details>
         <summary data-i18n="faq.platforms.q">Funguje to aj na Shoptete, WooCommerce alebo Shopify?</summary>
-        <p data-i18n-html="faq.platforms.a">Skript funguje na akomkoľvek e-shope hneď, stačí vložiť jeden <code>&lt;script&gt;</code> tag do administrácie alebo šablóny. Samostatný WooCommerce plugin a Shopify aplikácia (inštalácia na klik) sú v príprave, pozrite README v repozitári pre aktuálny stav.</p>
+        <p data-i18n-html="faq.platforms.a">Skript funguje na akomkoľvek e-shope hneď, stačí vložiť jeden <code>&lt;script&gt;</code> tag do administrácie alebo šablóny. Samostatný <a href="woocommerce/">WooCommerce plugin</a> je odoslaný na wordpress.org a čaká na schválenie (dovtedy sa inštaluje zo ZIP súboru z GitHubu), <a href="shopify/">Shopify aplikácia</a> je v príprave.</p>
       </details>
       <details>
         <summary data-i18n="faq.free.q">Čo je zadarmo?</summary>
@@ -496,11 +496,11 @@
       </details>
       <details>
         <summary data-i18n="faq.billing.q">Ako funguje platba a fakturácia?</summary>
-        <p data-i18n="faq.billing.a">Do 100 rozhovorov mesačne je používanie úplne zadarmo, bez karty. Platba cez Stripe sa spustí, až keď mesačný počet prekročíte; presné napojenie na Stripe je v príprave, pozrite README v repozitári.</p>
+        <p data-i18n="faq.billing.a">Do 100 rozhovorov mesačne je používanie úplne zadarmo, bez karty. Nad tento limit prejdete na plán Starter (19 € mesačne, do 1 000 rozhovorov) alebo Pro (39 € mesačne, do 5 000 rozhovorov) zo stránky svojho účtu (arling.sk/asistent/tenant/?t=id účtu), ktorej odkaz dostanete hneď po vytvorení účtu. Platíte kartou cez Stripe, potvrdenie a faktúru pošle Stripe e-mailom, zrušiť sa dá kedykoľvek.</p>
       </details>
 
       <div class="subscribe-ask">
-        <p class="sub" style="margin-bottom:14px" data-i18n="subscribe.ask">Chcete vedieť, keď pribudne WooCommerce plugin, Shopify aplikácia alebo platené predplatné?</p>
+        <p class="sub" style="margin-bottom:14px" data-i18n="subscribe.ask">Chcete vedieť, keď WooCommerce plugin prejde schválením na wordpress.org alebo pribudne Shopify aplikácia?</p>
         <form class="subscribe-form" data-subscribe data-source="asistent" data-lang="sk" data-thanks="subscribe-thanks" data-error="subscribe-error">
           <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off">
           <input type="email" name="email" placeholder="vas@email.sk" data-i18n-placeholder="subscribe.email.placeholder" required>

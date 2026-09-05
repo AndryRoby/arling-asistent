@@ -9,14 +9,15 @@
  * leaving arling.sk. No build step, no inline <script> (see the CSP meta
  * tag in index.html), no dependencies.
  *
- * The worker is not deployed yet (see README "what is not built yet"): the
- * default ENDPOINT below is a placeholder. For local testing against
+ * The worker runs at the default ENDPOINT below. For local testing against
  * `wrangler dev`, append ?endpoint=http://localhost:8787 to this page's URL
  * (and temporarily add that origin to the CSP meta's connect-src).
  *
- * Also wires the two paid-plan pricing buttons to their Stripe Payment Links
- * (see "Stripe Payment Link pricing buttons" below and README "Platby cez
- * Stripe"): this part does not depend on the trial worker being deployed.
+ * Paid plans are not bought from this page: the Stripe Payment Link needs
+ * the tenant id in client_reference_id, so the "Your embed code" block links
+ * to the per-tenant page (demo/tenant/, served at arling.sk/asistent/tenant/
+ * ?t=ID) where the usage bar and the two upgrade buttons live. The pricing
+ * table buttons here all start the free trial.
  */
 (function () {
   'use strict';
@@ -51,55 +52,6 @@
     return text + issues;
   }
 
-  // ── Stripe Payment Link pricing buttons ─────────────────────────────────
-  // The two paid-plan buttons in the pricing table (#btn-plan-starter,
-  // #btn-plan-pro, see index.html) carry a data-stripe-link attribute the
-  // owner fills in with a real Stripe Payment Link URL once Stripe is set
-  // up (STRIPE_LINK_STARTER / STRIPE_LINK_PRO placeholders, see README
-  // "Platby cez Stripe"). Until then (or if a button is left empty on
-  // purpose) it shows "Coming soon" and is inert. Once a trial tenant has
-  // been created on this page (see the form handler below), a configured
-  // button's href gets `?client_reference_id=<tenant id>` appended so the
-  // licence-service webhook (see products/licence-service/app.py) knows
-  // which tenant to upgrade after a successful Stripe checkout.
-  var PRICING_LINK_SELECTOR = '[data-stripe-link]';
-
-  function pricingLinkComingSoonText() {
-    return (window.ASISTENT_I18N && typeof window.ASISTENT_I18N.t === 'function') ? window.ASISTENT_I18N.t('cta.comingSoon') : 'Čoskoro';
-  }
-
-  function markPricingButtonComingSoon(btn) {
-    btn.classList.add('btn-disabled');
-    btn.setAttribute('aria-disabled', 'true');
-    btn.removeAttribute('href');
-    btn.dataset.comingSoon = '1';
-    btn.setAttribute('data-i18n', 'cta.comingSoon');
-    btn.textContent = pricingLinkComingSoonText();
-  }
-
-  function initPricingButtons() {
-    document.querySelectorAll(PRICING_LINK_SELECTOR).forEach(function (btn) {
-      var link = (btn.getAttribute('data-stripe-link') || '').trim();
-      if (!link) markPricingButtonComingSoon(btn);
-    });
-  }
-
-  /** Called once a trial tenant exists (see the form handler below): rewrites every configured, not-"coming soon" pricing button to the tenant's own Stripe Payment Link. */
-  function activatePricingLinks(tenantId) {
-    if (!tenantId) return;
-    document.querySelectorAll(PRICING_LINK_SELECTOR).forEach(function (btn) {
-      if (btn.dataset.comingSoon) return;
-      var link = (btn.getAttribute('data-stripe-link') || '').trim();
-      if (!link) return;
-      var sep = link.indexOf('?') === -1 ? '?' : '&';
-      btn.setAttribute('href', link + sep + 'client_reference_id=' + encodeURIComponent(tenantId));
-      btn.setAttribute('target', '_blank');
-      btn.setAttribute('rel', 'noopener');
-    });
-  }
-
-  initPricingButtons();
-
   var form = document.getElementById('trial-form');
   if (!form) return;
 
@@ -123,6 +75,13 @@
   var embedSnippetPre = document.getElementById('trial-embed-snippet');
   var embedCopyIdBtn = document.getElementById('trial-embed-copy-id');
   var embedCopySnippetBtn = document.getElementById('trial-embed-copy-snippet');
+  var tenantLink = document.getElementById('trial-tenant-link');
+  var TENANT_PAGE_DISPLAY = 'arling.sk/asistent/tenant/?t=';
+
+  /** Relative link to the per-tenant usage/upgrade page for this tenant (works on GitHub Pages and locally). */
+  function tenantPageHrefFor(tenantId) {
+    return 'tenant/?t=' + encodeURIComponent(tenantId);
+  }
 
   function embedSnippetFor(tenantId) {
     return '<script src="' + WIDGET_SCRIPT_ORIGIN + '/widget.js" data-tenant="' + tenantId + '" data-lang="auto" defer></script>';
@@ -132,6 +91,10 @@
     if (!embedBlock) return;
     if (embedIdInput) embedIdInput.value = tenantId;
     if (embedSnippetPre) embedSnippetPre.textContent = embedSnippetFor(tenantId);
+    if (tenantLink) {
+      tenantLink.setAttribute('href', tenantPageHrefFor(tenantId));
+      tenantLink.textContent = TENANT_PAGE_DISPLAY + tenantId;
+    }
     embedBlock.hidden = false;
   }
 
@@ -273,7 +236,6 @@
         return res.json();
       })
       .then(function (tenant) {
-        activatePricingLinks(tenant.id);
         poll(tenant.id, lang, POLL_MAX_TRIES);
       })
       .catch(function (err) {
