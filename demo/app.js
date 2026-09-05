@@ -58,6 +58,15 @@
   var feedInput = document.getElementById('trial-feed-url');
   var emailInput = document.getElementById('trial-email');
   var langSelect = document.getElementById('trial-lang');
+  // The answer language follows the page the visitor is reading: an English
+  // page preselects English, a Slovak page Slovak. 'auto' stays available and
+  // is the honest default for a shop with visitors in several languages.
+  if (langSelect) {
+    var pageLang = '';
+    try { pageLang = (document.documentElement.getAttribute('lang') || '').slice(0, 2).toLowerCase(); } catch (e) { pageLang = ''; }
+    var wanted = Array.prototype.some.call(langSelect.options, function (o) { return o.value === pageLang; }) ? pageLang : 'auto';
+    langSelect.value = wanted;
+  }
   var submitBtn = document.getElementById('trial-submit');
   var statusEl = document.getElementById('trial-status');
   var widgetMount = document.getElementById('trial-widget-note');

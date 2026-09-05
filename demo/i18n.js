@@ -136,7 +136,9 @@ export const DICT = {
   's3.placeholder.feed': { sk: 'https://vasobchod.sk/feed.xml', en: 'https://yourstore.com/feed.xml' },
   's3.label.email': { sk: 'E-mail', en: 'Email' },
   's3.placeholder.email': { sk: 'vy@vasobchod.sk', en: 'you@yourstore.com' },
-  's3.label.lang': { sk: 'Jazyk', en: 'Language' },
+  's3.label.lang': { sk: 'Jazyk odpovedí', en: 'Answer language' },
+  's3.lang.auto': { sk: 'Automaticky podľa zákazníka', en: 'Automatic, follows the customer' },
+  's3.lang.hint': { sk: 'Automaticky znamená, že asistent odpovie v jazyku, v ktorom sa zákazník opýta.', en: 'Automatic means the assistant answers in whatever language the customer writes in.' },
   's3.submit': { sk: 'Spustiť skúšobnú verziu', en: 'Start the trial' },
   's3.hint': {
     sk: 'Feed sa použije len na vytvorenie skúšobného asistenta pre túto ukážku. Samotný rozhovor v chate sa nikde neukladá. Zadarmo do 100 rozhovorov mesačne, žiadna platobná karta.',
