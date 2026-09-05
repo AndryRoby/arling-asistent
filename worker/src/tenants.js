@@ -108,6 +108,23 @@ export function normaliseDomain(input) {
   }
 }
 
+
+/** True for hostnames the worker can never fetch from the public internet: localhost, loopback, RFC 1918 ranges, link-local, .local/.internal names. */
+export function isPrivateHost(hostname) {
+  const h = String(hostname || '').toLowerCase().replace(/^\[|\]$/g, '');
+  if (!h || h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local') || h.endsWith('.internal') || h.endsWith('.lan') || h.endsWith('.home')) return true;
+  if (h === '::1' || h === '0.0.0.0' || h.startsWith('fe80:') || h.startsWith('fc') || h.startsWith('fd')) return true;
+  const m = h.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  if (m) {
+    const [a, b] = [Number(m[1]), Number(m[2])];
+    if (a === 10 || a === 127 || a === 0) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 169 && b === 254) return true;
+  }
+  return false;
+}
+
 export function validateTenantInput({ domain, feedUrl, contactEmail } = {}) {
   const issues = [];
   const normalisedDomain = normaliseDomain(domain);
@@ -121,6 +138,9 @@ export function validateTenantInput({ domain, feedUrl, contactEmail } = {}) {
   }
   if (feedUrlObj && !/^https?:$/.test(feedUrlObj.protocol)) {
     issues.push('feed_url must be http or https');
+  }
+  if (feedUrlObj && isPrivateHost(feedUrlObj.hostname)) {
+    issues.push('feed_url must be publicly reachable (localhost and private network addresses cannot be fetched)');
   }
 
   if (!contactEmail || !EMAIL_RE.test(String(contactEmail).trim())) {

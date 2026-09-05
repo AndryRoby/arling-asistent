@@ -5,7 +5,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import {
+import { isPrivateHost,
   validateTenantInput,
   normaliseDomain,
   createTenant,
@@ -240,4 +240,14 @@ test('ensureProductCountColumn only runs the ALTER TABLE once per db binding (ca
   // A second raw ALTER TABLE against the same mock would now throw
   // (duplicate column): proves the column was only actually added once.
   await assert.rejects(() => db.prepare(SQL.ADD_PRODUCT_COUNT_COLUMN).run(), /duplicate column/i);
+});
+
+test('validateTenantInput rejects feeds on localhost and private networks', () => {
+  for (const h of ['localhost', '127.0.0.1', '10.0.0.5', '192.168.1.20', '172.20.3.4', '169.254.1.1', '[::1]', 'shop.local', 'nas.lan']) {
+    assert.equal(isPrivateHost(h.replace(/^\[|\]$/g, '')), true, h);
+    assert.throws(() => validateTenantInput({ domain: 'example.com', feedUrl: 'http://' + h + ':8300/wp-json/wc/store/v1/products', contactEmail: 'a@example.com' }), /publicly reachable/, 'issue for ' + h);
+  }
+  for (const h of ['www.allbirds.com', '8.8.8.8', '172.15.0.1', '172.32.0.1', 'shop.example.co.uk']) {
+    assert.equal(isPrivateHost(h), false, h);
+  }
 });
