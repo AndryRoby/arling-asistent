@@ -1,0 +1,123 @@
+{% comment %}
+  asistent.liquid - app embed block for the ARLing Asistent widget.
+
+  Loaded once per storefront page when the merchant turns this app embed on
+  in the theme editor (Online Store > Customize > App embeds). Renders
+  nothing visible itself; it only injects the widget's own <script> tag,
+  same as the plain <script data-tenant=...> snippet documented in the
+  parent product's wordpress-plugin and README.md, but with position,
+  colour and language taken from this block's theme-editor settings below
+  instead of hardcoded attributes.
+
+  The one piece of data that cannot be a theme-editor setting is the
+  ARLing tenant id, since it depends on which shop installed the app, not
+  on anything a merchant would type in. That is fetched at page-load time
+  from this app's app-proxy endpoint, `/apps/asistent/settings.json`
+  (see shopify.app.toml [app_proxy] and ../../shopify-worker/src/app-proxy.js),
+  which runs same-origin on the storefront domain (Shopify signs and
+  forwards the request, see app-proxy.js's header comment for the exact
+  verification algorithm), so no CORS setup is needed here.
+
+  Note: the embedded admin page (/app) also lets a merchant set
+  language/colour/position and saves them to this app's own database; those
+  values are only reflected back through /apps/asistent/settings.json and
+  are not read by this block today (see ../../README.md "known gaps"). The
+  settings that actually apply on the storefront are the ones below, set
+  here in the theme editor.
+
+  Kept in sync with the widget's own current attribute contract
+  (../../../widget/widget.js): "auto" for language is a first-class value,
+  not just an absent attribute, so it is offered explicitly below rather
+  than only defaulting to "sk"; data-position (left/right), data-title and
+  data-greeting are all attributes the widget now reads, so this block
+  exposes all five as theme-editor settings instead of hardcoding any of
+  them.
+{% endcomment %}
+<script>
+(function () {
+  if (window.__arlingAsistentEmbedInit) return;
+  window.__arlingAsistentEmbedInit = true;
+
+  var proxyUrl = '/apps/asistent/settings.json';
+
+  fetch(proxyUrl, { credentials: 'omit' })
+    .then(function (res) { return res.ok ? res.json() : null; })
+    .then(function (data) {
+      if (!data || !data.tenant) return; // not configured yet (tenant still provisioning, or app proxy not reachable): render nothing rather than a broken widget
+
+      if (!data.endpoint) return; // /proxy/settings.json always sets this (see app-proxy.js), but guard anyway rather than loading a script with no host
+
+      var script = document.createElement('script');
+      script.src = data.endpoint + '/widget.js';
+      script.setAttribute('data-tenant', data.tenant);
+      script.setAttribute('data-lang', {{ block.settings.language | json }});
+      script.setAttribute('data-color', {{ block.settings.color | json }});
+      script.setAttribute('data-position', {{ block.settings.position | json }});
+      {% if block.settings.title != blank %}
+      script.setAttribute('data-title', {{ block.settings.title | json }});
+      {% endif %}
+      {% if block.settings.greeting != blank %}
+      script.setAttribute('data-greeting', {{ block.settings.greeting | json }});
+      {% endif %}
+      if (data.endpoint) script.setAttribute('data-endpoint', data.endpoint);
+      script.defer = true;
+      document.body.appendChild(script);
+    })
+    .catch(function () { /* fail silently: no widget rather than a broken page */ });
+})();
+</script>
+
+{% schema %}
+{
+  "name": "ARLing Asistent",
+  "target": "body",
+  "settings": [
+    {
+      "type": "select",
+      "id": "position",
+      "label": "Position",
+      "options": [
+        { "value": "right", "label": "Bottom right" },
+        { "value": "left", "label": "Bottom left" }
+      ],
+      "default": "right"
+    },
+    {
+      "type": "select",
+      "id": "color",
+      "label": "Colour mode",
+      "options": [
+        { "value": "auto", "label": "Automatic (follows visitor's system)" },
+        { "value": "light", "label": "Light" },
+        { "value": "dark", "label": "Dark" }
+      ],
+      "default": "auto"
+    },
+    {
+      "type": "select",
+      "id": "language",
+      "label": "Language",
+      "options": [
+        { "value": "auto", "label": "Automatic (follows visitor's browser)" },
+        { "value": "sk", "label": "Slovak" },
+        { "value": "cs", "label": "Czech" },
+        { "value": "en", "label": "English" },
+        { "value": "de", "label": "German" }
+      ],
+      "default": "auto"
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Chat panel title (optional)",
+      "info": "Leave blank to use the default title for the selected language."
+    },
+    {
+      "type": "text",
+      "id": "greeting",
+      "label": "Greeting message (optional)",
+      "info": "Leave blank to use the default greeting for the selected language."
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,9 @@
+# shopify.extension.toml
+# Theme app extension: injects the ARLing Asistent chat widget into any
+# Online Store 2.0 theme via the theme editor's "App embeds" panel, no
+# theme code edits and no deprecated ScriptTag API (see ../../README.md
+# "Research notes" for the shopify.dev citation on ScriptTags being
+# deprecated for Online Store 2.0 themes in favour of this extension type).
+
+name = "ARLing Asistent widget"
+type = "theme"

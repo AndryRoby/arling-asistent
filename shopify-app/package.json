@@ -1,0 +1,12 @@
+{
+  "name": "arling-asistent-shopify-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shopify App Store version of ARLing Asistent: OAuth install, compliance webhooks, billing, embedded admin page, theme app extension. See README.md.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  },
+  "license": "UNLICENSED",
+  "author": "ARLing s. r. o. <andrej@arling.sk>"
+}
