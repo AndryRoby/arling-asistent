@@ -247,8 +247,17 @@ test('runChat falls back gracefully when the model returns unparsable output', a
   const tenant = { id: 'tenant-1', contact_email: 'obchod@shop.sk' };
 
   const result = await runChat(env, { tenant, messages: [{ role: 'user', content: 'otazka' }], lang: 'en' });
-  assert.match(result.answer, /obchod@shop\.sk/);
+  // prose from the model is used as the answer, with the best candidates attached
+  assert.match(result.answer, /plain prose/);
   assert.equal(result.meta.parseError, true);
+  assert.equal(result.products.length, 1);
+  assert.equal(result.products[0].url, 'https://x/1');
+
+  // an empty model reply still falls back to the contact message
+  const ai2 = createMockAI({ embedDim: 2, chatResponse: '' });
+  const result2 = await runChat({ AI: ai2, VECTORIZE: vectorize }, { tenant, messages: [{ role: 'user', content: 'otazka' }], lang: 'en' });
+  assert.match(result2.answer, /obchod@shop\.sk/);
+  assert.equal(result2.meta.parseError, true);
 });
 
 test('runChat answers in the requested language regardless of the message content language', async () => {

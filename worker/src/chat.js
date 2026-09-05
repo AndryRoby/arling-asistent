@@ -266,7 +266,15 @@ export async function runChat(env, { tenant, messages, lang, model = CHAT_MODEL_
   try {
     parsed = parseModelJson(rawText);
   } catch (e) {
-    return { ...noMatchFallback(resolvedLang, tenant.contact_email), meta: { candidateCount: candidates.length, flaggedInjection: flagged, parseError: true } };
+    // The model answered in prose instead of JSON. Prose grounded in the
+    // retrieved products is still useful: use it as the answer and attach the
+    // best candidates as product links. Only an empty reply falls back.
+    const prose = String(rawText || '').replace(/^```(json)?/i, '').replace(/```$/, '').trim();
+    if (!prose) {
+      return { ...noMatchFallback(resolvedLang, tenant.contact_email), meta: { candidateCount: candidates.length, flaggedInjection: flagged, parseError: true } };
+    }
+    const top = candidates.slice(0, 3).map((c) => ({ id: c.productId || c.id, title: c.title, url: c.url, price: c.price, currency: c.currency, image: c.image }));
+    return { answer: capWords(prose, MAX_ANSWER_WORDS), products: top, meta: { candidateCount: candidates.length, flaggedInjection: flagged, userMessageInjection, parseError: true } };
   }
 
   const answer = capWords(parsed.answer, MAX_ANSWER_WORDS);
@@ -329,7 +337,7 @@ export async function handleChatRoute(request, env, ctx, deps = {}) {
 
   const result = await runChat(env, { tenant, messages, lang });
   const headers = origin ? securityMod.corsHeaders(origin, [tenant.domain, ...allowed]) : {};
-  return jsonResponse({ answer: result.answer, products: result.products }, 200, headers || {});
+  return jsonResponse({ answer: result.answer, products: result.products, meta: { candidates: result.meta?.candidateCount ?? 0, parseError: !!result.meta?.parseError } }, 200, headers || {});
 }
 
 const MAX_MESSAGES_GUARD = 20;
