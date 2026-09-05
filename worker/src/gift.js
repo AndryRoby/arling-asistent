@@ -359,7 +359,9 @@ export async function handleGiftRoute(request, env, ctx, deps = {}) {
     return jsonResponse({ error: 'invalid_json' }, 400);
   }
 
-  const { tenant: tenantId, lang, recipient, budget_min, budget_max, interests, session } = body || {};
+  const { tenant: tenantId, recipient, budget_min, budget_max, interests, session } = body || {};
+  // Rovnako ako pri /v1/chat: chybajuci jazyk znamena 'auto', nie anglictinu.
+  const lang = (body && body.lang) || 'auto';
   if (!tenantId) {
     return jsonResponse({ error: 'tenant is required' }, 400);
   }

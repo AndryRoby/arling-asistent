@@ -530,7 +530,12 @@ export async function handleChatRoute(request, env, ctx, deps = {}) {
     return jsonResponse({ error: 'invalid_json' }, 400);
   }
 
-  const { tenant: tenantId, messages, lang, session } = body || {};
+  const { tenant: tenantId, messages, session } = body || {};
+  // Ked volajuci jazyk vobec neposle, znamena to "neviem", nie "anglicky".
+  // Predtym sa prazdna hodnota cez normaliseLang() zmenila na 'en', takze
+  // slovensky zakaznik dostal anglicku odpoved. Chybajuci jazyk je odteraz
+  // 'auto', teda model odpovie v jazyku, v ktorom sa clovek spytal.
+  const lang = (body && body.lang) || 'auto';
   if (!tenantId || !Array.isArray(messages)) {
     return jsonResponse({ error: 'tenant and messages are required' }, 400);
   }
