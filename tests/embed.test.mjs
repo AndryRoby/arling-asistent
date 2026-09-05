@@ -32,6 +32,10 @@ test('buildProductChunks combines title and description and attaches metadata', 
   assert.equal(chunks[0].metadata.productId, 'p1');
   assert.equal(chunks[0].metadata.url, 'https://x/p1');
   assert.equal(chunks[0].metadata.price, 59.9);
+  // The description is metadata too: chat.js can only show the model what
+  // Vectorize returns, and that is never the embedded text itself.
+  assert.equal(chunks[0].metadata.description, 'Pohodlne behanie na kazdy den.');
+  assert.equal(buildProductChunks({ id: 'p3', title: 'Bez popisu', url: 'https://x/p3' })[0].metadata.description, '');
 });
 
 test('buildProductChunks keeps the title present in every chunk for a long description', () => {
@@ -82,6 +86,7 @@ test('embedAndUpsertProducts embeds every chunk, tags it with the tenant, and up
   assert.ok(stored);
   assert.equal(stored.metadata.tenant, 'tenant-a');
   assert.equal(stored.metadata.productId, 'p1');
+  assert.equal(stored.metadata.description, 'Bezecke tenisky.');
 });
 
 test('embedAndUpsertProducts keeps tenants isolated in Vectorize metadata', async () => {

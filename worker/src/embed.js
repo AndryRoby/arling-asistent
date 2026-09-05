@@ -45,6 +45,14 @@ export function chunkText(text, maxChars = CHUNK_MAX_CHARS) {
  * Build the embeddable chunks for one product, each carrying the metadata
  * that gets stored alongside the vector in Vectorize (used later by chat.js
  * to answer without a second database lookup).
+ *
+ * The description travels in the metadata too, not only in the embedded
+ * text: chat.js can only show the model what comes back from the query, and
+ * a chunk's text is not returned by Vectorize. Without it the prompt's
+ * "description:" line was empty for every product and the model correctly
+ * reported facts such as induction compatibility as unavailable even though
+ * the feed had them. feed.js caps descriptions at 600 characters, so the
+ * whole metadata stays far under Vectorize's 10 KiB per-vector limit.
  */
 export function buildProductChunks(product) {
   const base = [product.title, product.description].filter(Boolean).join('\n\n');
@@ -62,6 +70,7 @@ export function buildProductChunks(product) {
       image: product.image,
       availability: product.availability,
       category: product.category,
+      description: product.description || '',
       chunkIndex: index,
     },
   }));
