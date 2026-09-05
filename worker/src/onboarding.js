@@ -14,11 +14,13 @@ import {
   setTenantStatus,
   setProductCount,
   setFeedUrl,
+  setTenantPlan,
   getTenantById,
   getTenantByDomain,
   ValidationError,
   DuplicateDomainError,
   D1ConstraintError,
+  PLANS,
 } from './tenants.js';
 import { fetchFeed } from './feed.js';
 import { embedAndUpsertProducts } from './embed.js';
@@ -132,6 +134,11 @@ export async function tenantStatusResponse(env, tenantId) {
     used_this_month: tenant.used_this_month,
     product_count: tenant.product_count || 0,
     last_ingested_at: tenant.last_ingested_at,
+    // Both null until a PATCH /v1/tenants/:id/plan call sets them (see
+    // handleSetPlanRoute below): a free/never-upgraded tenant simply has no
+    // billing reference or expiry yet.
+    billing_ref: tenant.billing_ref || null,
+    valid_until: tenant.valid_until || null,
   };
 }
 
@@ -234,4 +241,60 @@ export async function handleReingestRoute(request, env, tenantId) {
 
   const result = await ingestFeedForTenant(env, tenant);
   return jsonResponse(result, result.ok ? 200 : 502, headers);
+}
+
+// ---------------------------------------------------------------------------
+// Admin: set plan / quota (PATCH or POST /v1/tenants/:id/plan)
+// ---------------------------------------------------------------------------
+
+const VALID_PLANS = new Set([PLANS.FREE, PLANS.STARTER, PLANS.PRO]);
+
+/**
+ * The one place a paid plan actually changes what a tenant is allowed to
+ * use. Body: {plan: "free"|"starter"|"pro", monthly_quota?, billing_ref?,
+ * valid_until?}. `monthly_quota` defaults to the plan's normal quota (see
+ * DEFAULT_QUOTAS in tenants.js) when omitted; `billing_ref` and
+ * `valid_until` are stored as-is (or cleared to null when omitted, e.g. a
+ * downgrade to `free` clears a stale subscription id/expiry).
+ *
+ * This is what licence-service/app.py's Stripe webhook calls (with its own
+ * ASISTENT_ADMIN_TOKEN, matching this worker's ADMIN_TOKEN) whenever a
+ * checkout or renewal for an "asistent-*" plan arrives, and what the daily
+ * expire_asistent_plans() cron there calls (with plan: "free") once
+ * valid_until has passed. Same admin-token protection as
+ * handleReingestRoute above: without ADMIN_TOKEN configured, every request
+ * is refused, never silently allowed through.
+ */
+export async function handleSetPlanRoute(request, env, tenantId) {
+  const headers = corsHeadersForRequest(request, env);
+  const providedToken = request.headers.get('X-Admin-Token') || '';
+  if (!env.ADMIN_TOKEN || providedToken !== env.ADMIN_TOKEN) {
+    return jsonResponse({ error: 'unauthorized' }, 401, headers);
+  }
+
+  let body;
+  try {
+    const text = await request.text();
+    body = text ? JSON.parse(text) : {};
+  } catch (e) {
+    return jsonResponse({ error: 'invalid_json' }, 400, headers);
+  }
+
+  const plan = body && body.plan;
+  if (!VALID_PLANS.has(plan)) {
+    return jsonResponse({ error: 'validation_failed', issues: ['plan must be one of free, starter, pro'] }, 400, headers);
+  }
+
+  const tenant = await getTenantById(env.DB, tenantId);
+  if (!tenant) return jsonResponse({ error: 'not_found' }, 404, headers);
+
+  const rawQuota = body && body.monthly_quota;
+  const monthlyQuota = typeof rawQuota === 'number' && Number.isFinite(rawQuota) && rawQuota > 0 ? rawQuota : undefined;
+  const billingRef = body && body.billing_ref != null ? String(body.billing_ref) : null;
+  const validUntil = body && body.valid_until != null ? String(body.valid_until) : null;
+
+  await setTenantPlan(env.DB, tenantId, { plan, monthlyQuota, billingRef, validUntil });
+
+  const updated = await tenantStatusResponse(env, tenantId);
+  return jsonResponse(updated, 200, headers);
 }

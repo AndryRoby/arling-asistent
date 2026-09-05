@@ -13,6 +13,10 @@
  * default ENDPOINT below is a placeholder. For local testing against
  * `wrangler dev`, append ?endpoint=http://localhost:8787 to this page's URL
  * (and temporarily add that origin to the CSP meta's connect-src).
+ *
+ * Also wires the two paid-plan pricing buttons to their Stripe Payment Links
+ * (see "Stripe Payment Link pricing buttons" below and README "Platby cez
+ * Stripe"): this part does not depend on the trial worker being deployed.
  */
 (function () {
   'use strict';
@@ -46,6 +50,55 @@
     var issues = err && Array.isArray(err.issues) && err.issues.length ? ' (' + err.issues.join(', ') + ')' : '';
     return text + issues;
   }
+
+  // ── Stripe Payment Link pricing buttons ─────────────────────────────────
+  // The two paid-plan buttons in the pricing table (#btn-plan-starter,
+  // #btn-plan-pro, see index.html) carry a data-stripe-link attribute the
+  // owner fills in with a real Stripe Payment Link URL once Stripe is set
+  // up (STRIPE_LINK_STARTER / STRIPE_LINK_PRO placeholders, see README
+  // "Platby cez Stripe"). Until then (or if a button is left empty on
+  // purpose) it shows "Coming soon" and is inert. Once a trial tenant has
+  // been created on this page (see the form handler below), a configured
+  // button's href gets `?client_reference_id=<tenant id>` appended so the
+  // licence-service webhook (see products/licence-service/app.py) knows
+  // which tenant to upgrade after a successful Stripe checkout.
+  var PRICING_LINK_SELECTOR = '[data-stripe-link]';
+
+  function pricingLinkComingSoonText() {
+    return (window.ASISTENT_I18N && typeof window.ASISTENT_I18N.t === 'function') ? window.ASISTENT_I18N.t('cta.comingSoon') : 'Čoskoro';
+  }
+
+  function markPricingButtonComingSoon(btn) {
+    btn.classList.add('btn-disabled');
+    btn.setAttribute('aria-disabled', 'true');
+    btn.removeAttribute('href');
+    btn.dataset.comingSoon = '1';
+    btn.setAttribute('data-i18n', 'cta.comingSoon');
+    btn.textContent = pricingLinkComingSoonText();
+  }
+
+  function initPricingButtons() {
+    document.querySelectorAll(PRICING_LINK_SELECTOR).forEach(function (btn) {
+      var link = (btn.getAttribute('data-stripe-link') || '').trim();
+      if (!link) markPricingButtonComingSoon(btn);
+    });
+  }
+
+  /** Called once a trial tenant exists (see the form handler below): rewrites every configured, not-"coming soon" pricing button to the tenant's own Stripe Payment Link. */
+  function activatePricingLinks(tenantId) {
+    if (!tenantId) return;
+    document.querySelectorAll(PRICING_LINK_SELECTOR).forEach(function (btn) {
+      if (btn.dataset.comingSoon) return;
+      var link = (btn.getAttribute('data-stripe-link') || '').trim();
+      if (!link) return;
+      var sep = link.indexOf('?') === -1 ? '?' : '&';
+      btn.setAttribute('href', link + sep + 'client_reference_id=' + encodeURIComponent(tenantId));
+      btn.setAttribute('target', '_blank');
+      btn.setAttribute('rel', 'noopener');
+    });
+  }
+
+  initPricingButtons();
 
   var form = document.getElementById('trial-form');
   if (!form) return;
@@ -148,6 +201,7 @@
         return res.json();
       })
       .then(function (tenant) {
+        activatePricingLinks(tenant.id);
         poll(tenant.id, lang, POLL_MAX_TRIES);
       })
       .catch(function (err) {

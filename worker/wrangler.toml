@@ -54,6 +54,9 @@ id = "848dd3f27004468c9003db53bbc48b94"
 crons = ["0 3 * * *"]
 
 # Secret (not a [vars] entry, never committed): required by
-# POST /v1/tenants/:id/reingest (src/onboarding.js), compared against the
-# request's X-Admin-Token header. Set with:
+# POST /v1/tenants/:id/reingest and PATCH/POST /v1/tenants/:id/plan
+# (src/onboarding.js), compared against the request's X-Admin-Token header.
+# The same value is set as ASISTENT_ADMIN_TOKEN in products/licence-service,
+# which calls the /plan route after a Stripe payment (see that project's
+# README "ARLing Asistent billing"). Set with:
 #   wrangler secret put ADMIN_TOKEN

@@ -26,6 +26,27 @@ class Arling_Asistent_Api {
 	}
 
 	/**
+	 * Stripe Payment Link URL for the Starter plan (19 EUR/month), used to
+	 * build the "Upgrade" button on the settings page. Empty string means
+	 * "not configured yet" (see ARLING_ASISTENT_DEFAULT_STRIPE_LINK_STARTER);
+	 * callers must treat that as "show coming soon", never build a URL from it.
+	 *
+	 * @return string
+	 */
+	public static function stripe_link_starter() {
+		return (string) apply_filters( 'arling_asistent_stripe_link_starter', ARLING_ASISTENT_DEFAULT_STRIPE_LINK_STARTER );
+	}
+
+	/**
+	 * Same as stripe_link_starter(), for the Pro plan (39 EUR/month).
+	 *
+	 * @return string
+	 */
+	public static function stripe_link_pro() {
+		return (string) apply_filters( 'arling_asistent_stripe_link_pro', ARLING_ASISTENT_DEFAULT_STRIPE_LINK_PRO );
+	}
+
+	/**
 	 * POST /v1/tenants { feed_url, domain, email } -> { id, domain, status, plan, monthly_quota }
 	 *
 	 * @param string $feed_url Public WooCommerce Store API product feed URL.

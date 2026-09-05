@@ -37,6 +37,17 @@ export const PLANS = {
 export const DEFAULT_FREE_QUOTA = 100;
 export const TRIAL_DAYS = 14;
 
+/**
+ * Default monthly_quota for each plan, used by setTenantPlan() (see
+ * PATCH /v1/tenants/:id/plan below) whenever a caller sets a plan without
+ * an explicit monthly_quota override. Mirrors the "Plány" table in README.md.
+ */
+export const DEFAULT_QUOTAS = {
+  [PLANS.FREE]: DEFAULT_FREE_QUOTA,
+  [PLANS.STARTER]: 1000,
+  [PLANS.PRO]: 5000,
+};
+
 export const SQL = {
   INSERT_TENANT: `INSERT INTO tenants (id, domain, feed_url, contact_email, plan, status, quota_month, monthly_quota, used_this_month, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   GET_TENANT_BY_ID: `SELECT * FROM tenants WHERE id = ?`,
@@ -50,6 +61,9 @@ export const SQL = {
   ADD_PRODUCT_COUNT_COLUMN: `ALTER TABLE tenants ADD COLUMN product_count INTEGER NOT NULL DEFAULT 0`,
   SET_PRODUCT_COUNT: `UPDATE tenants SET product_count = ? WHERE id = ?`,
   SET_FEED_URL: `UPDATE tenants SET feed_url = ? WHERE id = ?`,
+  ADD_BILLING_REF_COLUMN: `ALTER TABLE tenants ADD COLUMN billing_ref TEXT`,
+  ADD_VALID_UNTIL_COLUMN: `ALTER TABLE tenants ADD COLUMN valid_until TEXT`,
+  SET_TENANT_PLAN: `UPDATE tenants SET plan = ?, monthly_quota = ?, billing_ref = ?, valid_until = ? WHERE id = ?`,
 };
 
 export class ValidationError extends Error {
@@ -236,6 +250,44 @@ export async function setProductCount(db, tenantId, productCount) {
 /** Update a tenant's feed URL (used by the idempotent POST /v1/tenants path in onboarding.js when a re-submission for an existing domain carries a new feed URL). */
 export async function setFeedUrl(db, tenantId, feedUrl) {
   await db.prepare(SQL.SET_FEED_URL).bind(feedUrl, tenantId).run();
+}
+
+/**
+ * Add the billing_ref and valid_until columns to an existing tenants table,
+ * if they are not there yet. Same pattern as ensureProductCountColumn()
+ * above (guarded ALTER TABLE, cached per `db` binding via a WeakSet): these
+ * two columns were added after billing (PATCH /v1/tenants/:id/plan, see
+ * onboarding.js) shipped, so an already-deployed database needs them added
+ * at runtime rather than relying on schema.sql, which only ever runs once.
+ */
+const billingColumnsEnsured = new WeakSet();
+export async function ensureBillingColumns(db) {
+  if (billingColumnsEnsured.has(db)) return;
+  for (const sql of [SQL.ADD_BILLING_REF_COLUMN, SQL.ADD_VALID_UNTIL_COLUMN]) {
+    try {
+      await db.prepare(sql).run();
+    } catch (err) {
+      const message = String((err && err.message) || err);
+      if (!/duplicate column/i.test(message)) throw err;
+    }
+  }
+  billingColumnsEnsured.add(db);
+}
+
+/**
+ * Set a tenant's plan, monthly_quota, and billing metadata in one write.
+ * Used by the admin-only PATCH /v1/tenants/:id/plan route (see
+ * onboarding.js), which is how a paid Stripe subscription actually changes
+ * what a tenant is allowed to use (see licence-service/app.py's webhook,
+ * which calls that route). `monthlyQuota` defaults to DEFAULT_QUOTAS[plan]
+ * when omitted; `billingRef`/`validUntil` default to null (e.g. moving a
+ * tenant back to `free` clears any stale subscription id / expiry).
+ */
+export async function setTenantPlan(db, tenantId, { plan, monthlyQuota, billingRef = null, validUntil = null } = {}) {
+  await ensureBillingColumns(db);
+  const quota = Number.isFinite(monthlyQuota) && monthlyQuota > 0 ? Math.floor(monthlyQuota) : DEFAULT_QUOTAS[plan];
+  await db.prepare(SQL.SET_TENANT_PLAN).bind(plan, quota, billingRef, validUntil, tenantId).run();
+  return quota;
 }
 
 /**
