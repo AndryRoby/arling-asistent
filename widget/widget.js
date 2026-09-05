@@ -8,12 +8,30 @@
  *           data-tenant="TENANT_ID"
  *           data-lang="sk"
  *           data-color="auto"
+ *           data-position="right"
+ *           data-greeting="Vitajte, ako vam mozem pomoct?"
+ *           data-title="Nas asistent"
  *           data-endpoint="https://arling-asistent.arling.workers.dev" defer></script>
  *
  * data-tenant   required, the tenant id returned by POST /v1/tenants.
- * data-lang     optional, one of sk/cs/en/de, default "sk".
+ * data-lang     optional, one of sk/cs/en/de, or "auto" (default, and also
+ *               the fallback for an absent attribute): the widget's own
+ *               chrome (buttons, placeholder, greeting) follows the
+ *               visitor's browser language (falling back to Slovak when
+ *               that is missing or unsupported), and "auto" is sent to the
+ *               server as-is so the assistant replies in whatever language
+ *               the customer actually types in, message by message (see
+ *               worker/src/chat.js).
  * data-color    optional, "auto" (default, follows the visitor's OS
  *               light/dark setting), "light" or "dark" to force one.
+ * data-position optional, "right" (default) or "left": which bottom corner
+ *               of the page the launcher button and chat panel sit in.
+ * data-greeting optional, a custom first message the assistant shows when
+ *               the panel is opened. Defaults to the language's own
+ *               greeting string.
+ * data-title    optional, a custom panel title (shown in the header bar and
+ *               used as the dialog's accessible name). Defaults to the
+ *               language's own title string.
  * data-endpoint optional, the worker's origin. Defaults to this script's
  *               own origin, which is normally correct.
  *
@@ -110,6 +128,13 @@
     return STRINGS[l] ? l : 'sk';
   }
 
+  /** Resolve the widget's own UI language for data-lang="auto" (also the default): the visitor's browser language, falling back to Slovak when it is missing or not one of the four supported languages. */
+  function resolveAutoLang() {
+    var nav = window.navigator || {};
+    var navLang = nav.language || (nav.languages && nav.languages[0]) || '';
+    return normaliseLang(navLang);
+  }
+
   function scriptOrigin(el) {
     try {
       return new URL(el.src).origin;
@@ -179,6 +204,7 @@
       '  font-family: var(--sans);' +
       '  position: fixed; z-index: 2147483000; bottom: 20px; right: 20px;' +
       '}' +
+      ':host(.position-left) { right: auto; left: 20px; }' +
       '@media (prefers-color-scheme: dark) {' +
       '  :host(:not(.force-light)) { --paper:#151412; --paper-2:#1d1b18; --ink:#efe9de; --ink-2:#c9c2b5; --muted:#8f887b; --line:#2e2b26; --accent:#e0623f; --accent-soft:#3a1f17; }' +
       '}' +
@@ -200,6 +226,7 @@
       '  border-radius:8px; display:flex; flex-direction:column; overflow:hidden;' +
       '  box-shadow:0 8px 28px rgba(0,0,0,.18); color:var(--ink);' +
       '}' +
+      ':host(.position-left) #panel { right:auto; left:0; }' +
       '.panel-head {' +
       '  display:flex; align-items:center; justify-content:space-between; padding:12px 14px;' +
       '  border-bottom:1px solid var(--line); background:var(--paper-2);' +
@@ -250,6 +277,7 @@
       '.footer a:hover { color:var(--accent); }' +
       '@media (max-width:480px) {' +
       '  :host { bottom:12px; right:12px; }' +
+      '  :host(.position-left) { right:auto; left:12px; }' +
       '  #panel {' +
       '    position:fixed; left:0; right:0; bottom:0; width:100%; max-width:100%;' +
       '    height:min(78vh, 560px); max-height:78vh; border-radius:14px 14px 0 0; border-bottom:none;' +
@@ -275,8 +303,17 @@
     if (!scriptEl) return;
 
     var TENANT = scriptEl.getAttribute('data-tenant');
-    var LANG = normaliseLang(scriptEl.getAttribute('data-lang'));
+    var LANG_ATTR = scriptEl.getAttribute('data-lang');
+    // An absent attribute, or an explicit "auto", both mean: let the server
+    // detect the reply language per message (API_LANG, sent as-is with every
+    // /v1/chat request, see chat.js isAutoLang/detectLangFromText), while the
+    // widget's own chrome (LANG, below) still needs one concrete language to
+    // render buttons/placeholder/greeting in right now.
+    var IS_AUTO_LANG = !LANG_ATTR || String(LANG_ATTR).trim().toLowerCase() === 'auto';
+    var API_LANG = IS_AUTO_LANG ? 'auto' : normaliseLang(LANG_ATTR);
+    var LANG = IS_AUTO_LANG ? resolveAutoLang() : API_LANG;
     var COLOR = scriptEl.getAttribute('data-color') || 'auto';
+    var POSITION = scriptEl.getAttribute('data-position') === 'left' ? 'left' : 'right';
     var ENDPOINT = (scriptEl.getAttribute('data-endpoint') || scriptOrigin(scriptEl)).replace(/\/$/, '');
 
     if (!TENANT) {
@@ -285,7 +322,19 @@
     }
 
     var SESSION_ID = 'sess_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+    // t starts as the plain per-language strings object, then gets a
+    // shallow copy with data-title/data-greeting overrides applied on top
+    // when present, so every other string (placeholder, send, thinking...)
+    // keeps coming from STRINGS unchanged.
     var t = STRINGS[LANG];
+    var titleAttr = scriptEl.getAttribute('data-title');
+    var greetingAttr = scriptEl.getAttribute('data-greeting');
+    if ((titleAttr && titleAttr.trim()) || (greetingAttr && greetingAttr.trim())) {
+      t = Object.assign({}, t);
+      if (titleAttr && titleAttr.trim()) t.title = titleAttr.trim();
+      if (greetingAttr && greetingAttr.trim()) t.greeting = greetingAttr.trim();
+    }
 
     // -------------------------------------------------------------------
     // DOM / Shadow root
@@ -293,8 +342,11 @@
 
     var host = document.createElement('div');
     host.setAttribute('data-arling-asistent', '');
-    if (COLOR === 'light') host.className = 'force-light';
-    if (COLOR === 'dark') host.className = 'force-dark';
+    var hostClasses = [];
+    if (COLOR === 'light') hostClasses.push('force-light');
+    if (COLOR === 'dark') hostClasses.push('force-dark');
+    if (POSITION === 'left') hostClasses.push('position-left');
+    host.className = hostClasses.join(' ');
     document.body.appendChild(host);
 
     var root = host.attachShadow({ mode: 'open' });
@@ -433,7 +485,7 @@
         var res = await fetch(ENDPOINT + '/v1/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tenant: TENANT, messages: conversation, lang: LANG }),
+          body: JSON.stringify({ tenant: TENANT, messages: conversation, lang: API_LANG }),
         });
 
         removeThinking();

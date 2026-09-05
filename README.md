@@ -107,6 +107,10 @@ curl -X POST "https://VASA-DOMENA-WORKERA/v1/tenants/TENANT_ID/reingest" \
 
 Ten istý `ingestFeedForTenant()` beží aj v dennom crone (`worker/src/cron.js`), takže toto je len manuálne spustenie tej istej funkcie mimo poradia.
 
+### Opakované `POST /v1/tenants` na tú istú doménu
+
+`domain` má v `tenants` UNIQUE obmedzenie, takže opakované odoslanie onboardingového formulára pre doménu, ktorá už tenanta má (napríklad majiteľ obchodu formulár omylom odošle dvakrát), nevráti chybu: vráti `200` s existujúcim tenantom (`{..., "existing": true}` namiesto `201`), nikdy nie e-mail pôvodného tenanta. Ak sa odoslaná `feed_url` líši od uloženej, alebo posledné úspešné spracovanie feedu je staršie ako 24 hodín (alebo sa nikdy nepodarilo, tenant je v stave `error`), spustí sa na pozadí (`ctx.waitUntil`) rovnaké `ingestFeedForTenant()` ako pri crone. Akýkoľvek iný konflikt v D1 (nie kolízia domény) sa mapuje na `409 {"error":"conflict"}`, nikdy nie na `500`.
+
 ## Vloženie widgetu na e-shop
 
 ```html
@@ -120,9 +124,24 @@ Ten istý `ingestFeedForTenant()` beží aj v dennom crone (`worker/src/cron.js`
 `GET /widget.js` servíruje worker sám (rovnaký obsah ako `widget/widget.js`, viď "Widget: úprava a build" vyššie), takže e-shop nepotrebuje žiadny druhý hosting pre samotný skript.
 
 - `data-tenant` (povinné): id vrátené z `POST /v1/tenants`.
-- `data-lang`: `sk`, `cs`, `en` alebo `de`, predvolené `sk`.
+- `data-lang`: `sk`, `cs`, `en`, `de`, alebo `auto` (predvolené, aj keď atribút úplne chýba). Pri `auto` sa vzhľad widgetu (tlačidlá, placeholder, pozdrav) riadi jazykom prehliadača návštevníka (s pádom na slovenčinu, ak ten nie je jeden zo štyroch podporovaných), a hodnota `"auto"` sa pošle aj na server v `POST /v1/chat`, ktorý potom jazyk odpovede odhaduje z každej správy zákazníka zvlášť (pozri `worker/src/chat.js`).
 - `data-color`: `auto` (podľa systému návštevníka, predvolené), `light` alebo `dark`.
+- `data-position`: `right` (predvolené) alebo `left`, na ktorej spodnej strane stránky sedí tlačidlo aj panel chatu.
+- `data-greeting`: vlastný text prvej správy asistenta (nahradí predvolený pozdrav pre daný jazyk).
+- `data-title`: vlastný názov panelu (zobrazí sa v hlavičke aj ako accessible name dialógu, nahradí predvolený názov pre daný jazyk).
 - `data-endpoint`: voliteľná adresa Workera, ak sa líši od domény, z ktorej sa `widget.js` načítal.
+
+## Plány
+
+`POST /v1/tenants` dnes vytvorí tenanta na pláne `free` bez platby (Stripe zatiaľ nie je zapojený, pozri "Čo ešte nie je hotové" nižšie). Kvóta sa zatiaľ počíta na jeden `POST /v1/chat` request, nie na správu v ňom (pozri komentár v `worker/src/tenants.js` a bod nižšie).
+
+| Plán | Cena | Mesačná kvóta |
+|---|---|---|
+| `free` | zadarmo | 100 rozhovorov |
+| `starter` | 19 EUR/mesiac | 1 000 rozhovorov |
+| `pro` | 39 EUR/mesiac | 5 000 rozhovorov |
+
+Zmena plánu/kvóty existujúceho tenanta (napr. po platbe) sa dnes robí len priamym zápisom do D1 (`UPDATE tenants SET plan = ?, monthly_quota = ? WHERE id = ?`), keďže Stripe upgrade flow ešte nie je zapojený.
 
 ## Náklady na bezplatnej úrovni Cloudflare (zdroj: `opportunities/asistent-research.md`, stav 09/2026)
 
@@ -139,7 +158,7 @@ Najtesnejší limit je 10 000 Workers AI neuronov/deň (embeddingy pri onboardin
 
 ## Čo ešte nie je hotové
 
-- **Platby.** Stripe (mesačné predplatné, 14-dňová skúšobná verzia, licencia podľa domény) nie je zapojený. `POST /v1/tenants` dnes vytvorí `trial` tenanta s pevnou kvótou, bez platby.
+- **Platby.** Stripe (mesačné predplatné, 14-dňová skúšobná verzia, licencia podľa domény) nie je zapojený. `POST /v1/tenants` dnes vytvorí `free` tenanta s pevnou kvótou (pozri "Plány" vyššie), bez platby.
 - **Kvóta na rozhovor, nie na správu.** MVP zjednodušenie: každé volanie `POST /v1/chat` sa počíta ako jeden rozhovor voči mesačnej kvóte (pozri komentár v `worker/src/tenants.js`). Presnejšie počítanie raz za reláciu (podľa in-memory session id na strane widgetu) je budúce rozšírenie.
 - **Shoptet doplnok.** Vyžaduje partnerské schválenie (Shoptet reaguje do 4 týždňov, pozri `opportunities/asistent-research.md`), nie je súčasťou tohto MVP. Skript tag funguje na Shoptete aj bez doplnku.
 - **WooCommerce plugin a Shopify aplikácia** (inštalácia na klik z ich obchodov s doplnkami). Feed formáty oboch platforiem worker už vie spracovať (`worker/src/feed.js`), chýba len samotný distribučný balík.
@@ -150,7 +169,7 @@ Najtesnejší limit je 10 000 Workers AI neuronov/deň (embeddingy pri onboardin
 
 ## Testy
 
-`npm test` (`node --test tests/*.test.mjs`), Node 20+, bez siete. 105 testov, 335 volaní `assert.*`, pokrývajúcich: parsovanie všetkých 4 formátov feedu a normalizáciu, chunkovanie a embedding pipeline, CORS allowlist (vrátane hlavičky na skutočných JSON odpovediach `POST /v1/tenants` a `GET /v1/tenants/:id/status`, nielen na OPTIONS preflighte), rate limiting a jeho fail-open správanie pri chybe KV, limity veľkosti vstupu a ich mapovanie na 413/400 namiesto 500, ochranu proti prompt injection (vrátane popisu produktu s textom "ignore previous instructions"), retrieval z Vectorize vrátane degradovaného nefiltrovaného fallbacku pri chýbajúcom metadata indexe, admin re-ingest endpoint (`POST /v1/tenants/:id/reingest`), validáciu a vytvorenie tenanta, mesačnú kvótu a počítadlá, stavbu groundovaného promptu, spracovanie odpovede modelu a celý chat flow s mockovaným modelom vracajúcim JSON, `widget/widget.js` samotný (načítanie cez `node:vm` s minimálnym fake DOM, bez jsdom), a napokon aj wiring na úrovni HTTP routera (`worker/src/index.js`) so skutočnými `Request`/`Response` objektmi.
+`npm test` (`node --test tests/*.test.mjs`), Node 20+, bez siete. 133 testov, 426 volaní `assert.*`, pokrývajúcich: parsovanie všetkých 4 formátov feedu a normalizáciu, chunkovanie a embedding pipeline, CORS allowlist (vrátane hlavičky na skutočných JSON odpovediach `POST /v1/tenants` a `GET /v1/tenants/:id/status`, nielen na OPTIONS preflighte), rate limiting a jeho fail-open správanie pri chybe KV, limity veľkosti vstupu a ich mapovanie na 413/400 namiesto 500, ochranu proti prompt injection (vrátane popisu produktu s textom "ignore previous instructions"), retrieval z Vectorize vrátane degradovaného nefiltrovaného fallbacku pri chýbajúcom metadata indexe, admin re-ingest endpoint (`POST /v1/tenants/:id/reingest`), validáciu a vytvorenie tenanta (vrátane predvoleného plánu `free` a jeho kvóty), idempotentné `POST /v1/tenants` pri opakovanej doméne (existujúci tenant, obnovenie feedu pri zmene URL alebo starnutí nad 24h, mapovanie iného D1 konfliktu na 409), `product_count` vrátane guardovaného runtime `ALTER TABLE` pre existujúcu D1 databázu (`ensureProductCountColumn`/`setProductCount` v `worker/src/tenants.js`), mesačnú kvótu a počítadlá, stavbu groundovaného promptu, jazyk `auto` (heuristika `detectLangFromText` a systémový prompt, ktorý necháva model rozpoznať jazyk zákazníka), spracovanie odpovede modelu a celý chat flow s mockovaným modelom vracajúcim JSON, `widget/widget.js` samotný (načítanie cez `node:vm` s minimálnym fake DOM, bez jsdom, vrátane `data-position`, `data-title`, `data-greeting` a `data-lang="auto"` podľa `navigator.language`), a napokon aj wiring na úrovni HTTP routera (`worker/src/index.js`) so skutočnými `Request`/`Response` objektmi.
 
 ## Kontakt
 

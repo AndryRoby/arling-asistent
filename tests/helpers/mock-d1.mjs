@@ -11,6 +11,11 @@ import { SQL } from '../../worker/src/tenants.js';
 export function createMockD1() {
   const tenants = new Map(); // id -> row
   const counters = new Map(); // `${tenantId}::${day}` -> row
+  // Mirrors a real tenants table that predates the product_count column:
+  // false until something runs SQL.ADD_PRODUCT_COUNT_COLUMN (see
+  // tenants.js ensureProductCountColumn/setProductCount), same as a
+  // deployed D1 database that has not seen that guarded ALTER TABLE yet.
+  let hasProductCountColumn = false;
 
   const clone = (row) => (row ? { ...row } : row);
 
@@ -18,11 +23,53 @@ export function createMockD1() {
     switch (sql) {
       case SQL.INSERT_TENANT: {
         const [id, domain, feed_url, contact_email, plan, status, quota_month, monthly_quota, used_this_month, created_at] = args;
-        tenants.set(id, {
+        // Mirrors real D1/SQLite's constraint checks (schema.sql: id PRIMARY
+        // KEY, domain UNIQUE) so createTenant's own catch block (tenants.js)
+        // has something realistic to pattern-match against: an id collision
+        // is a generic constraint violation (-> D1ConstraintError -> 409), a
+        // domain collision is the specific, idempotent-response case
+        // (-> DuplicateDomainError, see onboarding.js).
+        if (tenants.has(id)) {
+          throw new Error('D1_ERROR: UNIQUE constraint failed: tenants.id: SQLITE_CONSTRAINT');
+        }
+        for (const existing of tenants.values()) {
+          if (existing.domain === domain) {
+            throw new Error('D1_ERROR: UNIQUE constraint failed: tenants.domain: SQLITE_CONSTRAINT');
+          }
+        }
+        const row = {
           id, domain, feed_url, contact_email, plan, status, quota_month,
           monthly_quota, used_this_month, created_at, last_ingested_at: null,
-        });
+        };
+        // INSERT_TENANT never lists product_count explicitly, so a row only
+        // gets it if the column (with its DEFAULT 0) already exists, exactly
+        // like real SQLite.
+        if (hasProductCountColumn) row.product_count = 0;
+        tenants.set(id, row);
         return { success: true, meta: { changes: 1 } };
+      }
+      case SQL.ADD_PRODUCT_COUNT_COLUMN: {
+        if (hasProductCountColumn) {
+          // Real SQLite/D1 error text for adding a column that already exists.
+          throw new Error('duplicate column name: product_count');
+        }
+        hasProductCountColumn = true;
+        for (const row of tenants.values()) {
+          if (row.product_count === undefined) row.product_count = 0;
+        }
+        return { success: true, meta: { changes: 0 } };
+      }
+      case SQL.SET_PRODUCT_COUNT: {
+        const [productCount, id] = args;
+        const row = tenants.get(id);
+        if (row) row.product_count = productCount;
+        return { success: true, meta: { changes: row ? 1 : 0 } };
+      }
+      case SQL.SET_FEED_URL: {
+        const [feedUrl, id] = args;
+        const row = tenants.get(id);
+        if (row) row.feed_url = feedUrl;
+        return { success: true, meta: { changes: row ? 1 : 0 } };
       }
       case SQL.SET_TENANT_STATUS: {
         const [status, lastIngestedAt, id] = args;
