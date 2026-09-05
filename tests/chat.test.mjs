@@ -9,6 +9,8 @@ import assert from 'node:assert/strict';
 
 import { extractModelText,
   normaliseLang,
+  isAutoLang,
+  detectLangFromText,
   buildSystemPrompt,
   buildUserPrompt,
   extractLastUserMessage,
@@ -34,6 +36,24 @@ test('normaliseLang accepts sk/cs/en/de and falls back to en for anything else',
   assert.equal(normaliseLang(''), 'en');
 });
 
+test('isAutoLang recognises "auto" case-insensitively and with surrounding whitespace, but not a fixed lang code', () => {
+  assert.equal(isAutoLang('auto'), true);
+  assert.equal(isAutoLang('AUTO'), true);
+  assert.equal(isAutoLang('  Auto  '), true);
+  assert.equal(isAutoLang('sk'), false);
+  assert.equal(isAutoLang(''), false);
+  assert.equal(isAutoLang(undefined), false);
+});
+
+test('detectLangFromText picks sk/cs/de from characteristic diacritics or words, and falls back to en', () => {
+  assert.equal(detectLangFromText('Mate cierne tricko so zlavou?'), 'en'); // no diacritics typed at all: nothing to key on
+  assert.equal(detectLangFromText('Máte čierne tričko so zľavou?'), 'sk');
+  assert.equal(detectLangFromText('Řekněte mi tu cenu'), 'cs'); // ř/ě are Czech-only and this sentence has no sk-leaning chars at all
+  assert.equal(detectLangFromText('Haben Sie das in Größe M, und wie teuer ist es?'), 'de');
+  assert.equal(detectLangFromText('Do you have this in size M?'), 'en');
+  assert.equal(detectLangFromText(''), 'en');
+});
+
 test('buildSystemPrompt is language-specific, forbids invention, and demands JSON with at most 3 products', () => {
   for (const lang of ['sk', 'cs', 'en', 'de']) {
     const prompt = buildSystemPrompt(lang);
@@ -42,6 +62,16 @@ test('buildSystemPrompt is language-specific, forbids invention, and demands JSO
     assert.match(prompt, /3/);
   }
   assert.notEqual(buildSystemPrompt('sk'), buildSystemPrompt('en'));
+});
+
+test('buildSystemPrompt("auto") returns a distinct prompt that tells the model to mirror the customer\'s own language', () => {
+  const prompt = buildSystemPrompt('auto');
+  assert.match(prompt, /JSON/);
+  assert.match(prompt, /120/);
+  assert.match(prompt, /language/i);
+  assert.notEqual(prompt, buildSystemPrompt('sk'));
+  assert.notEqual(prompt, buildSystemPrompt('en'));
+  assert.equal(buildSystemPrompt('AUTO'), prompt); // case-insensitive
 });
 
 test('extractLastUserMessage finds the most recent user turn, ignoring assistant turns after it never happening', () => {
@@ -136,6 +166,17 @@ test('noMatchFallback returns a language-specific "I do not know" message includ
   const en = noMatchFallback('en', 'shop@example.com');
   assert.match(en.answer, /shop@example\.com/);
   assert.notEqual(sk.answer, en.answer);
+});
+
+test('noMatchFallback with lang "auto" picks the fallback language from the user message text', () => {
+  const sk = noMatchFallback('auto', 'obchod@example.sk', 'Máte čierne tričko so zľavou?');
+  assert.equal(sk.answer, noMatchFallback('sk', 'obchod@example.sk').answer);
+
+  const de = noMatchFallback('auto', 'shop@example.de', 'Haben Sie das in Größe M?');
+  assert.equal(de.answer, noMatchFallback('de', 'shop@example.de').answer);
+
+  const en = noMatchFallback('auto', 'shop@example.com', 'Do you have this in blue?');
+  assert.equal(en.answer, noMatchFallback('en', 'shop@example.com').answer);
 });
 
 test('retrieveCandidates queries Vectorize filtered by tenant and deduplicates by product id keeping the best score', async () => {
@@ -267,6 +308,25 @@ test('runChat answers in the requested language regardless of the message conten
   const env = { AI: ai, VECTORIZE: vectorize };
   const result = await runChat(env, { tenant: { id: 't', contact_email: 'a@b.de' }, messages: [{ role: 'user', content: 'do you have this?' }], lang: 'de' });
   assert.equal(result.answer, 'Antwort auf Deutsch');
+});
+
+test('runChat with lang "auto" sends the auto system prompt to the model and uses the message heuristic for the no-match fallback', async () => {
+  const vectorize = createMockVectorize();
+  await vectorize.upsert([{ id: 't::p::0', values: [1], metadata: { tenant: 't', productId: 'p', title: 'X', url: 'https://x/1', availability: 'in_stock' } }]);
+  const ai = createMockAI({ embedDim: 1, chatResponse: JSON.stringify({ answer: 'Antwort auf Deutsch', products: [] }) });
+  const env = { AI: ai, VECTORIZE: vectorize };
+
+  const result = await runChat(env, { tenant: { id: 't', contact_email: 'a@b.de' }, messages: [{ role: 'user', content: 'Haben Sie das in Groesse M?' }], lang: 'auto' });
+  assert.equal(result.answer, 'Antwort auf Deutsch');
+  assert.match(ai.calls[1].input.messages[0].content, /language of the customer/i); // the auto system prompt, not a fixed-language one
+
+  // No candidates at all: falls back using the heuristic on the user's own message (German diacritic here).
+  const noMatchResult = await runChat({ AI: createMockAI({ embedDim: 1 }), VECTORIZE: createMockVectorize() }, {
+    tenant: { id: 'empty', contact_email: 'shop@example.de' },
+    messages: [{ role: 'user', content: 'Haben Sie das in Größe M?' }],
+    lang: 'auto',
+  });
+  assert.equal(noMatchResult.answer, noMatchFallback('de', 'shop@example.de').answer);
 });
 
 test('extractModelText handles string, {response}, object response and OpenAI shapes', () => {

@@ -67,11 +67,12 @@ function makeElement(tag) {
   return el;
 }
 
-function makeFakeWindowAndDocument({ dataTenant = 'tenant-123', dataLang = 'sk' } = {}) {
+function makeFakeWindowAndDocument({ dataTenant = 'tenant-123', dataLang = 'sk', extraAttrs = {}, navigatorLanguage } = {}) {
   const scriptEl = makeElement('script');
   scriptEl.src = 'https://arling-asistent.arling.workers.dev/widget.js';
   if (dataTenant != null) scriptEl.setAttribute('data-tenant', dataTenant);
   if (dataLang != null) scriptEl.setAttribute('data-lang', dataLang);
+  Object.keys(extraAttrs).forEach((name) => scriptEl.setAttribute(name, extraAttrs[name]));
 
   const body = makeElement('body');
 
@@ -88,13 +89,14 @@ function makeFakeWindowAndDocument({ dataTenant = 'tenant-123', dataLang = 'sk' 
     location: { href: 'https://shop.example/' },
     requestAnimationFrame() {},
   };
+  if (navigatorLanguage != null) windowStub.navigator = { language: navigatorLanguage };
 
   return { windowStub, documentStub, scriptEl, body };
 }
 
-function runWidget(documentStub, windowStub) {
+function runWidget(documentStub, windowStub, fetchImpl) {
   const consoleStub = { error() {}, warn() {}, log() {} };
-  const sandbox = { window: windowStub, document: documentStub, console: consoleStub, URL, Math, Date };
+  const sandbox = { window: windowStub, document: documentStub, console: consoleStub, URL, Math, Date, fetch: fetchImpl };
   const context = vm.createContext(sandbox);
   vm.runInContext(widgetSource, context, { filename: 'widget.js' });
   return sandbox;
@@ -123,6 +125,109 @@ test('widget.js does not start (and does not throw) when the required data-tenan
 
   assert.doesNotThrow(() => runWidget(documentStub, windowStub));
   assert.equal(body.children.length, 0);
+});
+
+test('widget.js defaults to the right-side position when data-position is absent', () => {
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument();
+  runWidget(documentStub, windowStub);
+  const host = body.children[0];
+  assert.doesNotMatch(host.className, /position-left/);
+});
+
+test('widget.js applies the position-left host class when data-position="left"', () => {
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument({ extraAttrs: { 'data-position': 'left' } });
+  runWidget(documentStub, windowStub);
+  const host = body.children[0];
+  assert.match(host.className, /position-left/);
+});
+
+test('widget.js falls back to the right-side position for any data-position value other than "left"', () => {
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument({ extraAttrs: { 'data-position': 'top' } });
+  runWidget(documentStub, windowStub);
+  const host = body.children[0];
+  assert.doesNotMatch(host.className, /position-left/);
+});
+
+test('widget.js uses data-title for the panel title and data-greeting for the first assistant message', () => {
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument({
+    extraAttrs: { 'data-title': 'Moj obchodny asistent', 'data-greeting': 'Ahoj, co hladate?' },
+  });
+  runWidget(documentStub, windowStub);
+  const host = body.children[0];
+  const root = host.shadowRoot;
+
+  // buildMarkup(t) rendered the custom title into both the header bar text
+  // and the dialog's aria-label.
+  assert.match(root.innerHTML, /Moj obchodny asistent/);
+  assert.doesNotMatch(root.innerHTML, /Asistent obchodu/); // the sk default title must not also be present
+
+  // Opening the panel (simulated by invoking the toggle's click listener
+  // directly, since this fake DOM has no real event dispatch) appends the
+  // custom greeting as the first assistant message instead of the default.
+  const toggle = root.getElementById('toggle');
+  toggle._listeners.click[0]();
+  const messages = root.getElementById('messages');
+  assert.equal(messages.children.length, 1);
+  assert.equal(messages.children[0].children[0].textContent, 'Ahoj, co hladate?');
+});
+
+test('widget.js falls back to the default title and greeting when data-title/data-greeting are absent', () => {
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument();
+  runWidget(documentStub, windowStub);
+  const host = body.children[0];
+  const root = host.shadowRoot;
+
+  assert.match(root.innerHTML, /Asistent obchodu/);
+
+  const toggle = root.getElementById('toggle');
+  toggle._listeners.click[0]();
+  const messages = root.getElementById('messages');
+  assert.equal(messages.children[0].children[0].textContent, 'Dobrý deň, ako vám môžem pomôcť s výberom?');
+});
+
+test('widget.js UI chrome follows navigator.language when data-lang is absent (the new default is "auto")', () => {
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument({ dataLang: null, navigatorLanguage: 'de-DE' });
+  runWidget(documentStub, windowStub);
+  const host = body.children[0];
+  const root = host.shadowRoot;
+
+  const toggle = root.getElementById('toggle');
+  toggle._listeners.click[0]();
+  const messages = root.getElementById('messages');
+  assert.equal(messages.children[0].children[0].textContent, 'Hallo, wie kann ich Ihnen bei der Auswahl helfen?');
+});
+
+test('widget.js UI chrome falls back to Slovak when data-lang is absent and navigator.language is missing or unsupported', () => {
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument({ dataLang: null }); // no navigatorLanguage given
+  runWidget(documentStub, windowStub);
+  const host = body.children[0];
+  const root = host.shadowRoot;
+
+  const toggle = root.getElementById('toggle');
+  toggle._listeners.click[0]();
+  const messages = root.getElementById('messages');
+  assert.equal(messages.children[0].children[0].textContent, 'Dobrý deň, ako vám môžem pomôcť s výberom?');
+});
+
+test('widget.js sends lang: "auto" to the server by default, but a fixed data-lang value unchanged', async () => {
+  async function submitAndCaptureLang({ dataLang, navigatorLanguage }) {
+    let sentBody = null;
+    const fetchImpl = async (url, opts) => {
+      sentBody = JSON.parse(opts.body);
+      return { status: 200, ok: true, json: async () => ({ answer: 'ok', products: [] }) };
+    };
+    const { windowStub, documentStub, body } = makeFakeWindowAndDocument({ dataLang, navigatorLanguage });
+    runWidget(documentStub, windowStub, fetchImpl);
+    const root = body.children[0].shadowRoot;
+    root.getElementById('input').value = 'Hello';
+    root.getElementById('form')._listeners.submit[0]({ preventDefault() {} });
+    await new Promise((resolve) => setTimeout(resolve, 0)); // let the fire-and-forget sendMessage() reach fetch()
+    return sentBody && sentBody.lang;
+  }
+
+  assert.equal(await submitAndCaptureLang({ dataLang: null }), 'auto'); // absent data-lang: new default
+  assert.equal(await submitAndCaptureLang({ dataLang: 'auto' }), 'auto'); // explicit "auto"
+  assert.equal(await submitAndCaptureLang({ dataLang: 'sk' }), 'sk'); // a fixed lang code is sent through unchanged
 });
 
 test('widget.js only ever initialises once per page even if the script were somehow run twice', () => {

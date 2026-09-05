@@ -4,17 +4,25 @@
 --
 -- Deliberately no conversations/messages table anywhere: only tenant
 -- records and daily aggregate counters are ever stored.
+--
+-- This file only ever runs once, at first `wrangler d1 execute` for a given
+-- database (every statement is IF NOT EXISTS): a column added here later,
+-- such as product_count below, will not retroactively appear in an already
+-- applied database. worker/src/tenants.js (ensureProductCountColumn) adds
+-- that specific column at runtime with a guarded ALTER TABLE instead, so an
+-- existing deployment does not need this file re-run by hand.
 
 CREATE TABLE IF NOT EXISTS tenants (
   id TEXT PRIMARY KEY,
   domain TEXT NOT NULL UNIQUE,
   feed_url TEXT NOT NULL,
   contact_email TEXT NOT NULL,
-  plan TEXT NOT NULL DEFAULT 'trial',
+  plan TEXT NOT NULL DEFAULT 'free',
   status TEXT NOT NULL DEFAULT 'pending',
   quota_month TEXT NOT NULL,
-  monthly_quota INTEGER NOT NULL DEFAULT 1000,
+  monthly_quota INTEGER NOT NULL DEFAULT 100,
   used_this_month INTEGER NOT NULL DEFAULT 0,
+  product_count INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   last_ingested_at TEXT
 );

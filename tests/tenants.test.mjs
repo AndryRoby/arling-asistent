@@ -15,10 +15,16 @@ import {
   setTenantStatus,
   checkAndRecordConversation,
   recordProductClick,
+  ensureProductCountColumn,
+  setProductCount,
+  setFeedUrl,
   monthKey,
   ValidationError,
+  DuplicateDomainError,
+  D1ConstraintError,
   PLANS,
-  DEFAULT_TRIAL_QUOTA,
+  DEFAULT_FREE_QUOTA,
+  SQL,
 } from '../worker/src/tenants.js';
 import { createMockD1 } from './helpers/mock-d1.mjs';
 
@@ -47,15 +53,16 @@ test('validateTenantInput rejects a non-http(s) feed_url scheme', () => {
   assert.throws(() => validateTenantInput({ domain: 'shop.sk', feedUrl: 'ftp://shop.sk/feed.xml', contactEmail: 'a@b.sk' }), ValidationError);
 });
 
-test('createTenant inserts a row with trial defaults and returns it', async () => {
+test('createTenant inserts a row with free-plan defaults and returns it', async () => {
   const db = createMockD1();
   const now = new Date('2026-09-04T10:00:00Z');
   const tenant = await createTenant(db, { domain: 'shop.sk', feedUrl: 'https://shop.sk/feed.xml', contactEmail: 'a@shop.sk' }, { now });
   assert.equal(tenant.domain, 'shop.sk');
-  assert.equal(tenant.plan, PLANS.TRIAL);
+  assert.equal(tenant.plan, PLANS.FREE);
   assert.equal(tenant.status, 'pending');
-  assert.equal(tenant.monthly_quota, DEFAULT_TRIAL_QUOTA);
+  assert.equal(tenant.monthly_quota, DEFAULT_FREE_QUOTA);
   assert.equal(tenant.used_this_month, 0);
+  assert.equal(tenant.product_count, 0);
   assert.equal(tenant.quota_month, monthKey(now));
   assert.ok(tenant.id);
 
@@ -69,6 +76,39 @@ test('createTenant propagates ValidationError and never inserts a row on bad inp
   const db = createMockD1();
   await assert.rejects(() => createTenant(db, { domain: '', feedUrl: '', contactEmail: '' }), ValidationError);
   assert.equal(db._tenants.size, 0);
+});
+
+test('createTenant throws DuplicateDomainError (not a generic 500-shaped error) when the domain is already taken, and does not insert a second row', async () => {
+  const db = createMockD1();
+  await createTenant(db, { domain: 'shop.sk', feedUrl: 'https://shop.sk/feed.xml', contactEmail: 'a@shop.sk' });
+  await assert.rejects(
+    () => createTenant(db, { domain: 'shop.sk', feedUrl: 'https://shop.sk/feed2.xml', contactEmail: 'b@shop.sk' }),
+    (err) => {
+      assert.ok(err instanceof DuplicateDomainError);
+      assert.equal(err.domain, 'shop.sk');
+      return true;
+    }
+  );
+  assert.equal(db._tenants.size, 1);
+});
+
+test('createTenant throws D1ConstraintError (not DuplicateDomainError) for a constraint violation unrelated to domain, e.g. a colliding explicit id', async () => {
+  const db = createMockD1();
+  await createTenant(db, { domain: 'a.sk', feedUrl: 'https://a.sk/feed.xml', contactEmail: 'a@a.sk' }, { id: 'fixed-id' });
+  await assert.rejects(
+    () => createTenant(db, { domain: 'b.sk', feedUrl: 'https://b.sk/feed.xml', contactEmail: 'b@b.sk' }, { id: 'fixed-id' }),
+    D1ConstraintError
+  );
+  assert.equal(db._tenants.size, 1);
+});
+
+test('setFeedUrl updates only the feed_url column', async () => {
+  const db = createMockD1();
+  const tenant = await createTenant(db, { domain: 'shop.sk', feedUrl: 'https://shop.sk/old.xml', contactEmail: 'a@shop.sk' });
+  await setFeedUrl(db, tenant.id, 'https://shop.sk/new.xml');
+  const fetched = await getTenantById(db, tenant.id);
+  assert.equal(fetched.feed_url, 'https://shop.sk/new.xml');
+  assert.equal(fetched.domain, 'shop.sk'); // untouched
 });
 
 test('getTenantById / getTenantByDomain return null for an unknown tenant', async () => {
@@ -158,4 +198,46 @@ test('recordProductClick increments the click counter independently of conversat
   const counterRow = db._counters.get(`${tenant.id}::2026-09-04`);
   assert.equal(counterRow.product_clicks, 2);
   assert.equal(counterRow.conversations, 0);
+});
+
+// ---------------------------------------------------------------------------
+// product_count (added to an already-existing tenants table at runtime)
+// ---------------------------------------------------------------------------
+
+test('setProductCount stores the count and it is readable back on the tenant row', async () => {
+  const db = createMockD1();
+  const tenant = await createTenant(db, { domain: 'shop.sk', feedUrl: 'https://shop.sk/feed.xml', contactEmail: 'a@shop.sk' });
+  await setProductCount(db, tenant.id, 42);
+  const fetched = await getTenantById(db, tenant.id);
+  assert.equal(fetched.product_count, 42);
+});
+
+test('setProductCount adds the product_count column on demand for a database created before it existed', async () => {
+  const db = createMockD1();
+  // Simulate a tenant row created before product_count was ever introduced:
+  // the mock only sets product_count on INSERT once its ALTER TABLE case has
+  // run, so a tenant created against a fresh mock never has the field yet.
+  const tenant = await createTenant(db, { domain: 'legacy.sk', feedUrl: 'https://legacy.sk/feed.xml', contactEmail: 'a@legacy.sk' });
+  assert.equal(db._tenants.get(tenant.id).product_count, undefined);
+
+  await setProductCount(db, tenant.id, 7);
+
+  const fetched = await getTenantById(db, tenant.id);
+  assert.equal(fetched.product_count, 7);
+});
+
+test('ensureProductCountColumn is guarded: tolerates a column that was already added (e.g. by a previous deploy/isolate)', async () => {
+  const db = createMockD1();
+  await db.prepare(SQL.ADD_PRODUCT_COUNT_COLUMN).run(); // pre-migrate, as if a previous call already ran this
+  await assert.doesNotReject(() => ensureProductCountColumn(db));
+});
+
+test('ensureProductCountColumn only runs the ALTER TABLE once per db binding (cached), even across many calls', async () => {
+  const db = createMockD1();
+  await ensureProductCountColumn(db);
+  await ensureProductCountColumn(db);
+  await ensureProductCountColumn(db);
+  // A second raw ALTER TABLE against the same mock would now throw
+  // (duplicate column): proves the column was only actually added once.
+  await assert.rejects(() => db.prepare(SQL.ADD_PRODUCT_COUNT_COLUMN).run(), /duplicate column/i);
 });
