@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { extractModelText,
   normaliseLang,
   isAutoLang,
+  looksDegenerate,
   detectLangFromText,
   buildSystemPrompt,
   buildUserPrompt,
@@ -466,4 +467,14 @@ test('chybajuci lang sa berie ako auto, nie ako en', () => {
   assert.equal(isAutoLang(lang), true);
   assert.equal(buildSystemPrompt(lang), buildSystemPrompt('auto'));
   assert.notEqual(buildSystemPrompt(lang), buildSystemPrompt('en'));
+});
+
+// Zacyklena odpoved modelu sa nesmie dostat k zakaznikovi (zive 5. 9. 2026:
+// ceska otazka vratila ". the the a of the the the of the the of the ...").
+test('looksDegenerate zachyti zacyklenu odpoved a nechyta normalny text', () => {
+  assert.equal(looksDegenerate('. the the a of the the the of the the of the the of the the the of'), true);
+  assert.equal(looksDegenerate('ano ano ano mame kavovar'), true);
+  assert.equal(looksDegenerate('Ano, mame kavovar Orava Mini za 89.90 EUR a tiez sadu pohárov za 22.90 EUR.'), false);
+  assert.equal(looksDegenerate('Ja, wir haben mehrere Kaffeemaschinen bis 200 Euro im Angebot, zum Beispiel Orava Mini.'), false);
+  assert.equal(looksDegenerate('Kratka odpoved'), false);
 });
