@@ -147,6 +147,29 @@ export async function retrieveCandidates(env, tenantId, queryVector, { topK = TO
 // Model output parsing and grounding
 // ---------------------------------------------------------------------------
 
+/**
+ * Workers AI models answer in different shapes: a plain string, {response: string},
+ * {response: {answer, products}} (JSON mode), or OpenAI style {choices:[{message:{content}}]}.
+ * Always return a string so parsing downstream is uniform.
+ */
+export function extractModelText(modelResponse) {
+  if (modelResponse == null) return '';
+  if (typeof modelResponse === 'string') return modelResponse;
+  const r = modelResponse.response;
+  if (typeof r === 'string') return r;
+  if (r && typeof r === 'object') {
+    if (typeof r.content === 'string') return r.content;
+    return JSON.stringify(r);
+  }
+  const choice = modelResponse.choices && modelResponse.choices[0];
+  if (choice) {
+    const content = choice.message ? choice.message.content : choice.text;
+    if (typeof content === 'string') return content;
+  }
+  if (typeof modelResponse.result === 'string') return modelResponse.result;
+  return JSON.stringify(modelResponse);
+}
+
 export class ModelOutputError extends Error {}
 
 /** Parse the model's JSON reply, tolerating markdown code fences around it. */
@@ -260,7 +283,7 @@ export async function runChat(env, { tenant, messages, lang, model = CHAT_MODEL_
     ],
   });
 
-  const rawText = typeof modelResponse === 'string' ? modelResponse : modelResponse.response;
+  const rawText = extractModelText(modelResponse);
 
   let parsed;
   try {
