@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://homelab.tailbf8f27.ts.net; connect-src 'self' https://homelab.tailbf8f27.ts.net https://arling-asistent.arling.workers.dev; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
 <title>ARLing Asistent: AI predajný asistent pre e-shopy</title>
-<meta name="description" content="Predajný asistent pre váš e-shop, nastavený za 10 minút z produktového feedu. Beží na Cloudflare Workers, neukladá rozhovory zákazníkov. Od 19 EUR mesačne, 14 dní zadarmo." />
+<meta name="description" content="Predajný asistent pre váš e-shop, nastavený za 10 minút z produktového feedu. Beží na Cloudflare Workers, neukladá rozhovory zákazníkov. Zadarmo do 100 rozhovorov mesačne, potom od 19 EUR mesačne." />
 <meta property="og:type" content="website" />
 <meta property="og:title" content="ARLing Asistent: AI predajný asistent pre e-shopy" />
-<meta property="og:description" content="Predajný asistent pre váš e-shop, nastavený za 10 minút z produktového feedu. Beží na Cloudflare Workers, neukladá rozhovory zákazníkov. Od 19 EUR mesačne, 14 dní zadarmo." />
+<meta property="og:description" content="Predajný asistent pre váš e-shop, nastavený za 10 minút z produktového feedu. Beží na Cloudflare Workers, neukladá rozhovory zákazníkov. Zadarmo do 100 rozhovorov mesačne, potom od 19 EUR mesačne." />
 <meta property="og:url" content="https://arling.sk/asistent/" />
 <meta property="og:locale" content="sk_SK" />
 <link rel="canonical" href="https://arling.sk/asistent/" />
@@ -28,6 +28,7 @@
   "applicationCategory": "BusinessApplication",
   "operatingSystem": "Any (web browser, jeden <script> tag)",
   "offers": [
+    { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/#cennik" },
     { "@type": "Offer", "name": "Starter", "price": "19", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/#cennik" },
     { "@type": "Offer", "name": "Growth", "price": "39", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/#cennik" }
   ],
@@ -78,8 +79,8 @@
     },
     {
       "@type": "Question",
-      "name": "Čo je v 14-dňovej skúšobnej verzii?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Plný prístup, do 1000 rozhovorov, žiadna platobná karta vopred. Vyskúšať si to môžete priamo na tejto stránke s vlastným feedom, chat sa objaví vpravo dole." }
+      "name": "Čo je zadarmo?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Do 100 rozhovorov mesačne, navždy, bez platobnej karty. Vyskúšať si to môžete priamo na tejto stránke s vlastným feedom, chat sa objaví vpravo dole." }
     },
     {
       "@type": "Question",
@@ -89,7 +90,7 @@
     {
       "@type": "Question",
       "name": "Ako funguje platba a fakturácia?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Platby ešte nie sú spustené: skúšobná verzia je 14 dní zadarmo bez karty. Mesačné predplatné cez Stripe pribudne v ďalšej verzii, pozrite README v repozitári." }
+      "acceptedAnswer": { "@type": "Answer", "text": "Do 100 rozhovorov mesačne je používanie úplne zadarmo, bez karty. Platba cez Stripe sa spustí, až keď mesačný počet prekročíte; presné napojenie na Stripe je v príprave, pozrite README v repozitári." }
     }
   ]
 }
@@ -183,6 +184,12 @@
   .pricing-table td.price { font:400 26px/1 var(--serif); white-space:nowrap; }
   .pricing-table td.price span { font:13px/1 var(--sans); color:var(--muted); }
   .pricing-table-wrap { overflow-x:auto; }
+  .pricing-table .btn { white-space:nowrap; }
+  @media (max-width:480px) {
+    .pricing-table th, .pricing-table td { padding:12px 6px; }
+    .pricing-table td.price { font-size:21px; }
+    .pricing-table .btn { padding:9px 12px; font-size:13px; }
+  }
   .pricing-note { color:var(--ink-2); font-size:14px; margin:16px 0 0; }
 
   .privacy-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:14px; }
@@ -262,11 +269,11 @@
     <div class="wrap">
       <h1>Predajný asistent pre váš e-shop, nastavený za 10 minút z feedu.</h1>
       <p class="lead">Vložíte URL produktového feedu a e-mail. Asistent odpovedá zákazníkom z vašich skutočných produktov, v ich jazyku, a vždy pridá odkazy na konkrétny tovar. Bez ukladania rozhovorov, bez cookies.</p>
-      <a class="btn btn-solid" href="#playground" data-umami-event="trial_click" data-umami-event-place="hero">Vyskúšať 14 dní zadarmo</a><a class="btn btn-line" href="https://github.com/AndryRoby/arling-asistent" target="_blank" rel="noopener">Zdrojový kód na GitHube</a>
+      <a class="btn btn-solid" href="#playground" data-umami-event="trial_click" data-umami-event-place="hero">Začať zadarmo</a><a class="btn btn-line" href="https://github.com/AndryRoby/arling-asistent" target="_blank" rel="noopener">Zdrojový kód na GitHube</a>
       <ul class="facts">
         <li><b>4</b> formáty feedu</li>
         <li><b>0</b> rozhovorov sa ukladá</li>
-        <li><b>14</b> dní zadarmo</li>
+        <li><b>100</b> rozhovorov/mesiac zadarmo</li>
         <li>SK · CS · EN · DE</li>
         <li>beží na Cloudflare Workers</li>
       </ul>
@@ -299,7 +306,7 @@
     <div class="wrap">
       <p class="kicker">02</p>
       <h2>Cenník</h2>
-      <p class="sub">Jednoduchá cena podľa počtu rozhovorov za mesiac, bez poplatku za nastavenie. Ročné predplatné zatiaľ neponúkame, len mesačné.</p>
+      <p class="sub">Zadarmo navždy do 100 rozhovorov mesačne, bez karty. Nad tento limit jednoduchá cena podľa počtu rozhovorov za mesiac. Ročné predplatné zatiaľ neponúkame, len mesačné.</p>
       <div class="pricing-table-wrap">
         <table class="pricing-table">
           <thead>
@@ -307,21 +314,27 @@
           </thead>
           <tbody>
             <tr>
+              <td class="plan">Free</td>
+              <td class="price">0&nbsp;&euro;</td>
+              <td>do 100</td>
+              <td><a class="btn btn-line" href="#playground" data-umami-event="trial_click" data-umami-event-place="pricing">Začať zadarmo</a></td>
+            </tr>
+            <tr>
               <td class="plan">Starter</td>
               <td class="price">19 &euro;<span> / mesiac</span></td>
               <td>do 1&nbsp;000</td>
-              <td><a class="btn btn-line" href="#playground" data-umami-event="trial_click" data-umami-event-place="pricing">Skúšobná verzia</a></td>
+              <td><a class="btn btn-line" href="#playground" data-umami-event="trial_click" data-umami-event-place="pricing">Začať zadarmo</a></td>
             </tr>
             <tr>
               <td class="plan">Growth</td>
               <td class="price">39 &euro;<span> / mesiac</span></td>
               <td>do 5&nbsp;000</td>
-              <td><a class="btn btn-line" href="#playground" data-umami-event="trial_click" data-umami-event-place="pricing">Skúšobná verzia</a></td>
+              <td><a class="btn btn-line" href="#playground" data-umami-event="trial_click" data-umami-event-place="pricing">Začať zadarmo</a></td>
             </tr>
           </tbody>
         </table>
       </div>
-      <p class="pricing-note">14 dní zadarmo, bez platobnej karty. Ročné predplatné zatiaľ nie je v ponuke. Platba cez Stripe je v príprave (pozrite README v repozitári); počas skúšobnej verzie sa nič neúčtuje.</p>
+      <p class="pricing-note">Do 100 rozhovorov mesačne zadarmo, navždy, bez platobnej karty. Platba cez Stripe sa spustí, až keď mesačný počet prekročíte; presné napojenie na Stripe je v príprave (pozrite README v repozitári). Ročné predplatné zatiaľ nie je v ponuke.</p>
 
       <div class="pro-objections">
         <p class="objections-label">Predtým, než začnete</p>
@@ -335,7 +348,7 @@
         </details>
         <details>
           <summary>Ako zrušiť, keď mi to nesadne?</summary>
-          <p>Platby ešte nie sú spustené: skúšobná verzia je 14 dní zadarmo, bez karty, a po uplynutí jednoducho vyprší. Mesačné predplatné cez Stripe pribudne v ďalšej verzii a bude sa dať zrušiť kedykoľvek, rovnako ako pri ostatných nástrojoch ARLing.</p>
+          <p>Voľný plán do 100 rozhovorov mesačne nemá žiadny záväzok ani kartu, jednoducho ho prestanete používať. Platené predplatné nad týmto limitom pôjde cez Stripe a pôjde zrušiť kedykoľvek, rovnako ako pri ostatných nástrojoch ARLing.</p>
         </details>
         <details>
           <summary>Čo ak môj feed nie je v žiadnom z podporovaných formátov?</summary>
@@ -376,7 +389,7 @@
             </div>
           </div>
         </form>
-        <p class="trial-hint">Feed sa použije len na vytvorenie skúšobného asistenta pre túto ukážku. Samotný rozhovor v chate sa nikde neukladá. 14 dní zadarmo, žiadna platobná karta.</p>
+        <p class="trial-hint">Feed sa použije len na vytvorenie skúšobného asistenta pre túto ukážku. Samotný rozhovor v chate sa nikde neukladá. Zadarmo do 100 rozhovorov mesačne, žiadna platobná karta.</p>
         <p class="trial-status" id="trial-status" role="status" hidden></p>
         <p class="trial-widget-note" id="trial-widget-note" hidden>Asistent je pripravený. Hľadajte okrúhle tlačidlo vpravo dole na tejto stránke.</p>
       </div>
@@ -428,8 +441,8 @@
         <p>Skript funguje na akomkoľvek e-shope hneď, stačí vložiť jeden <code>&lt;script&gt;</code> tag do administrácie alebo šablóny. Samostatný WooCommerce plugin a Shopify aplikácia (inštalácia na klik) sú v príprave, pozrite README v repozitári pre aktuálny stav.</p>
       </details>
       <details>
-        <summary>Čo je v 14-dňovej skúšobnej verzii?</summary>
-        <p>Plný prístup, do 1000 rozhovorov, žiadna platobná karta vopred. Vyskúšať si to môžete priamo na tejto stránke s vlastným feedom, chat sa objaví vpravo dole.</p>
+        <summary>Čo je zadarmo?</summary>
+        <p>Do 100 rozhovorov mesačne, navždy, bez platobnej karty. Vyskúšať si to môžete priamo na tejto stránke s vlastným feedom, chat sa objaví vpravo dole.</p>
       </details>
       <details>
         <summary>Kde bežia dáta?</summary>
@@ -437,7 +450,7 @@
       </details>
       <details>
         <summary>Ako funguje platba a fakturácia?</summary>
-        <p>Platby ešte nie sú spustené: skúšobná verzia je 14 dní zadarmo bez karty. Mesačné predplatné cez Stripe pribudne v ďalšej verzii, pozrite README v repozitári.</p>
+        <p>Do 100 rozhovorov mesačne je používanie úplne zadarmo, bez karty. Platba cez Stripe sa spustí, až keď mesačný počet prekročíte; presné napojenie na Stripe je v príprave, pozrite README v repozitári.</p>
       </details>
 
       <div class="subscribe-ask">
@@ -456,8 +469,8 @@
 
   <section id="closing-cta">
     <div class="wrap" style="text-align:center;">
-      <p class="sub" style="margin:0 auto 18px;">Vložte URL feedu a e-mail, vyskúšajte 14 dní zadarmo, bez platobnej karty.</p>
-      <a class="btn btn-solid" href="#playground" data-umami-event="trial_click" data-umami-event-place="closing">Vyskúšať 14 dní zadarmo</a>
+      <p class="sub" style="margin:0 auto 18px;">Vložte URL feedu a e-mail. Zadarmo do 100 rozhovorov mesačne, bez platobnej karty.</p>
+      <a class="btn btn-solid" href="#playground" data-umami-event="trial_click" data-umami-event-place="closing">Začať zadarmo</a>
     </div>
   </section>
 
@@ -486,8 +499,8 @@
 
 <div class="sticky-cta" id="sticky-cta" hidden>
   <div class="sticky-cta-inner">
-    <span class="sticky-cta-text">14 dní zadarmo, bez platobnej karty.</span>
-    <a class="btn btn-solid" href="#playground" data-umami-event="trial_click" data-umami-event-place="sticky">Vyskúšať zadarmo</a>
+    <span class="sticky-cta-text">Zadarmo do 100 rozhovorov mesačne.</span>
+    <a class="btn btn-solid" href="#playground" data-umami-event="trial_click" data-umami-event-place="sticky">Začať zadarmo</a>
     <button type="button" class="sticky-cta-close" id="sticky-cta-close" aria-label="Zavrieť lištu">&times;</button>
   </div>
 </div>
