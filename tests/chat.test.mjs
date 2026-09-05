@@ -21,8 +21,10 @@ import { extractModelText,
   retrieveCandidates,
   noMatchFallback,
   runChat,
+  topCategoryNames,
   MAX_ANSWER_WORDS,
   MAX_PRODUCTS_IN_ANSWER,
+  SHOP_FACTS_CATEGORY_LIMIT,
   TOP_K,
   FALLBACK_TOP_K,
 } from '../worker/src/chat.js';
@@ -72,6 +74,122 @@ test('buildSystemPrompt("auto") returns a distinct prompt that tells the model t
   assert.notEqual(prompt, buildSystemPrompt('sk'));
   assert.notEqual(prompt, buildSystemPrompt('en'));
   assert.equal(buildSystemPrompt('AUTO'), prompt); // case-insensitive
+});
+
+// ---------------------------------------------------------------------------
+// Meta questions (greeting, "how does this work", "do you speak English"):
+// the system prompt must explain the assistant instead of claiming it
+// cannot (the live bug: "ako to funguje?" -> "Neviem vysvetliť, ako to
+// funguje.", "vieš po anglicky" -> "Nie, odpovedám iba po slovensky."), and
+// must build its two example questions from real shop_categories rather
+// than inventing anything, including shop policies (see buildUserPrompt).
+// ---------------------------------------------------------------------------
+
+test('buildSystemPrompt("sk") handles a greeting/"how does this work"/"do you speak English" by explaining itself, not refusing', () => {
+  const prompt = buildSystemPrompt('sk');
+  assert.match(prompt, /ako to funguje/i);
+  assert.match(prompt, /vieš po anglicky/i);
+  assert.match(prompt, /dobrý deň/i); // a bare greeting, no question, is covered too
+  assert.match(prompt, /nikdy nehovor, že to nevieš vysvetliť/i);
+  assert.match(prompt, /asistent tohto obchodu/i);
+  assert.match(prompt, /katalóg(u)? produktov/i);
+  assert.match(prompt, /shop_categories/); // told to build example questions from real categories
+  assert.match(prompt, /(dopravu|vrátenie tovaru)/i); // and never to invent shop policies instead
+});
+
+test('buildSystemPrompt("auto") gives the same meta-question handling as the fixed prompts, answered in the customer\'s own detected language', () => {
+  const prompt = buildSystemPrompt('auto');
+  assert.match(prompt, /how does this work/i);
+  assert.match(prompt, /do you speak english/i);
+  assert.match(prompt, /hello/i);
+  assert.match(prompt, /never say you cannot explain that/i);
+  assert.match(prompt, /shop's assistant/i);
+  assert.match(prompt, /shop_categories/);
+  assert.match(prompt, /shipping or returns/i);
+});
+
+test('buildUserPrompt adds a shop_categories shop_fact only when real categories are passed in, never fabricating one', () => {
+  const withCategories = buildUserPrompt({
+    question: 'ako to funguje?',
+    candidates: [],
+    contactEmail: 'obchod@shop.sk',
+    lang: 'sk',
+    categories: ['Kuchyňa', 'Záhrada', 'Darčeky'],
+  });
+  assert.match(withCategories, /shop_categories: Kuchyňa, Záhrada, Darčeky/);
+
+  const withoutCategories = buildUserPrompt({
+    question: 'ako to funguje?',
+    candidates: [],
+    contactEmail: 'obchod@shop.sk',
+    lang: 'sk',
+  });
+  assert.doesNotMatch(withoutCategories, /shop_categories/);
+  assert.match(withoutCategories, /contact_email: obchod@shop\.sk/); // the other shop_fact is unaffected
+});
+
+test('topCategoryNames ranks by frequency, ignores blanks, and defaults to SHOP_FACTS_CATEGORY_LIMIT (6)', () => {
+  const candidates = [
+    { category: 'Kuchyňa' }, { category: 'Kuchyňa' }, { category: 'Záhrada' },
+    { category: 'Darčeky' }, { category: 'Deti' }, { category: 'Upratovanie' },
+    { category: 'Kávovary' }, { category: '' }, { category: null },
+  ];
+  assert.equal(SHOP_FACTS_CATEGORY_LIMIT, 6);
+  assert.deepEqual(topCategoryNames(candidates), ['Kuchyňa', 'Záhrada', 'Darčeky', 'Deti', 'Upratovanie', 'Kávovary']);
+  assert.deepEqual(topCategoryNames(candidates, 2), ['Kuchyňa', 'Záhrada']);
+  assert.deepEqual(topCategoryNames([]), []);
+});
+
+test('runChat: a "how does this work?" question still retrieves the tenant\'s own products and passes up to 6 of their real category names as shop_facts.shop_categories', async () => {
+  const vectorize = createMockVectorize();
+  await vectorize.upsert([
+    { id: 't1::p1::0', values: [1, 0, 0, 0], metadata: { tenant: 't1', productId: 'p1', title: 'Kavovar Orava', category: 'Kavovary a caj', url: 'https://x/1', availability: 'in_stock' } },
+    { id: 't1::p2::0', values: [0.9, 0.1, 0, 0], metadata: { tenant: 't1', productId: 'p2', title: 'Liatinovy hrniec', category: 'Kuchyna', url: 'https://x/2', availability: 'in_stock' } },
+  ]);
+  const ai = createMockAI({
+    embedDim: 4,
+    chatResponse: JSON.stringify({
+      answer: 'Som asistent tohto obchodu a poradim s vyberom z ponuky. Napriklad: Aky kavovar mate? Co mate v kategorii Kuchyna?',
+      products: [],
+    }),
+  });
+  const env = { AI: ai, VECTORIZE: vectorize };
+  const tenant = { id: 't1', contact_email: 'obchod@shop.sk' };
+
+  const result = await runChat(env, { tenant, messages: [{ role: 'user', content: 'ako to funguje?' }], lang: 'sk' });
+
+  assert.doesNotMatch(result.answer, /neviem vysvetliť/i);
+  assert.deepEqual(result.products, []);
+  const sentUserPrompt = ai.calls[1].input.messages[1].content;
+  assert.match(sentUserPrompt, /shop_categories:/);
+  assert.match(sentUserPrompt, /Kavovary a caj/);
+  assert.match(sentUserPrompt, /Kuchyna/);
+});
+
+test('runChat: "vieš po anglicky?" under lang "auto" uses the auto system prompt (not a fixed-language refusal)', async () => {
+  const vectorize = createMockVectorize();
+  await vectorize.upsert([{ id: 't1::p1::0', values: [1], metadata: { tenant: 't1', productId: 'p1', title: 'Kavovar', category: 'Kavovary', url: 'https://x/1', availability: 'in_stock' } }]);
+  const ai = createMockAI({
+    embedDim: 1,
+    chatResponse: JSON.stringify({ answer: 'Ano, viem odpovedat aj po anglicky, francuzsky alebo nemecky, podla toho v akom jazyku sa opytate.', products: [] }),
+  });
+  const env = { AI: ai, VECTORIZE: vectorize };
+  const tenant = { id: 't1', contact_email: 'obchod@shop.sk' };
+
+  const result = await runChat(env, { tenant, messages: [{ role: 'user', content: 'vies po anglicky?' }], lang: 'auto' });
+
+  assert.match(ai.calls[1].input.messages[0].content, /how does this work/i); // the auto system prompt, not sk's fixed one
+  assert.doesNotMatch(result.answer, /Nie, odpovedám iba po slovensky/i);
+  assert.match(result.answer, /anglicky/i);
+});
+
+test('runChat: a bare greeting with no question still gets the auto system prompt\'s meta-question handling', async () => {
+  const vectorize = createMockVectorize();
+  await vectorize.upsert([{ id: 't1::p1::0', values: [1], metadata: { tenant: 't1', productId: 'p1', title: 'X', category: 'Zahrada', url: 'https://x/1', availability: 'in_stock' } }]);
+  const ai = createMockAI({ embedDim: 1, chatResponse: JSON.stringify({ answer: 'Hello! I am this shop\'s assistant. For example: What do you have in Zahrada?', products: [] }) });
+  const result = await runChat({ AI: ai, VECTORIZE: vectorize }, { tenant: { id: 't1', contact_email: 'shop@example.com' }, messages: [{ role: 'user', content: 'hello' }], lang: 'auto' });
+  assert.match(ai.calls[1].input.messages[0].content, /is simply a greeting with no real question/i);
+  assert.match(result.answer, /assistant/i);
 });
 
 test('extractLastUserMessage finds the most recent user turn, ignoring assistant turns after it never happening', () => {
