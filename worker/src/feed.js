@@ -6,6 +6,9 @@
  * availability, category}.
  *
  * Supported formats, auto-detected from the response body:
+ *   - Heureka / Zbozi.cz XML (root <SHOP>, one <SHOPITEM> per offer; the
+ *     SK/CZ price-comparison format Shoptet and Upgates export, see the
+ *     parseHeurekaXml section below for the spec references)
  *   - Google Shopping RSS/XML (the "g:" namespace: g:id, g:price, g:image_link...)
  *   - Shopify's public /products.json endpoint ({ "products": [...] })
  *   - WooCommerce REST products JSON (an array of product objects, either the
@@ -113,16 +116,25 @@ export function extractBlocks(xml, blockTag) {
   return blocks;
 }
 
+/** Decoded inner text of every <tag>...</tag> in a fragment, in document order (e.g. repeated <VAL> or <IMGURL_ALTERNATIVE>). */
+export function extractTags(xml, tagName) {
+  return extractBlocks(xml, tagName).map((block) => extractTag(block, tagName));
+}
+
 // ---------------------------------------------------------------------------
 // Feed type detection
 // ---------------------------------------------------------------------------
 
 export const FEED_TYPES = {
+  HEUREKA: 'heureka',
   GOOGLE_SHOPPING: 'google-shopping',
   SHOPIFY: 'shopify',
   WOOCOMMERCE: 'woocommerce',
   GENERIC_XML: 'generic-xml',
 };
+
+/** Root <SHOP> followed by at least one <SHOPITEM>: Heureka.sk/.cz and Zbozi.cz share these element names. */
+const HEUREKA_SHAPE = /<SHOP(?:\s[^>]*)?>[\s\S]*?<SHOPITEM(?:\s[^>]*)?>/i;
 
 export function detectFeedType(rawText) {
   const text = String(rawText || '').trim();
@@ -141,6 +153,7 @@ export function detectFeedType(rawText) {
   }
 
   if (text[0] === '<') {
+    if (HEUREKA_SHAPE.test(text)) return FEED_TYPES.HEUREKA;
     if (/xmlns:g=|<g:/i.test(text)) return FEED_TYPES.GOOGLE_SHOPPING;
     return FEED_TYPES.GENERIC_XML;
   }
@@ -178,6 +191,138 @@ export function parseGenericXml(xml) {
     availability: extractTag(block, 'availability'),
     category: extractTag(block, 'category'),
   }));
+}
+
+// ---------------------------------------------------------------------------
+// Heureka / Zbozi.cz XML (the SK/CZ price-comparison feed format)
+//
+// Element names verified against the public specifications on 2026-09-05:
+//   - Heureka.sk "Feed 2.0": https://sluzby.heureka.sk/napoveda/xml-feed/
+//   - Heureka.cz "Specifikace XML souboru": https://sluzby.heureka.cz/napoveda/xml-feed/
+//   - Zbozi.cz (same SHOP/SHOPITEM element names, root xmlns
+//     http://www.zbozi.cz/ns/offer/1.0):
+//     https://napoveda.sklik.cz/en/shopping-ads/xml-feed-shopping/specifications/
+//
+// Root <SHOP>, one <SHOPITEM> per offer with: ITEM_ID (required, max 36
+// chars), PRODUCTNAME (required; PRODUCT is PRODUCTNAME plus distribution
+// info such as "osobny odber"), DESCRIPTION, URL (required), IMGURL,
+// IMGURL_ALTERNATIVE (repeatable), PRICE_VAT (required, final price incl.
+// VAT, written as "25000", "25000,50" or "25000.50"; EUR on Heureka.sk, CZK on
+// Heureka.cz and Zbozi.cz; the spec defines no CURRENCY element but some
+// exports add one, which is honoured when present), CATEGORYTEXT (full path,
+// pipe separated: "Dom a zahrada | Kuchyna | Kavovary"), MANUFACTURER, EAN
+// (EAN-13), ITEMGROUP_ID (joins the variants of one product), DELIVERY_DATE
+// (0 = in stock, N = ships in N days, YYYY-MM-DD = pre-order date, empty =
+// "info in store"; Zbozi.cz also uses -1 = unknown) and repeatable PARAM
+// blocks holding PARAM_NAME and VAL. Everything except ITEM_ID, PRODUCTNAME,
+// URL and PRICE_VAT is optional in practice, so every field is tolerated
+// missing.
+//
+// Shops that export this format out of the box (help pages read 2026-09-05):
+//   - Shoptet: system feeds "pre porovnavace Heureka, Zbozi.cz, Google Nakupy,
+//     Glami a Arukereso", admin "Prepojenie -> XML feedy":
+//     https://podpora.shoptet.sk/xml-feedy/
+//   - Upgates: Heureka feed generated automatically 4x a day, admin
+//     "Doplnky / Heureka": https://www.upgates.cz/a/export-produktu-na-heureku
+// ---------------------------------------------------------------------------
+
+/** Upper bound on PARAM blocks folded into one description; normaliseProduct caps the text anyway. */
+export const HEUREKA_MAX_PARAMS = 40;
+
+function feedHostname(feedUrl) {
+  try {
+    return new URL(feedUrl).hostname.toLowerCase();
+  } catch (e) {
+    return '';
+  }
+}
+
+/**
+ * Currency of a Heureka/Zbozi feed: an explicit <CURRENCY> in the feed head
+ * (before the first SHOPITEM) if the export adds one, else CZK for Zbozi.cz
+ * feeds and for shops on a .cz domain, else '' so normaliseProduct applies
+ * its default (EUR, which is what Heureka.sk prices are in).
+ */
+export function heurekaFeedCurrency(xml, feedUrl) {
+  const text = String(xml || '');
+  const firstItem = text.search(/<SHOPITEM[\s>]/i);
+  const head = firstItem > 0 ? text.slice(0, firstItem) : '';
+  const declared = extractTag(head, 'CURRENCY').toUpperCase();
+  if (/^[A-Z]{3}$/.test(declared)) return declared;
+  if (/zbozi\.cz\/ns\/offer/i.test(head)) return 'CZK';
+  if (/\.cz$/.test(feedHostname(feedUrl))) return 'CZK';
+  return '';
+}
+
+/**
+ * DELIVERY_DATE -> raw availability. 0 is "skladom"; a positive number is the
+ * number of days until dispatch (orderable, not on the shelf), kept as
+ * "available_in_N_days" rather than collapsed to out_of_stock so the
+ * assistant does not turn "do 3 dni" into "not available"; a date is a
+ * pre-order; empty (or Zbozi's -1) is unknown.
+ */
+export function heurekaAvailability(deliveryDate) {
+  const v = String(deliveryDate || '').trim();
+  if (!v) return '';
+  if (/^\d+$/.test(v)) {
+    const days = parseInt(v, 10);
+    return days === 0 ? 'in_stock' : `available_in_${days}_days`;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return `available_from_${v}`;
+  return '';
+}
+
+function heurekaParamLines(block) {
+  return extractBlocks(block, 'PARAM')
+    .slice(0, HEUREKA_MAX_PARAMS)
+    .map((param) => {
+      const name = extractTag(param, 'PARAM_NAME');
+      const value = extractTags(param, 'VAL').filter(Boolean).join(', ');
+      return name && value ? `${name}: ${value}` : '';
+    })
+    .filter(Boolean);
+}
+
+export function parseHeurekaXml(xml, feedUrl) {
+  const feedCurrency = heurekaFeedCurrency(xml, feedUrl);
+  // Heureka feeds are Slovak or Czech by definition; CZK is the only signal we
+  // have for the label language of the folded manufacturer line.
+  const brandLabel = feedCurrency === 'CZK' ? 'Výrobce' : 'Výrobca';
+  const items = extractBlocks(xml, 'SHOPITEM');
+  return items.map((block) => {
+    const title = extractTag(block, 'PRODUCTNAME') || extractTag(block, 'PRODUCT');
+    const brand = extractTag(block, 'MANUFACTURER');
+    const itemCurrency = extractTag(block, 'CURRENCY').toUpperCase();
+
+    // Fold the manufacturer (when the name does not already carry it, the
+    // spec says it should) and every PARAM into the description as
+    // "Name: value" lines, so they reach the embedding and the prompt.
+    const extraLines = [];
+    if (brand && !title.toLowerCase().includes(brand.toLowerCase())) extraLines.push(`${brandLabel}: ${brand}`);
+    extraLines.push(...heurekaParamLines(block));
+    const description = [extractTag(block, 'DESCRIPTION'), extraLines.join('\n')].filter(Boolean).join('\n');
+
+    const category = extractTag(block, 'CATEGORYTEXT')
+      .split('|')
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .join(' > ');
+
+    return {
+      id: extractTag(block, 'ITEM_ID'),
+      title,
+      description,
+      price: extractTag(block, 'PRICE_VAT'),
+      currency: /^[A-Z]{3}$/.test(itemCurrency) ? itemCurrency : feedCurrency,
+      link: extractTag(block, 'URL'),
+      image: extractTag(block, 'IMGURL') || extractTag(block, 'IMGURL_ALTERNATIVE'),
+      availability: heurekaAvailability(extractTag(block, 'DELIVERY_DATE')),
+      category,
+      brand,
+      gtin: extractTag(block, 'EAN'),
+      group: extractTag(block, 'ITEMGROUP_ID'),
+    };
+  });
 }
 
 function absoluteUrl(maybeRelative, baseUrl) {
@@ -255,18 +400,26 @@ export function parseWooCommerceJson(jsonText, feedUrl) {
 
 const AVAILABILITY_IN_STOCK = new Set(['in stock', 'in_stock', 'instock', 'available']);
 
+/** Self-describing values produced by heurekaAvailability(): orderable with a lead time, kept verbatim for the prompt. */
+const AVAILABILITY_LEAD_TIME = /^available_(?:in_\d+_days|from_\d{4}-\d{2}-\d{2})$/;
+
 export function normaliseAvailability(raw) {
   const v = String(raw || '').trim().toLowerCase();
   if (!v) return 'unknown';
-  return AVAILABILITY_IN_STOCK.has(v) ? 'in_stock' : 'out_of_stock';
+  if (AVAILABILITY_IN_STOCK.has(v)) return 'in_stock';
+  if (AVAILABILITY_LEAD_TIME.test(v)) return v;
+  return 'out_of_stock';
 }
+
+/** Optional raw fields carried through when a parser provides them (today only Heureka: MANUFACTURER, EAN, ITEMGROUP_ID). */
+const OPTIONAL_PRODUCT_FIELDS = ['brand', 'gtin', 'group'];
 
 export function normaliseProduct(raw, { defaultCurrency = 'EUR', descriptionMaxLen = 600 } = {}) {
   const title = String(raw.title || '').trim();
   const id = String(raw.id || '').trim() || title;
   const description = truncate(stripHtml(raw.description || ''), descriptionMaxLen);
   const priceNumber = parseFloat(String(raw.price || '').replace(/[^0-9.,]/g, '').replace(',', '.'));
-  return {
+  const product = {
     id,
     title,
     description,
@@ -277,6 +430,11 @@ export function normaliseProduct(raw, { defaultCurrency = 'EUR', descriptionMaxL
     availability: normaliseAvailability(raw.availability),
     category: String(raw.category || '').trim(),
   };
+  for (const key of OPTIONAL_PRODUCT_FIELDS) {
+    const value = String(raw[key] || '').trim();
+    if (value) product[key] = value;
+  }
+  return product;
 }
 
 /**
@@ -289,7 +447,8 @@ export function parseFeed(rawText, feedUrl, options = {}) {
     throw new Error('unrecognised_feed_format');
   }
   let rawItems;
-  if (type === FEED_TYPES.GOOGLE_SHOPPING) rawItems = parseGoogleShoppingXml(rawText);
+  if (type === FEED_TYPES.HEUREKA) rawItems = parseHeurekaXml(rawText, feedUrl);
+  else if (type === FEED_TYPES.GOOGLE_SHOPPING) rawItems = parseGoogleShoppingXml(rawText);
   else if (type === FEED_TYPES.GENERIC_XML) rawItems = parseGenericXml(rawText);
   else if (type === FEED_TYPES.SHOPIFY) rawItems = parseShopifyJson(rawText, feedUrl);
   else if (type === FEED_TYPES.WOOCOMMERCE) rawItems = parseWooCommerceJson(rawText, feedUrl);

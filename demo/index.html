@@ -28,7 +28,7 @@
   "@type": "SoftwareApplication",
   "name": "ARLing Asistent",
   "url": "https://arling.sk/asistent/",
-  "description": "AI predajný asistent pre e-shopy: nastaví sa z produktového feedu (Google Shopping XML, Shopify, WooCommerce, generický XML) za 10 minút, beží na Cloudflare Workers a neukladá obsah rozhovorov, len počítadlá.",
+  "description": "AI predajný asistent pre e-shopy: nastaví sa z produktového feedu (Heureka/Zboží.cz XML, Google Shopping XML, Shopify, WooCommerce, generický XML) za 10 minút, beží na Cloudflare Workers a neukladá obsah rozhovorov, len počítadlá.",
   "applicationCategory": "BusinessApplication",
   "operatingSystem": "Any (web browser, jeden <script> tag)",
   "inLanguage": ["sk", "en"],
@@ -60,7 +60,7 @@
     {
       "@type": "Question",
       "name": "Aké formáty feedu podporujete?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Google Shopping RSS/XML (aj Heureka formát so značkami g:), Shopify /products.json, WooCommerce REST/Store API JSON a bežný XML feed so značkami item/name/price/url/description/image." }
+      "acceptedAnswer": { "@type": "Answer", "text": "Heureka/Zboží.cz XML (značky SHOP/SHOPITEM, exportuje ho napríklad Shoptet alebo Upgates), Google Shopping RSS/XML (značky g:), Shopify /products.json, WooCommerce REST/Store API JSON a bežný XML feed so značkami item/name/price/url/description/image." }
     },
     {
       "@type": "Question",
@@ -303,7 +303,7 @@
       <p class="lead" data-i18n="hero.lead">Vložíte URL produktového feedu a e-mail. Asistent odpovedá zákazníkom z vašich skutočných produktov, v ich jazyku, a vždy pridá odkazy na konkrétny tovar. Bez ukladania rozhovorov, bez cookies.</p>
       <a class="btn btn-solid" href="#playground" data-umami-event="trial_click" data-umami-event-place="hero" data-i18n="cta.startFree">Začať zadarmo</a><a class="btn btn-line" href="https://github.com/AndryRoby/arling-asistent" target="_blank" rel="noopener" data-i18n="hero.source">Zdrojový kód na GitHube</a>
       <ul class="facts">
-        <li data-i18n-html="hero.fact.formats"><b>4</b> formáty feedu</li>
+        <li data-i18n-html="hero.fact.formats"><b>5</b> formátov feedu</li>
         <li data-i18n-html="hero.fact.stored"><b>0</b> rozhovorov sa ukladá</li>
         <li data-i18n-html="hero.fact.free"><b>100</b> rozhovorov/mesiac zadarmo</li>
         <li data-i18n="hero.fact.langs">SK · CS · EN · DE</li>
@@ -320,7 +320,8 @@
       <ol class="rules">
         <li>
           <b data-i18n="s1.r1.title">Vložíte URL feedu a e-mail.</b>
-          <p data-i18n-html="s1.r1.body">Podporujeme Google Shopping RSS/XML (aj Heureka formát), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON a bežný XML feed so značkami <code>item/name/price/url</code>.</p>
+          <!-- Feed formats: Heureka/Zboží.cz XML is the SHOP/SHOPITEM format (https://sluzby.heureka.sk/napoveda/xml-feed/). Shoptet exports it as a system feed (https://podpora.shoptet.sk/xml-feedy/) and Upgates generates it automatically (https://www.upgates.cz/a/export-produktu-na-heureku); both help pages read 2026-09-05. -->
+          <p data-i18n-html="s1.r1.body">Podporujeme Heureka/Zboží.cz XML (exportuje ho Shoptet aj Upgates), Google Shopping RSS/XML, Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON a bežný XML feed so značkami <code>item/name/price/url</code>.</p>
         </li>
         <li>
           <b data-i18n="s1.r2.title">Feed sa spracuje na embeddings.</b>
@@ -385,7 +386,7 @@
         </details>
         <details>
           <summary data-i18n="obj4.q">Čo ak môj feed nie je v žiadnom z podporovaných formátov?</summary>
-          <p data-i18n-html="obj4.a">Podporujeme Google Shopping RSS/XML (aj Heureka so značkami <code>g:</code>), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON a bežný XML feed so značkami <code>item/name/price/url/description/image</code>. Iný formát vyskúšajte vo formulári nižšie; ak ho spracovanie odmietne, napíšte na andrej@arling.sk s ukážkou feedu.</p>
+          <p data-i18n-html="obj4.a">Podporujeme Heureka/Zboží.cz XML (značky <code>SHOP/SHOPITEM</code>, exportuje ho napríklad Shoptet alebo Upgates), Google Shopping RSS/XML (značky <code>g:</code>), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON a bežný XML feed so značkami <code>item/name/price/url/description/image</code>. Iný formát vyskúšajte vo formulári nižšie; ak ho spracovanie odmietne, napíšte na andrej@arling.sk s ukážkou feedu.</p>
         </details>
       </div>
     </div>
@@ -472,7 +473,7 @@
       </details>
       <details>
         <summary data-i18n="faq.formats.q">Aké formáty feedu podporujete?</summary>
-        <p data-i18n-html="faq.formats.a">Google Shopping RSS/XML (aj Heureka formát so značkami <code>g:</code>), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON a bežný XML feed so značkami <code>item/name/price/url/description/image</code>.</p>
+        <p data-i18n-html="faq.formats.a">Heureka/Zboží.cz XML (značky <code>SHOP/SHOPITEM</code>, exportuje ho napríklad Shoptet alebo Upgates), Google Shopping RSS/XML (značky <code>g:</code>), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON a bežný XML feed so značkami <code>item/name/price/url/description/image</code>.</p>
       </details>
       <details>
         <summary data-i18n="obj1.q">Ukladáte rozhovory zákazníkov?</summary>

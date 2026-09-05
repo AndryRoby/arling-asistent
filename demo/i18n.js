@@ -56,7 +56,7 @@ export const DICT = {
   },
   'cta.startFree': { sk: 'Začať zadarmo', en: 'Start for free' },
   'hero.source': { sk: 'Zdrojový kód na GitHube', en: 'Source code on GitHub' },
-  'hero.fact.formats': { sk: '<b>4</b> formáty feedu', en: '<b>4</b> feed formats' },
+  'hero.fact.formats': { sk: '<b>5</b> formátov feedu', en: '<b>5</b> feed formats' },
   'hero.fact.stored': { sk: '<b>0</b> rozhovorov sa ukladá', en: '<b>0</b> conversations stored' },
   'hero.fact.free': { sk: '<b>100</b> rozhovorov/mesiac zadarmo', en: '<b>100</b> conversations/month free' },
   'hero.fact.langs': { sk: 'SK · CS · EN · DE', en: 'SK · CS · EN · DE' },
@@ -66,9 +66,14 @@ export const DICT = {
   's1.h2': { sk: 'Ako to funguje', en: 'How it works' },
   's1.sub': { sk: 'Tri kroky, žiadna inštalácia na strane servera, žiadny obchodník.', en: 'Three steps, no server-side install, no salesperson.' },
   's1.r1.title': { sk: 'Vložíte URL feedu a e-mail.', en: 'You paste your feed URL and email.' },
+  // Feed formats: Heureka/Zbozi.cz XML is the SHOP/SHOPITEM format
+  // (https://sluzby.heureka.sk/napoveda/xml-feed/). Shoptet exports it as a
+  // system feed (https://podpora.shoptet.sk/xml-feedy/) and Upgates generates
+  // it automatically (https://www.upgates.cz/a/export-produktu-na-heureku);
+  // both help pages read 2026-09-05.
   's1.r1.body': {
-    sk: 'Podporujeme Google Shopping RSS/XML (aj Heureka formát), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON a bežný XML feed so značkami <code>item/name/price/url</code>.',
-    en: 'We support Google Shopping RSS/XML (including the Heureka format), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON, and a generic XML feed with <code>item/name/price/url</code> tags.',
+    sk: 'Podporujeme Heureka/Zboží.cz XML (exportuje ho Shoptet aj Upgates), Google Shopping RSS/XML, Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON a bežný XML feed so značkami <code>item/name/price/url</code>.',
+    en: 'We support Heureka/Zboží.cz XML (the feed Shoptet and Upgates export), Google Shopping RSS/XML, Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON, and a generic XML feed with <code>item/name/price/url</code> tags.',
   },
   's1.r2.title': { sk: 'Feed sa spracuje na embeddings.', en: 'Your feed is processed into embeddings.' },
   's1.r2.body': {
@@ -116,8 +121,8 @@ export const DICT = {
   },
   'obj4.q': { sk: 'Čo ak môj feed nie je v žiadnom z podporovaných formátov?', en: 'What if my feed is not in any of the supported formats?' },
   'obj4.a': {
-    sk: 'Podporujeme Google Shopping RSS/XML (aj Heureka so značkami <code>g:</code>), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON a bežný XML feed so značkami <code>item/name/price/url/description/image</code>. Iný formát vyskúšajte vo formulári nižšie; ak ho spracovanie odmietne, napíšte na andrej@arling.sk s ukážkou feedu.',
-    en: 'We support Google Shopping RSS/XML (including Heureka with <code>g:</code> tags), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON, and a generic XML feed with <code>item/name/price/url/description/image</code> tags. Try a different format in the form below; if processing rejects it, write to andrej@arling.sk with a sample of your feed.',
+    sk: 'Podporujeme Heureka/Zboží.cz XML (značky <code>SHOP/SHOPITEM</code>, exportuje ho napríklad Shoptet alebo Upgates), Google Shopping RSS/XML (značky <code>g:</code>), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON a bežný XML feed so značkami <code>item/name/price/url/description/image</code>. Iný formát vyskúšajte vo formulári nižšie; ak ho spracovanie odmietne, napíšte na andrej@arling.sk s ukážkou feedu.',
+    en: 'We support Heureka/Zboží.cz XML (<code>SHOP/SHOPITEM</code> tags, exported by Shoptet or Upgates, for example), Google Shopping RSS/XML (<code>g:</code> tags), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON, and a generic XML feed with <code>item/name/price/url/description/image</code> tags. Try a different format in the form below; if processing rejects it, write to andrej@arling.sk with a sample of your feed.',
   },
 
   // ── section 03: playground / trial form ─────────────────────────────
@@ -181,8 +186,8 @@ export const DICT = {
   },
   'faq.formats.q': { sk: 'Aké formáty feedu podporujete?', en: 'Which feed formats do you support?' },
   'faq.formats.a': {
-    sk: 'Google Shopping RSS/XML (aj Heureka formát so značkami <code>g:</code>), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON a bežný XML feed so značkami <code>item/name/price/url/description/image</code>.',
-    en: 'Google Shopping RSS/XML (including the Heureka format with <code>g:</code> tags), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON, and a generic XML feed with <code>item/name/price/url/description/image</code> tags.',
+    sk: 'Heureka/Zboží.cz XML (značky <code>SHOP/SHOPITEM</code>, exportuje ho napríklad Shoptet alebo Upgates), Google Shopping RSS/XML (značky <code>g:</code>), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON a bežný XML feed so značkami <code>item/name/price/url/description/image</code>.',
+    en: 'Heureka/Zboží.cz XML (<code>SHOP/SHOPITEM</code> tags, exported by Shoptet or Upgates, for example), Google Shopping RSS/XML (<code>g:</code> tags), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON, and a generic XML feed with <code>item/name/price/url/description/image</code> tags.',
   },
   'faq.lang.q': { sk: 'V akom jazyku asistent odpovedá?', en: 'What language does the assistant reply in?' },
   'faq.lang.a': {

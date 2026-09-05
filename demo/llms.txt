@@ -1,6 +1,6 @@
 # ARLing Asistent
 
-> AI shopping assistant widget for e-shops: builds itself from a product feed (Google Shopping XML, Shopify, WooCommerce, or a generic XML feed) in minutes, runs on Cloudflare Workers, and stores no conversation content, only daily aggregate counters.
+> AI shopping assistant widget for e-shops: builds itself from a product feed (Heureka/Zboží.cz XML as exported by Shoptet or Upgates, Google Shopping XML, Shopify, WooCommerce, or a generic XML feed) in minutes, runs on Cloudflare Workers, and stores no conversation content, only daily aggregate counters.
 
 Store owners embed a single `<script>` tag. The widget shows a chat panel, answers only from the shop's own product feed and contact details, always in the visitor's language (Slovak, Czech, English, or German), and links to up to 3 real products per answer. If nothing in the feed answers the question, it says so and points to the shop's contact email instead of guessing.
 
