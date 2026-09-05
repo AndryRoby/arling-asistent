@@ -188,6 +188,14 @@
   .prose p:last-child { margin-bottom:0; }
 
   .cmp-wrap { overflow-x:auto; }
+  @media (max-width:600px) {
+    table.cmp, table.cmp tbody, table.cmp tr, table.cmp td { display:block; width:100%; box-sizing:border-box; }
+    table.cmp thead { display:none; }
+    table.cmp tr { padding:10px 0; border-bottom:1px solid var(--line); }
+    table.cmp td { padding:4px 0; border:0; white-space:normal; }
+    table.cmp td:first-child { font-family:var(--serif); font-size:1.05em; padding-bottom:6px; }
+    table.cmp td[data-col]::before { content: attr(data-col) ": "; font-weight:600; color:var(--muted); }
+  }
   .cmp { width:100%; border-collapse:collapse; min-width:600px; }
   .cmp th, .cmp td { text-align:left; padding:12px 10px; border-bottom:1px solid var(--line); vertical-align:top; font-size:14.5px; }
   .cmp th { font:600 12px/1 var(--sans); text-transform:uppercase; letter-spacing:.03em; color:var(--muted); }
