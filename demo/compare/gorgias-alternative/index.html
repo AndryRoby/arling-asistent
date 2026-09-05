@@ -195,6 +195,18 @@
   .cmp td:first-child { font-weight:600; color:var(--ink); width:22%; }
   .cmp td { color:var(--ink-2); }
   .cmp-note { color:var(--muted); font-size:13px; margin:14px 0 0; max-width:70ch; }
+  @media (max-width:660px) {
+    .cmp, .cmp tbody, .cmp tr, .cmp td { display:block; width:auto; }
+    .cmp { min-width:0; }
+    .cmp thead { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+    .cmp tr { padding:16px 0 14px; border-bottom:1px solid var(--line); }
+    .cmp td { border-bottom:0; padding:0; }
+    .cmp td:first-child { width:auto; font:400 18px/1.3 var(--serif); margin:0 0 10px; }
+    .cmp td:not(:first-child) { padding:2px 0 2px 12px; border-left:2px solid var(--line); }
+    .cmp td:not(:first-child) + td { margin-top:10px; }
+    .cmp td:last-child { border-left-color:var(--accent); }
+    .cmp td:not(:first-child)::before { content:attr(data-col); display:block; font:600 11.5px/1 var(--sans); text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:0 0 5px; }
+  }
 
   .price-cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:24px; }
   .price-col { border:1px solid var(--line); background:var(--paper-2); padding:22px 24px; min-width:0; }
@@ -282,15 +294,15 @@
             <tr><th></th><th>Gorgias</th><th>ARLing Asistent</th></tr>
           </thead>
           <tbody>
-            <tr><td>Helpdesk and tickets</td><td>Yes, the core product. Plans are sized by tickets a month, 50 to 5,000, never per agent.</td><td>No. No inbox, no tickets, no agent seats.</td></tr>
-            <tr><td>Channels</td><td>Helpdesk and chat in one inbox; Voice and SMS can be added to any plan.</td><td>Website widget only.</td></tr>
-            <tr><td>AI answers</td><td>AI Agent on every plan, paid only when it resolves a conversation.</td><td>Included in every plan, the free one too.</td></tr>
-            <tr><td>Source of answers</td><td>Depends on your AI Agent setup; see gorgias.com.</td><td>Your <code>/products.json</code> feed and contact details, nothing else.</td></tr>
-            <tr><td>Conversation storage</td><td>Tickets are the product, so conversations are kept in the helpdesk.</td><td>None. Daily counters only (conversations, product clicks).</td></tr>
-            <tr><td>Free tier</td><td>No free plan; 7-day free trial.</td><td>0 EUR: 100 conversations a month, no card, no time limit.</td></tr>
-            <tr><td>First paid plan</td><td>Starter: $10 a month for 50 tickets, then $0.40 per extra ticket.</td><td>Starter: 19 EUR a month, up to 1,000 conversations.</td></tr>
-            <tr><td>Shopify footprint</td><td>Gorgias says it powers customer conversations for 40% of Shopify brands (its own claim).</td><td>Script tag in <code>theme.liquid</code> today; a one-click Shopify app is in preparation.</td></tr>
-            <tr><td>Setup</td><td>Install from the App Store, connect channels, configure the AI Agent.</td><td>Paste feed URL and email, wait a few minutes, add one script tag.</td></tr>
+            <tr><td>Helpdesk and tickets</td><td data-col="Gorgias">Yes, the core product. Plans are sized by tickets a month, 50 to 5,000, never per agent.</td><td data-col="ARLing Asistent">No. No inbox, no tickets, no agent seats.</td></tr>
+            <tr><td>Channels</td><td data-col="Gorgias">Helpdesk and chat in one inbox; Voice and SMS can be added to any plan.</td><td data-col="ARLing Asistent">Website widget only.</td></tr>
+            <tr><td>AI answers</td><td data-col="Gorgias">AI Agent on every plan, paid only when it resolves a conversation.</td><td data-col="ARLing Asistent">Included in every plan, the free one too.</td></tr>
+            <tr><td>Source of answers</td><td data-col="Gorgias">Depends on your AI Agent setup; see gorgias.com.</td><td data-col="ARLing Asistent">Your <code>/products.json</code> feed and contact details, nothing else.</td></tr>
+            <tr><td>Conversation storage</td><td data-col="Gorgias">Tickets are the product, so conversations are kept in the helpdesk.</td><td data-col="ARLing Asistent">None. Daily counters only (conversations, product clicks).</td></tr>
+            <tr><td>Free tier</td><td data-col="Gorgias">No free plan; 7-day free trial.</td><td data-col="ARLing Asistent">0 EUR: 100 conversations a month, no card, no time limit.</td></tr>
+            <tr><td>First paid plan</td><td data-col="Gorgias">Starter: $10 a month for 50 tickets, then $0.40 per extra ticket.</td><td data-col="ARLing Asistent">Starter: 19 EUR a month, up to 1,000 conversations.</td></tr>
+            <tr><td>Shopify footprint</td><td data-col="Gorgias">Gorgias says it powers customer conversations for 40% of Shopify brands (its own claim).</td><td data-col="ARLing Asistent">Script tag in <code>theme.liquid</code> today; a one-click Shopify app is in preparation.</td></tr>
+            <tr><td>Setup</td><td data-col="Gorgias">Install from the App Store, connect channels, configure the AI Agent.</td><td data-col="ARLing Asistent">Paste feed URL and email, wait a few minutes, add one script tag.</td></tr>
           </tbody>
         </table>
       </div>
