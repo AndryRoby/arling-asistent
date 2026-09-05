@@ -183,10 +183,13 @@
   .pricing-table td.price span { font:13px/1 var(--sans); color:var(--muted); }
   .pricing-table-wrap { overflow-x:auto; }
   .pricing-table .btn { white-space:nowrap; }
+  .pricing-table-cta { display:none; margin:14px 0 0; }
   @media (max-width:480px) {
     .pricing-table th, .pricing-table td { padding:12px 6px; }
     .pricing-table td.price { font-size:21px; }
-    .pricing-table .btn { padding:9px 12px; font-size:13px; }
+    .pricing-table th:last-child, .pricing-table td:last-child { display:none; }
+    .pricing-table-cta { display:block; }
+    .pricing-table-cta .btn { display:block; text-align:center; }
   }
   .pricing-note { color:var(--ink-2); font-size:14px; margin:16px 0 0; }
 
@@ -334,6 +337,7 @@
           </tbody>
         </table>
       </div>
+      <p class="pricing-table-cta"><a class="btn btn-line" href="../?lang=en#playground" data-umami-event="trial_click" data-umami-event-place="pricing">Kostenlos starten</a></p>
       <p class="pricing-note">Bis 100 Gespräche im Monat kostenlos, dauerhaft, ohne Zahlungskarte. Darüber wechselt der Shop von seiner Kontoseite aus, deren Link er direkt nach dem Anlegen des Kontos erhält, zu Starter (19 EUR im Monat, bis 1.000 Gespräche) oder Pro (39 EUR im Monat, bis 5.000). Preise inkl. MwSt., Kartenzahlung über Stripe, jederzeit kündbar, die Rechnung schickt Stripe. Noch kein Jahresabo.</p>
 
       <div class="pro-objections">
@@ -443,7 +447,7 @@
       </details>
 
       <div class="subscribe-ask">
-        <p class="sub" style="margin-bottom:14px">Möchten Sie erfahren, wenn das WooCommerce-Plugin auf wordpress.org freigegeben ist oder die Shopify-App erscheint?</p>
+        <p class="sub" style="margin-bottom:14px">Möchten Sie benachrichtigt werden, wenn das WooCommerce-Plugin auf wordpress.org freigegeben ist oder die Shopify-App erscheint?</p>
         <form class="subscribe-form" data-subscribe data-source="asistent-de" data-lang="de" data-thanks="subscribe-thanks" data-error="subscribe-error">
           <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off">
           <input type="email" name="email" placeholder="sie@ihr-shop.de" required>
