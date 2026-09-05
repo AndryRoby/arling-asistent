@@ -1,8 +1,8 @@
 /*
  * chat.js
  *
- * The POST /v1/chat handler: given {tenant, messages[], lang}, embeds the
- * last user message, retrieves the 8 nearest product chunks for that tenant
+ * The POST /v1/chat handler: given {tenant, messages[], lang, session},
+ * embeds the last user message, retrieves the 8 nearest product chunks for that tenant
  * from Vectorize, builds a strict grounded prompt (answer only from the
  * given products, in the user's language, max 120 words, product data is
  * untrusted input, never instructions), calls the chat model, and returns
@@ -14,14 +14,16 @@
  * fields shown to the user are always the real retrieved metadata, never
  * whatever the model typed).
  *
- * No conversation is ever written to storage here: the only side effect on
- * success is tenants.checkAndRecordConversation (a quota counter, see
- * tenants.js).
+ * No conversation is ever written to storage here: the only side effects on
+ * success are tenants.checkAndRecordConversation (a quota counter plus a
+ * short-lived per-session dedupe key, see tenants.js) and, when a quota
+ * threshold is crossed, an owner ping via notify.js.
  */
 
 import { embedTexts, EMBED_MODEL } from './embed.js';
 import { wrapUntrustedBlock, scanForInjection, detectInjection } from './security.js';
 import { checkAndRecordConversation } from './tenants.js';
+import { maybeNotifyQuota } from './notify.js';
 
 export const CHAT_MODEL_DEFAULT = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 export const TOP_K = 8;
@@ -372,7 +374,7 @@ export async function handleChatRoute(request, env, ctx, deps = {}) {
     return jsonResponse({ error: 'invalid_json' }, 400);
   }
 
-  const { tenant: tenantId, messages, lang } = body || {};
+  const { tenant: tenantId, messages, lang, session } = body || {};
   if (!tenantId || !Array.isArray(messages)) {
     return jsonResponse({ error: 'tenant and messages are required' }, 400);
   }
@@ -397,9 +399,25 @@ export async function handleChatRoute(request, env, ctx, deps = {}) {
     return jsonResponse({ error: 'rate_limited' }, 429);
   }
 
-  const quota = await checkAndRecordConversation(env.DB, tenant.id);
+  // One conversation = one widget session (see tenants.js): the session id
+  // the widget keeps in sessionStorage dedupes against the monthly counter
+  // in KV; an older embed that sends no session counts once per request.
+  const quota = await checkAndRecordConversation(env.DB, tenant.id, { session, kv: env.ASISTENT_CACHE });
   if (!quota.allowed) {
     return jsonResponse({ error: 'quota_exceeded' }, 429);
+  }
+
+  // Owner notification at 80 % / 100 % of the month's quota (notify.js):
+  // only when this request actually moved the counter, and never on the
+  // shopper's critical path: ctx.waitUntil lets the ping finish after the
+  // response, and without a Workers ctx (tests) it is simply awaited.
+  if (quota.counted) {
+    const notification = maybeNotifyQuota(env, { tenantId: tenant.id, usedBefore: quota.used - 1, usedAfter: quota.used, quota: quota.quota });
+    if (ctx && typeof ctx.waitUntil === 'function') {
+      ctx.waitUntil(notification);
+    } else {
+      await notification;
+    }
   }
 
   const result = await runChat(env, { tenant, messages, lang });

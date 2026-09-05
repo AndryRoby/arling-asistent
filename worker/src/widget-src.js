@@ -49,14 +49,19 @@ export default `/*
  * never leak in or be broken by the widget's styles.
  *
  * Privacy: no cookies are set, and nothing is written to localStorage. The
- * only client-side state is an in-memory session id (never sent to the
- * server, used only to key the aria-live region) and the message list for
- * the current page view, kept in a JS variable and lost on reload. The
- * server itself stores no conversation content either (see worker/src/chat.js).
+ * only client-side state is a random session id (16 hex characters) kept in
+ * sessionStorage for the lifetime of the browser tab, and the message list
+ * for the current page view, kept in a JS variable and lost on reload. The
+ * session id is sent as "session" with every /v1/chat request so the server
+ * can count one conversation per session instead of one per message (see
+ * worker/src/tenants.js); it identifies the tab, never the visitor, and is
+ * never stored beyond a 24h dedupe key. The server itself stores no
+ * conversation content either (see worker/src/chat.js).
  *
  * Load order matters in this file: every constant/helper that boot() uses
- * (STRINGS, normaliseLang, scriptOrigin, escapeHtml, safeUrl, formatPrice,
- * buildMarkup, buildStyle) is defined above boot(), and boot() itself is
+ * (STRINGS, normaliseLang, scriptOrigin, POWERED_BY_URL, getSessionId,
+ * escapeHtml, safeUrl, formatPrice, buildMarkup, buildStyle) is defined
+ * above boot(), and boot() itself is
  * only called at the very bottom, after all of them exist. (Previously
  * normaliseLang() was called - to compute LANG - before the STRINGS object
  * it reads was assigned, since \`var\` hoisting only hoists the declaration,
@@ -85,7 +90,7 @@ export default `/*
       greeting: 'Dobrý deň, ako vám môžem pomôcť s výberom?',
       networkError: 'Odpoveď sa nepodarilo načítať. Skúste to prosím znova.',
       rateLimited: 'Príliš veľa správ naraz. Skúste to o chvíľu.',
-      quotaExceeded: 'Asistent dnes dosiahol limit rozhovorov. Napíšte prosím priamo obchodu.',
+      quotaExceeded: 'Asistent si dnes oddychuje. Použite prosím kontaktnú stránku obchodu.',
       poweredBy: 'Napájané ARLing Asistentom',
       relatedProducts: 'Súvisiace produkty',
     },
@@ -99,7 +104,7 @@ export default `/*
       greeting: 'Dobrý den, jak vám mohu pomoci s výběrem?',
       networkError: 'Odpověď se nepodařilo načíst. Zkuste to prosím znovu.',
       rateLimited: 'Příliš mnoho zpráv najednou. Zkuste to za chvíli.',
-      quotaExceeded: 'Asistent dnes dosáhl limit rozhovorů. Napište prosím přímo obchodu.',
+      quotaExceeded: 'Asistent si dnes odpočívá. Použijte prosím kontaktní stránku obchodu.',
       poweredBy: 'Poháněno ARLing Asistentem',
       relatedProducts: 'Související produkty',
     },
@@ -113,7 +118,7 @@ export default `/*
       greeting: 'Hello, how can I help you choose?',
       networkError: 'Could not load a reply. Please try again.',
       rateLimited: 'Too many messages at once. Please try again shortly.',
-      quotaExceeded: 'The assistant reached today’s conversation limit. Please contact the shop directly.',
+      quotaExceeded: 'The assistant is resting today. Please use the shop\\'s contact page.',
       poweredBy: 'Powered by ARLing Asistent',
       relatedProducts: 'Related products',
     },
@@ -127,7 +132,7 @@ export default `/*
       greeting: 'Hallo, wie kann ich Ihnen bei der Auswahl helfen?',
       networkError: 'Antwort konnte nicht geladen werden. Bitte erneut versuchen.',
       rateLimited: 'Zu viele Nachrichten auf einmal. Bitte in Kürze erneut versuchen.',
-      quotaExceeded: 'Der Assistent hat das heutige Gesprächslimit erreicht. Bitte wenden Sie sich direkt an den Shop.',
+      quotaExceeded: 'Der Assistent macht heute Pause. Bitte nutzen Sie die Kontaktseite des Shops.',
       poweredBy: 'Bereitgestellt von ARLing Asistent',
       relatedProducts: 'Passende Produkte',
     },
@@ -151,6 +156,66 @@ export default `/*
     } catch (e) {
       return '';
     }
+  }
+
+  // The "Powered by" footer link. The UTM pair lets Umami on arling.sk
+  // attribute visits that came from a shop's widget, without any tracking
+  // on the shop's page itself.
+  var POWERED_BY_URL = 'https://arling.sk/asistent/?utm_source=widget&utm_medium=referral';
+
+  // ---------------------------------------------------------------------
+  // Session id: one per browser tab, so the server counts one conversation
+  // per tab (per 24h), not one per message. 16 hex characters, random,
+  // meaningless outside this tab. sessionStorage may be unavailable
+  // (private mode, storage blocked, sandboxed iframe): then the id simply
+  // lives in memory for this page view and a reload starts a new session.
+  // ---------------------------------------------------------------------
+
+  var SESSION_STORAGE_KEY = 'arling_asistent_session';
+  var SESSION_ID_RE = /^[0-9a-f]{16}$/;
+
+  function randomSessionId() {
+    var bytes = null;
+    var cryptoObj = window.crypto || (typeof crypto !== 'undefined' ? crypto : null);
+    if (cryptoObj && typeof cryptoObj.getRandomValues === 'function') {
+      try {
+        bytes = cryptoObj.getRandomValues(new Uint8Array(8));
+      } catch (e) {
+        bytes = null;
+      }
+    }
+    var out = '';
+    for (var i = 0; i < 8; i++) {
+      var b = bytes ? bytes[i] : Math.floor(Math.random() * 256);
+      out += (b < 16 ? '0' : '') + b.toString(16);
+    }
+    return out;
+  }
+
+  function getSessionId() {
+    var storage = null;
+    try {
+      storage = window.sessionStorage;
+    } catch (e) {
+      storage = null;
+    }
+    if (storage) {
+      try {
+        var existing = storage.getItem(SESSION_STORAGE_KEY);
+        if (existing && SESSION_ID_RE.test(existing)) return existing;
+      } catch (e) {
+        /* fall through to a fresh id */
+      }
+    }
+    var fresh = randomSessionId();
+    if (storage) {
+      try {
+        storage.setItem(SESSION_STORAGE_KEY, fresh);
+      } catch (e) {
+        /* storage full or blocked: in-memory only */
+      }
+    }
+    return fresh;
   }
 
   // ---------------------------------------------------------------------
@@ -197,7 +262,7 @@ export default `/*
       '<input id="input" type="text" autocomplete="off" placeholder="' + escapeHtml(strings.placeholder) + '">' +
       '<button id="send-btn" type="submit">' + escapeHtml(strings.send) + '</button>' +
       '</form>' +
-      '<div class="footer"><a href="https://arling.sk/asistent/" target="_blank" rel="noopener">' + escapeHtml(strings.poweredBy) + '</a></div>' +
+      '<div class="footer"><a href="' + POWERED_BY_URL + '" target="_blank" rel="noopener">' + escapeHtml(strings.poweredBy) + '</a></div>' +
       '</div>'
     );
   }
@@ -331,7 +396,7 @@ export default `/*
       return;
     }
 
-    var SESSION_ID = 'sess_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    var SESSION_ID = getSessionId();
 
     // t starts as the plain per-language strings object, then gets a
     // shallow copy with data-title/data-greeting overrides applied on top
@@ -495,7 +560,7 @@ export default `/*
         var res = await fetch(ENDPOINT + '/v1/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tenant: TENANT, messages: conversation, lang: API_LANG }),
+          body: JSON.stringify({ tenant: TENANT, messages: conversation, lang: API_LANG, session: SESSION_ID }),
         });
 
         removeThinking();

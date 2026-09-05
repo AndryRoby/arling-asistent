@@ -10,8 +10,13 @@
  *
  *   tenants(id, domain, feed_url, contact_email, plan, status, quota_month,
  *           monthly_quota, used_this_month, product_count, created_at,
- *           last_ingested_at)
+ *           last_ingested_at, billing_ref, valid_until)
  *   counters(tenant_id, day, conversations, product_clicks)
+ *
+ * The only non-D1 state this module touches is the short-lived
+ * conv:{tenant}:{session} KV key in checkAndRecordConversation(), which
+ * dedupes a widget session against the monthly counter. It holds a random
+ * id the widget generated, never a visitor identifier.
  *
  * All SQL text lives in the SQL constant below so tests can build a narrow,
  * purpose-built in-memory mock of D1 that recognises these exact statements
@@ -47,6 +52,32 @@ export const DEFAULT_QUOTAS = {
   [PLANS.STARTER]: 1000,
   [PLANS.PRO]: 5000,
 };
+
+/**
+ * How long one widget session stays "already counted" for the monthly
+ * quota (see checkAndRecordConversation below): the KV key
+ * conv:{tenant}:{session} expires after this many seconds, so a shopper
+ * who comes back the next day with the same sessionStorage id starts a
+ * new, separately counted conversation.
+ */
+export const CONVERSATION_SESSION_TTL_SECONDS = 86400;
+
+/**
+ * Shape of the widget's session id (widget/widget.js: 16 hex characters,
+ * kept in sessionStorage). Anything else, including a missing value from an
+ * older embed that predates sessions, falls back to counting once per
+ * request, exactly as before sessions existed. The upper bound keeps a
+ * malicious caller from using the session id as a free-form KV key.
+ */
+const SESSION_ID_RE = /^[a-z0-9_-]{8,64}$/i;
+
+export function isValidSessionId(session) {
+  return typeof session === 'string' && SESSION_ID_RE.test(session);
+}
+
+export function conversationSessionKey(tenantId, session) {
+  return `conv:${tenantId}:${session}`;
+}
 
 export const SQL = {
   INSERT_TENANT: `INSERT INTO tenants (id, domain, feed_url, contact_email, plan, status, quota_month, monthly_quota, used_this_month, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -166,6 +197,54 @@ export function monthKey(date = new Date()) {
 
 export function dayKey(date = new Date()) {
   return date.toISOString().slice(0, 10);
+}
+
+/**
+ * The current calendar month in UTC as a billing period: `period_start` is
+ * the first day of this month, `period_end` the first day of the next one
+ * (both "YYYY-MM-DD"), as reported by GET /v1/tenants/:id/status.
+ */
+export function monthPeriod(date = new Date()) {
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth();
+  const start = new Date(Date.UTC(year, month, 1));
+  const end = new Date(Date.UTC(year, month + 1, 1));
+  return { period_start: start.toISOString().slice(0, 10), period_end: end.toISOString().slice(0, 10) };
+}
+
+/**
+ * Integer 0..100: how much of `quota` `used` represents, rounded down so
+ * 79 of 100 reads as 79, never as an early 80. A zero/negative quota (which
+ * setTenantPlan never writes, but a hand-edited row could) counts as fully
+ * used rather than dividing by zero.
+ */
+export function usagePercent(used, quota) {
+  const u = Math.max(0, Number(used) || 0);
+  const q = Number(quota) || 0;
+  if (q <= 0) return 100;
+  return Math.max(0, Math.min(100, Math.floor((u * 100) / q)));
+}
+
+/**
+ * Conversations counted so far in the current UTC calendar month. The
+ * tenants row only ever stores the count for `quota_month`; if no chat has
+ * happened since the month rolled over, that row is still last month's
+ * count and the honest answer for this month is 0 (checkAndRecordConversation
+ * resets it on the next chat anyway).
+ */
+export function conversationsUsedThisMonth(tenant, now = new Date()) {
+  if (!tenant) return 0;
+  return tenant.quota_month === monthKey(now) ? Number(tenant.used_this_month) || 0 : 0;
+}
+
+/**
+ * The public plan name. Rows created before the free/starter/pro trio
+ * existed carry "trial"; the public status contract only knows the three
+ * names, and a trial behaves like a free tenant with a custom quota, so
+ * anything unknown reports as "free" (the stored value is left untouched).
+ */
+export function publicPlanName(plan) {
+  return plan === PLANS.STARTER || plan === PLANS.PRO ? plan : PLANS.FREE;
 }
 
 function genId() {
@@ -314,15 +393,28 @@ export async function setTenantPlan(db, tenantId, { plan, monthlyQuota, billingR
  * Check the tenant's monthly quota and, if there is room, atomically record
  * one conversation: increments used_this_month (single SQL statement, so
  * concurrent requests cannot both slip through under the limit) and bumps
- * today's counters row.
+ * today's counters row. D1 stays the source of truth for the month.
  *
- * MVP simplification: one POST /v1/chat call = one billed conversation unit
- * (there is no server-side conversation/session concept, by design: nothing
- * about a conversation is stored). A future version could count once per
- * widget session using the client-held in-memory session id instead of once
- * per message; see README "what is not built yet".
+ * A "conversation" is one widget session, not one message: the widget
+ * keeps a random session id in sessionStorage and sends it as `session`
+ * with every POST /v1/chat. The (tenant, session) pair is remembered in KV
+ * (`kv`, the ASISTENT_CACHE binding; key conv:{tenant}:{session}, TTL
+ * CONVERSATION_SESSION_TTL_SECONDS) only after it has actually been counted,
+ * so further messages in the same session within 24h are allowed without
+ * touching the counter at all, even if the quota filled up in the meantime
+ * (a shopper is never cut off mid-conversation; the conversation was paid
+ * for when it started). Requests with no usable session (older embeds, or
+ * no `kv`) count once per request, as before sessions existed.
+ *
+ * KV problems never block a shopper: a failing get counts the request (fail
+ * open, the same policy as the rate limiter in security.js, so the worst
+ * case is over-counting, never a 500), and a failing put is ignored.
+ *
+ * Returns {allowed, counted, used, quota, remaining, reason?}: `used` is the
+ * count after this call, so callers can tell whether a threshold was just
+ * crossed (see notify.js).
  */
-export async function checkAndRecordConversation(db, tenantId, { now = new Date() } = {}) {
+export async function checkAndRecordConversation(db, tenantId, { now = new Date(), session, kv } = {}) {
   const tenant = await getTenantById(db, tenantId);
   if (!tenant) return { allowed: false, reason: 'unknown_tenant' };
 
@@ -333,19 +425,44 @@ export async function checkAndRecordConversation(db, tenantId, { now = new Date(
     tenant.quota_month = currentMonth;
   }
 
-  if (tenant.used_this_month >= tenant.monthly_quota) {
-    return { allowed: false, reason: 'quota_exceeded', remaining: 0 };
+  const quota = tenant.monthly_quota;
+  const usedBefore = tenant.used_this_month;
+  const sessionKey = kv && isValidSessionId(session) ? conversationSessionKey(tenantId, session) : null;
+
+  if (sessionKey) {
+    let seen = false;
+    try {
+      seen = (await kv.get(sessionKey)) != null;
+    } catch (err) {
+      console.warn('[arling-asistent] conversation session KV get failed, counting this request:', (err && err.message) || err);
+    }
+    if (seen) {
+      return { allowed: true, counted: false, used: usedBefore, quota, remaining: Math.max(0, quota - usedBefore), session: true };
+    }
+  }
+
+  if (usedBefore >= quota) {
+    return { allowed: false, counted: false, reason: 'quota_exceeded', used: usedBefore, quota, remaining: 0 };
   }
 
   const result = await db.prepare(SQL.INCREMENT_USAGE_IF_UNDER_QUOTA).bind(tenantId).run();
   const changed = (result && result.meta && result.meta.changes) || (result && result.changes) || 0;
   if (!changed) {
-    return { allowed: false, reason: 'quota_exceeded', remaining: 0 };
+    return { allowed: false, counted: false, reason: 'quota_exceeded', used: usedBefore, quota, remaining: 0 };
   }
 
   await db.prepare(SQL.UPSERT_COUNTER_CONVERSATION).bind(tenantId, dayKey(now)).run();
 
-  return { allowed: true, remaining: tenant.monthly_quota - tenant.used_this_month - 1 };
+  if (sessionKey) {
+    try {
+      await kv.put(sessionKey, '1', { expirationTtl: CONVERSATION_SESSION_TTL_SECONDS });
+    } catch (err) {
+      console.warn('[arling-asistent] conversation session KV put failed, session will count again:', (err && err.message) || err);
+    }
+  }
+
+  const used = usedBefore + 1;
+  return { allowed: true, counted: true, used, quota, remaining: quota - used, session: !!sessionKey };
 }
 
 export async function recordProductClick(db, tenantId, { now = new Date() } = {}) {

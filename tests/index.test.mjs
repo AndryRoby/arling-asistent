@@ -13,14 +13,39 @@ import { createMockD1 } from './helpers/mock-d1.mjs';
 import { createMockAI, createMockVectorize, createMockKV } from './helpers/mock-cf.mjs';
 
 function makeEnv() {
-  return {
+  // fetchImpl doubles as the feed fetcher (onboarding.js) and the quota
+  // ping transport (notify.js), so no test here ever touches the network;
+  // every outgoing call is recorded in env.outbound for assertions.
+  const outbound = [];
+  const env = {
     DB: createMockD1(),
     AI: createMockAI({ embedDim: 4, chatResponse: JSON.stringify({ answer: 'Mame to skladom.', products: [] }) }),
     VECTORIZE: createMockVectorize(),
     ASISTENT_CACHE: createMockKV(),
     ALLOWED_ORIGINS: 'arling.sk',
     ADMIN_TOKEN: 'test-admin-token',
+    outbound,
+    fetchImpl: async (url, opts) => {
+      outbound.push({ url: String(url), opts });
+      return { ok: true, status: 200, text: async () => '<products></products>' };
+    },
   };
+  return env;
+}
+
+function chatRequest(tenant, { session, message = 'Mate to skladom?', ip = '9.9.9.9' } = {}) {
+  const body = { tenant: tenant.id, messages: [{ role: 'user', content: message }], lang: 'sk' };
+  if (session !== undefined) body.session = session;
+  return new Request('https://asistent.arling.sk/v1/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: `https://${tenant.domain}`, 'CF-Connecting-IP': ip },
+    body: JSON.stringify(body),
+  });
+}
+
+async function conversationsUsed(env, tenant) {
+  const res = await worker.fetch(new Request(`https://asistent.arling.sk/v1/tenants/${tenant.id}/status`), env, {});
+  return (await res.json()).conversations_used;
 }
 
 async function readyTenant(env, domain = 'shop.sk') {
@@ -229,4 +254,114 @@ test('POST /v1/tenants/:id/plan is accepted as an alias of PATCH at the router l
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.plan, 'starter');
+});
+
+// ---------------------------------------------------------------------------
+// Session-based counting, public status contract and quota pings, end to end
+// ---------------------------------------------------------------------------
+
+test('POST /v1/chat twice with the same session grows conversations_used by exactly 1; a new session grows it by 1 more', async () => {
+  const env = makeEnv();
+  const tenant = await readyTenant(env, 'session.sk');
+  assert.equal(await conversationsUsed(env, tenant), 0);
+
+  const first = await worker.fetch(chatRequest(tenant, { session: 'a1b2c3d4e5f60718' }), env, {});
+  assert.equal(first.status, 200);
+  const second = await worker.fetch(chatRequest(tenant, { session: 'a1b2c3d4e5f60718', message: 'A v inej farbe?' }), env, {});
+  assert.equal(second.status, 200);
+  assert.equal(await conversationsUsed(env, tenant), 1);
+
+  const third = await worker.fetch(chatRequest(tenant, { session: '0000ffff0000ffff' }), env, {});
+  assert.equal(third.status, 200);
+  assert.equal(await conversationsUsed(env, tenant), 2);
+
+  // An embed that predates sessions (no session field) still counts per request.
+  await worker.fetch(chatRequest(tenant), env, {});
+  await worker.fetch(chatRequest(tenant), env, {});
+  assert.equal(await conversationsUsed(env, tenant), 4);
+});
+
+test('POST /v1/chat still succeeds and still counts when the KV session dedupe throws (fails open)', async () => {
+  const env = makeEnv();
+  const tenant = await readyTenant(env, 'session-kv.sk');
+  env.ASISTENT_CACHE = {
+    async get() { throw new Error('simulated KV outage'); },
+    async put() { throw new Error('simulated KV outage'); },
+  };
+  const a = await worker.fetch(chatRequest(tenant, { session: 'a1b2c3d4e5f60718' }), env, {});
+  const b = await worker.fetch(chatRequest(tenant, { session: 'a1b2c3d4e5f60718' }), env, {});
+  assert.equal(a.status, 200);
+  assert.equal(b.status, 200);
+  assert.equal(await conversationsUsed(env, tenant), 2); // no dedupe possible, counted per request, never refused
+});
+
+test('GET /v1/tenants/:id/status returns the public contract fields and neither billing_ref nor contact_email', async () => {
+  const env = makeEnv();
+  const tenant = await readyTenant(env, 'status-contract.sk');
+  await worker.fetch(chatRequest(tenant, { session: 'a1b2c3d4e5f60718' }), env, {});
+  const res = await worker.fetch(new Request(`https://asistent.arling.sk/v1/tenants/${tenant.id}/status`), env, {});
+  assert.equal(res.status, 200);
+  const text = await res.text();
+  const body = JSON.parse(text);
+  for (const field of ['id', 'domain', 'plan', 'status', 'monthly_quota', 'conversations_used', 'usage_percent', 'period_start', 'period_end', 'product_count', 'valid_until', 'last_ingest']) {
+    assert.ok(field in body, `missing ${field}`);
+  }
+  assert.equal(body.plan, 'free');
+  assert.equal(body.conversations_used, 1);
+  assert.equal(body.usage_percent, 1);
+  assert.match(body.period_start, /^\d{4}-\d{2}-01$/);
+  assert.match(body.period_end, /^\d{4}-\d{2}-01$/);
+  assert.equal(text.includes('billing_ref'), false);
+  assert.equal(text.includes('contact_email'), false);
+  assert.equal(text.includes('a@status-contract.sk'), false);
+});
+
+test('POST /v1/chat pings the homelab at 80 % and 100 % of the monthly quota, each once per month, via ctx.waitUntil', async () => {
+  const env = makeEnv();
+  const tenant = await readyTenant(env, 'ping.sk');
+  env.DB._tenants.get(tenant.id).monthly_quota = 5;
+  const background = [];
+  const ctx = { waitUntil: (p) => background.push(p) };
+  const sessions = ['s1s1s1s1s1s1s1s1', 's2s2s2s2s2s2s2s2', 's3s3s3s3s3s3s3s3', 's4s4s4s4s4s4s4s4', 's5s5s5s5s5s5s5s5'];
+  const month = new Date().toISOString().slice(0, 7);
+
+  for (const session of sessions.slice(0, 3)) {
+    assert.equal((await worker.fetch(chatRequest(tenant, { session }), env, ctx)).status, 200);
+  }
+  await Promise.all(background);
+  assert.equal(env.outbound.length, 0); // 60 %: nothing yet
+
+  assert.equal((await worker.fetch(chatRequest(tenant, { session: sessions[3] }), env, ctx)).status, 200);
+  await Promise.all(background);
+  assert.equal(env.outbound.length, 1);
+  assert.equal(env.outbound[0].url, `https://homelab.tailbf8f27.ts.net/subscribe/api/ping?e=quota_80&t=${tenant.id}&p=80`);
+
+  // A follow-up in an already-counted session moves nothing and pings nothing.
+  assert.equal((await worker.fetch(chatRequest(tenant, { session: sessions[3] }), env, ctx)).status, 200);
+  await Promise.all(background);
+  assert.equal(env.outbound.length, 1);
+
+  assert.equal((await worker.fetch(chatRequest(tenant, { session: sessions[4] }), env, ctx)).status, 200);
+  await Promise.all(background);
+  assert.equal(env.outbound.length, 2);
+  assert.equal(env.outbound[1].url, `https://homelab.tailbf8f27.ts.net/subscribe/api/ping?e=quota_100&t=${tenant.id}&p=100`);
+
+  // Quota is now full: a new session gets the calm 429, and no third ping goes out.
+  const refused = await worker.fetch(chatRequest(tenant, { session: 'ffffffffffffffff' }), env, ctx);
+  assert.equal(refused.status, 429);
+  assert.deepEqual(await refused.json(), { error: 'quota_exceeded' });
+  await Promise.all(background);
+  assert.equal(env.outbound.length, 2);
+  assert.ok(env.ASISTENT_CACHE._store.has(`quota-notified:${tenant.id}:${month}:80`));
+  assert.ok(env.ASISTENT_CACHE._store.has(`quota-notified:${tenant.id}:${month}:100`));
+});
+
+test('GET /widget.js serves the session-aware widget: sessionStorage session id sent as "session", calm quota message, UTM footer link', async () => {
+  const res = await worker.fetch(new Request('https://asistent.arling.sk/widget.js'), makeEnv(), {});
+  const body = await res.text();
+  assert.match(body, /arling_asistent_session/);
+  assert.match(body, /sessionStorage/);
+  assert.match(body, /session: SESSION_ID/);
+  assert.match(body, /The assistant is resting today\. Please use the shop\\'s contact page\./);
+  assert.match(body, /utm_source=widget&utm_medium=referral/);
 });
