@@ -1,0 +1,47 @@
+# shopify.app.toml
+# Shopify CLI app configuration. `client_id` and `application_url` below are
+# placeholders: the owner has a Partners account but has not created the app
+# there yet (see README.md "What the owner must do"), so this file cannot be
+# filled in for real or deployed until that happens. Runs `shopify app dev` /
+# `shopify app deploy` once it is.
+#
+# Scopes: read_products only. This app never writes catalogue data, and does
+# not use metafields (see extensions/asistent-widget/blocks/asistent.liquid
+# and shopify-worker/src/app-proxy.js for why the app proxy was chosen over
+# metafields), so no write_* scope is requested.
+
+name = "ARLing Asistent"
+client_id = "REPLACE_WITH_PARTNERS_CLIENT_ID"
+application_url = "https://arling-asistent-shopify.arling.workers.dev/app"
+embedded = true
+
+[access_scopes]
+scopes = "read_products"
+
+[auth]
+redirect_urls = [
+  "https://arling-asistent-shopify.arling.workers.dev/auth/callback"
+]
+
+[webhooks]
+api_version = "2025-01"
+
+[[webhooks.subscriptions]]
+topics = ["app/uninstalled"]
+uri = "/webhooks/app/uninstalled"
+
+[[webhooks.subscriptions]]
+compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
+uri = "/webhooks/compliance"
+
+# App proxy: lets the theme app extension call this app's backend from the
+# storefront's own domain (https://{shop}/apps/asistent/settings.json),
+# same-origin, no CORS. See shopify-worker/src/app-proxy.js for the
+# signature verification and the settings this serves.
+[app_proxy]
+url = "https://arling-asistent-shopify.arling.workers.dev/proxy"
+prefix = "apps"
+subpath = "asistent"
+
+[build]
+automatically_update_urls_on_dev = true

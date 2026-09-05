@@ -1,0 +1,47 @@
+# wrangler.toml
+# ARLing Asistent Shopify app worker: OAuth install, compliance webhooks,
+# billing, embedded admin API, and app-proxy settings endpoint for the
+# theme app extension. See ../README.md for one-time setup (Partners app,
+# wrangler login, d1 create) that fills in the placeholders below.
+
+name = "arling-asistent-shopify"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+[observability]
+enabled = true
+
+# Public URL of this worker once deployed (or a custom domain routed to
+# it). Used to build the OAuth redirect_uri, the /app link after install,
+# and the /feed/:shop.json fallback URL. Placeholder until first deploy.
+[vars]
+APP_URL = "https://arling-asistent-shopify.arling.workers.dev"
+# Base URL of the existing ARLing Asistent tenant API (see
+# ../../worker/wrangler.toml in the parent product for that worker's own
+# deployment). This Shopify app is a client of that API, not a fork of it.
+ARLING_API_BASE = "https://arling-asistent.arling.workers.dev"
+# read_products is enough for the public-feed path; write_products is not
+# requested since this app never edits catalogue data. If a shop's
+# products.json is disabled, the GraphQL fallback (products-feed.js) uses
+# this same read_products scope.
+SCOPES = "read_products"
+# Shopify's Partners-issued client id (public, safe as a var). The client
+# secret is NOT here, see `wrangler secret put SHOPIFY_API_SECRET` below.
+SHOPIFY_API_KEY = "REPLACE_WITH_PARTNERS_CLIENT_ID"
+# "true" to pass test:true on every appSubscriptionCreate call (Shopify
+# "test charge", never actually bills the merchant) while developing on a
+# development store. Set to "false" (or remove) before going live.
+BILLING_TEST_MODE = "true"
+
+# D1: shop records (offline tokens, tenant mapping, plan, settings). Create with:
+#   wrangler d1 create asistent-shopify
+# then paste the returned database_id below.
+[[d1_databases]]
+binding = "DB"
+database_name = "asistent-shopify"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+# Secret (not a [vars] entry, never committed): the Partners app's client
+# secret, used for every HMAC/signature verification (OAuth callback,
+# webhooks, app proxy, session tokens) and for token exchange. Set with:
+#   wrangler secret put SHOPIFY_API_SECRET
