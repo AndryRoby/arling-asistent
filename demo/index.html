@@ -185,6 +185,7 @@
   }
   .trial input:focus, .trial select:focus { border-color:var(--accent); outline:none; }
   .trial-hint { font-size:12px; color:var(--muted); margin:12px 0 0; }
+    .field-hint { font-size: .84rem; color: var(--muted); margin: 6px 0 0; }
   .trial-status { margin-top:16px; padding:10px 14px; border-radius:4px; font-size:14px; border:1px solid var(--line); background:var(--paper); }
   .trial-status-pending { color:var(--ink-2); }
   .trial-status-ok { color:var(--ok); border-color:var(--ok); }
@@ -413,11 +414,13 @@
             <div class="field">
               <label for="trial-lang" data-i18n="s3.label.lang">Jazyk</label>
               <select id="trial-lang" name="lang">
+                <option value="auto" data-i18n="s3.lang.auto">Automaticky podľa zákazníka</option>
                 <option value="sk">Slovenčina</option>
                 <option value="cs">Čeština</option>
                 <option value="en">English</option>
                 <option value="de">Deutsch</option>
               </select>
+              <p class="field-hint" data-i18n="s3.lang.hint">Automaticky znamená, že asistent odpovie v jazyku, v ktorom sa zákazník opýta.</p>
             </div>
             <div class="field">
               <button class="btn btn-solid" id="trial-submit" type="submit" data-i18n="s3.submit">Spustiť skúšobnú verziu</button>
