@@ -15,6 +15,11 @@ enabled = true
 # always allowed automatically once created (see src/security.js).
 [vars]
 ALLOWED_ORIGINS = "arling.sk"
+# Denny strop na Workers AI v neuronoch (viac v src/budget.js).
+# 9500 je zamerne pod bezplatnou dennou davkou 10 000, takze kym to nezvysime,
+# nad ramec pausalu 5 USD nezaplatime nic. Pri prvom platiacom zakaznikovi
+# zvysit a zapisat zmenu do company/finances.md.
+AI_DAILY_NEURON_BUDGET = "9500"
 
 # Workers AI: @cf/baai/bge-m3 (embeddings) and the chat model.
 [ai]
