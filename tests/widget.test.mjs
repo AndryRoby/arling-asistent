@@ -340,6 +340,13 @@ for (const lang of Object.keys(QUOTA_MESSAGES)) {
   });
 }
 
+test('widget.js renders the same calm quota_exceeded message on a 503 {error:"quota_exceeded"} (Workers AI account-wide capacity limit, not this tenant\'s usage)', async () => {
+  const fetchResponse = { status: 503, ok: false, json: async () => ({ error: 'quota_exceeded' }) };
+  const { root } = await submitMessages(['Hello'], { dataLang: 'en', fetchResponse, sessionStorage: makeSessionStorage() });
+  const texts = root.getElementById('messages').children.map((row) => row.children[0].textContent);
+  assert.ok(texts.includes(QUOTA_MESSAGES.en));
+});
+
 test('widget.js shows the rate-limited message (not the quota one) on a 429 without quota_exceeded', async () => {
   const fetchResponse = { status: 429, ok: false, json: async () => ({ error: 'rate_limited' }) };
   const { root } = await submitMessages(['Hello'], { dataLang: 'en', fetchResponse, sessionStorage: makeSessionStorage() });
@@ -767,6 +774,12 @@ test('widget.js gift flow reuses the calm quota/rate-limit messages on a 429, sa
   }
   const rateLimited = await runGiftFlow({ fetchResponse: { status: 429, ok: false, json: async () => ({ error: 'rate_limited' }) }, dataLang: 'en' });
   assert.equal(rateLimited.root.getElementById('gift-note').textContent, 'Too many messages at once. Please try again shortly.');
+});
+
+test('widget.js gift flow shows the same calm quota message on a 503 {error:"quota_exceeded"}, same as chat', async () => {
+  const fetchResponse = { status: 503, ok: false, json: async () => ({ error: 'quota_exceeded' }) };
+  const { root } = await runGiftFlow({ fetchResponse, dataLang: 'en' });
+  assert.equal(root.getElementById('gift-note').textContent, QUOTA_MESSAGES.en);
 });
 
 test('widget.js "Opýtať sa na niečo iné" closes the gift panel and opens the normal chat panel', async () => {

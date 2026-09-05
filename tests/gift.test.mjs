@@ -411,6 +411,21 @@ test('POST /v1/gift returns 413 (not a generic 500) for an oversized body, same 
   assert.equal(res.status, 413);
 });
 
+test('POST /v1/gift reports Workers AI daily neuron exhaustion as 503 quota_exceeded, same as /v1/chat', async () => {
+  const env = makeEnv();
+  const tenant = await readyGiftTenant(env, 'gift-shop-ai-down.sk');
+  env.AI = {
+    async run() {
+      const err = new Error("4006: you have used up your daily free allocation of 10000 neurons, please upgrade to Cloudflare's Workers Paid plan if you would like to continue usage.");
+      err.name = 'AiError';
+      throw err;
+    },
+  };
+  const res = await worker.fetch(giftRequest(tenant), env, {});
+  assert.equal(res.status, 503);
+  assert.equal((await res.json()).error, 'quota_exceeded');
+});
+
 test('POST /v1/gift enforces the per-tenant monthly quota (429 once exhausted), same as /v1/chat', async () => {
   const env = makeEnv();
   const tenant = await readyGiftTenant(env, 'gift-shop4.sk');

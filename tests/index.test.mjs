@@ -161,6 +161,30 @@ test('POST /v1/chat returns 413 payload_too_large (not a generic 500) for an ove
   assert.equal(body.error, 'payload_too_large');
 });
 
+test('POST /v1/chat reports Workers AI daily neuron exhaustion as 503 quota_exceeded, not a generic 500', async () => {
+  const env = makeEnv();
+  const tenant = await readyTenant(env, 'shop6.sk');
+  env.AI = {
+    async run() {
+      // Matches the real Cloudflare Workers AI error observed in production
+      // (AiError code 4006) closely enough for the router's detection to
+      // recognise it: account-wide daily free allocation exhausted, not a
+      // bug in this worker.
+      const err = new Error("4006: you have used up your daily free allocation of 10000 neurons, please upgrade to Cloudflare's Workers Paid plan if you would like to continue usage.");
+      err.name = 'AiError';
+      throw err;
+    },
+  };
+  const res = await worker.fetch(new Request('https://asistent.arling.sk/v1/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: 'https://shop6.sk', 'CF-Connecting-IP': '6.6.6.6' },
+    body: JSON.stringify({ tenant: tenant.id, messages: [{ role: 'user', content: 'hi' }] }),
+  }), env, {});
+  assert.equal(res.status, 503);
+  const body = await res.json();
+  assert.equal(body.error, 'quota_exceeded');
+});
+
 test('POST /v1/chat still succeeds (fails open) when the KV rate limiter throws instead of returning a 500', async () => {
   const env = makeEnv();
   const tenant = await readyTenant(env, 'shop5.sk');

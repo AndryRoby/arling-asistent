@@ -966,7 +966,10 @@ export default `/*
             session: SESSION_ID,
           }),
         }).then(function (res) {
-          if (res.status === 429) {
+          // 503 is Cloudflare's own Workers AI daily capacity limit (account-wide,
+          // not this tenant's usage); same wording as the per-tenant 429
+          // quota_exceeded case, see sendMessage() above for why.
+          if (res.status === 429 || res.status === 503) {
             return res.json().catch(function () { return {}; }).then(function (body) {
               var msg = body && body.error === 'quota_exceeded' ? t.quotaExceeded : t.rateLimited;
               giftEls.resultsList.innerHTML = '';
@@ -1102,7 +1105,11 @@ export default `/*
 
         removeThinking();
 
-        if (res.status === 429) {
+        // 503 is Cloudflare's own Workers AI daily capacity limit (account-wide,
+        // not this tenant's usage), reported with the same error string as the
+        // per-tenant 429 quota_exceeded case since it reads the same to a
+        // visitor: no more AI answers today, use the shop's contact page.
+        if (res.status === 429 || res.status === 503) {
           var body = await res.json().catch(function () { return {}; });
           var msg = body && body.error === 'quota_exceeded' ? t.quotaExceeded : t.rateLimited;
           appendMessage('assistant', msg, []);
