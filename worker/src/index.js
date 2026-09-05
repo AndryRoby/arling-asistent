@@ -7,6 +7,8 @@
  *
  * Routes:
  *   POST /v1/chat                    -> chat.js
+ *   POST /v1/gift                    -> gift.js (Gift Finder, a second mode
+ *                                        of the same widget/quota/engine)
  *   POST /v1/tenants                 -> onboarding.js
  *   GET  /v1/tenants/:id/status      -> onboarding.js
  *   POST /v1/tenants/:id/reingest    -> onboarding.js (admin only, X-Admin-Token)
@@ -31,6 +33,7 @@
  */
 
 import { handleChatRoute } from './chat.js';
+import { handleGiftRoute } from './gift.js';
 import { handleCreateTenantRoute, handleTenantStatusRoute, handleReingestRoute, handleSetPlanRoute } from './onboarding.js';
 import { parseAllowedOrigins, corsHeaders, InputTooLargeError } from './security.js';
 import { ValidationError } from './tenants.js';
@@ -90,6 +93,10 @@ export default {
 
       if (url.pathname === '/v1/chat' && request.method === 'POST') {
         return await handleChatRoute(request, env, ctx);
+      }
+
+      if (url.pathname === '/v1/gift' && request.method === 'POST') {
+        return await handleGiftRoute(request, env, ctx);
       }
 
       if (url.pathname === '/v1/tenants' && request.method === 'POST') {

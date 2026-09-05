@@ -415,3 +415,232 @@ test('widget.js stylesheet keeps the panel closed while its hidden attribute is 
   const root = body.children[0].shadowRoot;
   assert.match(root.innerHTML, /<div id="panel"[^>]*\shidden>/, 'panel markup must start with the hidden attribute');
 });
+
+// ---------------------------------------------------------------------------
+// Gift Finder (data-gift="1"): absent by default, opt-in second mode
+// ---------------------------------------------------------------------------
+
+test('widget.js renders no gift button, no gift markup, and no gift-related globals when data-gift is absent (byte-identical to before this feature existed)', () => {
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument();
+  runWidget(documentStub, windowStub);
+  const root = body.children[0].shadowRoot;
+  assert.equal(root.getElementById('gift-toggle'), null);
+  assert.doesNotMatch(root.innerHTML, /gift-panel/);
+  assert.doesNotMatch(root.innerHTML, /gift-toggle/);
+});
+
+test('widget.js treats any data-gift value other than the exact string "1" as absent', () => {
+  for (const value of ['true', '0', 'yes', '']) {
+    const { windowStub, documentStub, body } = makeFakeWindowAndDocument({ extraAttrs: { 'data-gift': value } });
+    runWidget(documentStub, windowStub);
+    const root = body.children[0].shadowRoot;
+    assert.equal(root.getElementById('gift-toggle'), null, `data-gift="${value}" must not enable the feature`);
+  }
+});
+
+test('widget.js adds a localized "find a gift" button next to the chat bubble for all four languages when data-gift="1"', () => {
+  const labels = { sk: 'Nájdi darček', cs: 'Najít dárek', en: 'Find a gift', de: 'Geschenk finden' };
+  for (const lang of Object.keys(labels)) {
+    const { windowStub, documentStub, body } = makeFakeWindowAndDocument({ dataLang: lang, extraAttrs: { 'data-gift': '1' } });
+    runWidget(documentStub, windowStub);
+    const root = body.children[0].shadowRoot;
+    const giftToggle = root.getElementById('gift-toggle');
+    assert.ok(giftToggle, `gift-toggle must exist for lang=${lang}`);
+    assert.match(root.innerHTML, new RegExp('<button id="gift-toggle"[^>]*>' + labels[lang].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+});
+
+/**
+ * Boots the widget with data-gift="1" and drives the three-step flow:
+ * click the gift toggle, pick a recipient chip, pick a budget chip, type
+ * interests, click submit. Returns the sent request bodies and the shadow
+ * root so a test can assert on the rendered result.
+ */
+async function runGiftFlow({ fetchResponse, dataLang = 'sk', recipientChipIndex = 0, budgetChipIndex = 1, interestsText = 'kava', umami, sessionStorage } = {}) {
+  const sentBodies = [];
+  const fetchImpl = async (url, opts) => {
+    sentBodies.push({ url: String(url), body: JSON.parse(opts.body) });
+    return fetchResponse || { status: 200, ok: true, json: async () => ({ picks: [], candidates: [] }) };
+  };
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument({ dataLang, extraAttrs: { 'data-gift': '1' }, sessionStorage });
+  if (umami) windowStub.umami = umami;
+  runWidget(documentStub, windowStub, fetchImpl);
+  const root = body.children[0].shadowRoot;
+
+  root.getElementById('gift-toggle')._listeners.click[0]();
+  root.getElementById('gift-recipient-chips').children[recipientChipIndex]._listeners.click[0]();
+  root.getElementById('gift-budget-chips').children[budgetChipIndex]._listeners.click[0]();
+  root.getElementById('gift-interests-input').value = interestsText;
+  root.getElementById('gift-submit-btn')._listeners.click[0]();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  return { sentBodies, root, windowStub };
+}
+
+test('widget.js gift flow sends tenant/lang/recipient/budget/interests/session in the POST /v1/gift body, and tracks gift_open + gift_submit', async () => {
+  const umamiCalls = [];
+  const { sentBodies, root } = await runGiftFlow({
+    recipientChipIndex: 1, // "Mama"
+    budgetChipIndex: 2, // "do 100 €" -> {min:0, max:100}
+    interestsText: 'zahrada a caj',
+    umami: { track: (event, data) => umamiCalls.push({ event, data }) },
+  });
+
+  assert.equal(sentBodies.length, 1);
+  assert.match(sentBodies[0].url, /\/v1\/gift$/);
+  const sent = sentBodies[0].body;
+  assert.equal(sent.tenant, 'tenant-123');
+  assert.equal(sent.lang, 'sk');
+  assert.equal(sent.recipient, 'Mama');
+  assert.equal(sent.budget_min, 0);
+  assert.equal(sent.budget_max, 100);
+  assert.equal(sent.interests, 'zahrada a caj');
+  assert.match(sent.session, /^[0-9a-f]{16}$/);
+
+  assert.ok(umamiCalls.some((c) => c.event === 'gift_open'));
+  assert.ok(umamiCalls.some((c) => c.event === 'gift_submit'));
+  // No customer-typed text (recipient/interests) is ever sent as event data.
+  for (const call of umamiCalls) {
+    assert.doesNotMatch(JSON.stringify(call.data || {}), /zahrada|Mama/);
+  }
+
+  // The results step is now showing (thinking, then the resolved reply).
+  assert.equal(root.getElementById('gift-step-results').hidden, false);
+});
+
+test('widget.js gift flow supports an open budget ("100+"): the last chip sends budget_min=100 and budget_max=null', async () => {
+  const { sentBodies } = await runGiftFlow({ budgetChipIndex: 3 });
+  assert.equal(sentBodies[0].body.budget_min, 100);
+  assert.equal(sentBodies[0].body.budget_max, null);
+});
+
+test('widget.js gift flow renders result cards with title, price and the model\'s "why" reason, and links track gift_product_click', async () => {
+  const fetchResponse = {
+    status: 200,
+    ok: true,
+    json: async () => ({
+      picks: [{ title: 'Čajová súprava', url: 'https://shop.sk/p/1', image: 'https://shop.sk/i/1.jpg', price: 24.9, currency: 'EUR', why: 'Ladí so záľubou v čaji' }],
+      candidates: [{ title: 'Čajová súprava', url: 'https://shop.sk/p/1', price: 24.9, currency: 'EUR' }],
+      widened: false,
+      few: false,
+    }),
+  };
+  const umamiCalls = [];
+  const { root } = await runGiftFlow({ fetchResponse, umami: { track: (event, data) => umamiCalls.push({ event, data }) } });
+
+  const list = root.getElementById('gift-results-list');
+  assert.equal(list.children.length, 1);
+  const card = list.children[0];
+  assert.match(card.innerHTML, /Čajová súprava/);
+  assert.match(card.innerHTML, /24\.90 EUR/);
+  assert.match(card.innerHTML, /Ladí so záľubou v čaji/);
+  assert.equal(card.href, 'https://shop.sk/p/1');
+
+  card._listeners.click[0]();
+  assert.ok(umamiCalls.some((c) => c.event === 'gift_product_click'));
+
+  // No extra note (no widening, no scarcity, at least one pick).
+  assert.equal(root.getElementById('gift-note').hidden, true);
+  // Nothing left to show more of (candidates == picks here).
+  assert.equal(root.getElementById('gift-show-more').hidden, true);
+});
+
+test('widget.js "Ukázať ďalšie" reveals the remaining candidates from the same response, with no second network request', async () => {
+  const fetchResponse = {
+    status: 200,
+    ok: true,
+    json: async () => ({
+      picks: [{ title: 'A', url: 'https://x/a', price: 10, currency: 'EUR', why: 'ok' }],
+      candidates: [
+        { title: 'A', url: 'https://x/a', price: 10, currency: 'EUR' },
+        { title: 'B', url: 'https://x/b', price: 12, currency: 'EUR' },
+        { title: 'C', url: 'https://x/c', price: 14, currency: 'EUR' },
+      ],
+      widened: false,
+      few: true,
+    }),
+  };
+  const { root, sentBodies } = await runGiftFlow({ fetchResponse });
+
+  const list = root.getElementById('gift-results-list');
+  assert.equal(list.children.length, 1); // only the one pick shown initially
+  const showMore = root.getElementById('gift-show-more');
+  assert.equal(showMore.hidden, false);
+  assert.equal(root.getElementById('gift-note').hidden, false); // "few" note shown
+
+  showMore._listeners.click[0]();
+  assert.equal(list.children.length, 3); // the two remaining candidates were appended
+  assert.equal(sentBodies.length, 1); // still just the one POST /v1/gift
+  assert.equal(showMore.hidden, true);
+});
+
+test('widget.js gift flow shows the widened-budget note honestly when the server reports widened:true', async () => {
+  const fetchResponse = { status: 200, ok: true, json: async () => ({ picks: [{ title: 'A', url: 'https://x/a', price: 10, why: 'ok' }], candidates: [{ title: 'A', url: 'https://x/a', price: 10 }], widened: true, few: false }) };
+  const { root } = await runGiftFlow({ fetchResponse, dataLang: 'en' });
+  const note = root.getElementById('gift-note');
+  assert.equal(note.hidden, false);
+  assert.match(note.textContent, /widened/i);
+});
+
+test('widget.js gift flow shows an honest empty-result message when picks is empty, with no cards', async () => {
+  const fetchResponse = { status: 200, ok: true, json: async () => ({ picks: [], candidates: [], widened: false, few: true }) };
+  const { root } = await runGiftFlow({ fetchResponse, dataLang: 'en' });
+  const list = root.getElementById('gift-results-list');
+  assert.equal(list.children.length, 0);
+  const note = root.getElementById('gift-note');
+  assert.equal(note.hidden, false);
+  assert.match(note.textContent, /could not find/i);
+});
+
+test('widget.js gift flow reuses the calm quota/rate-limit messages on a 429, same wording as chat, for all four languages', async () => {
+  for (const [lang, quotaMsg] of Object.entries(QUOTA_MESSAGES)) {
+    const fetchResponse = { status: 429, ok: false, json: async () => ({ error: 'quota_exceeded' }) };
+    const { root } = await runGiftFlow({ fetchResponse, dataLang: lang });
+    assert.equal(root.getElementById('gift-note').textContent, quotaMsg);
+  }
+  const rateLimited = await runGiftFlow({ fetchResponse: { status: 429, ok: false, json: async () => ({ error: 'rate_limited' }) }, dataLang: 'en' });
+  assert.equal(rateLimited.root.getElementById('gift-note').textContent, 'Too many messages at once. Please try again shortly.');
+});
+
+test('widget.js "Opýtať sa na niečo iné" closes the gift panel and opens the normal chat panel', async () => {
+  const { root } = await runGiftFlow();
+  assert.equal(root.getElementById('gift-panel').hidden, false);
+
+  root.getElementById('gift-ask-else')._listeners.click[0]();
+
+  assert.equal(root.getElementById('gift-panel').hidden, true);
+  assert.equal(root.getElementById('panel').hidden, false);
+  const messages = root.getElementById('messages');
+  assert.equal(messages.children.length, 1); // the chat greeting, since no chat message had been sent yet
+});
+
+test('widget.js clicking the round chat bubble while the gift panel is open closes the gift panel', async () => {
+  const { root } = await runGiftFlow();
+  assert.equal(root.getElementById('gift-panel').hidden, false);
+
+  root.getElementById('toggle')._listeners.click[0]();
+
+  assert.equal(root.getElementById('gift-panel').hidden, true);
+  assert.equal(root.getElementById('panel').hidden, false);
+});
+
+test('widget.js gift recipient free-text input (no chip) is sent as-is, e.g. "babka" (not one of the preset chips)', async () => {
+  const sentBodies = [];
+  const fetchImpl = async (url, opts) => {
+    sentBodies.push(JSON.parse(opts.body));
+    return { status: 200, ok: true, json: async () => ({ picks: [], candidates: [] }) };
+  };
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument({ extraAttrs: { 'data-gift': '1' } });
+  runWidget(documentStub, windowStub, fetchImpl);
+  const root = body.children[0].shadowRoot;
+
+  root.getElementById('gift-toggle')._listeners.click[0]();
+  root.getElementById('gift-recipient-input').value = 'babka';
+  root.getElementById('gift-recipient-next')._listeners.click[0]();
+  root.getElementById('gift-budget-chips').children[0]._listeners.click[0]();
+  root.getElementById('gift-interests-input').value = 'zahrada a caj';
+  root.getElementById('gift-submit-btn')._listeners.click[0]();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(sentBodies[0].recipient, 'babka');
+});
