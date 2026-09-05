@@ -355,3 +355,63 @@ test('widget.js sets no cookies and never touches localStorage (only sessionStor
   assert.doesNotMatch(widgetSource, /['"]localStorage['"]/);
   assert.match(widgetSource, /sessionStorage/);
 });
+
+// ---------------------------------------------------------------------------
+// Public API: window.ArlingAsistent.ask() (suggested-question buttons on a host page)
+// ---------------------------------------------------------------------------
+
+test('widget.js exposes window.ArlingAsistent.ask(), which opens the panel and sends the text like a typed message', async () => {
+  const sentBodies = [];
+  const fetchImpl = async (url, fetchOpts) => {
+    sentBodies.push(JSON.parse(fetchOpts.body));
+    return { status: 200, ok: true, json: async () => ({ answer: 'ok', products: [] }) };
+  };
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument({ dataLang: 'sk' });
+  runWidget(documentStub, windowStub, fetchImpl);
+  const api = windowStub.ArlingAsistent;
+  assert.ok(api && typeof api.ask === 'function' && typeof api.open === 'function' && typeof api.close === 'function');
+
+  const root = body.children[0].shadowRoot;
+  const panel = root.getElementById('panel');
+  assert.equal(api.ask('  Aký kávovar do 100 eur?  '), true);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(panel.hidden, false, 'ask() must open the panel');
+  assert.equal(sentBodies.length, 1);
+  assert.equal(sentBodies[0].messages[sentBodies[0].messages.length - 1].content, 'Aký kávovar do 100 eur?');
+  assert.equal(sentBodies[0].lang, 'sk');
+
+  // Empty text only opens the panel and sends nothing.
+  assert.equal(api.ask('   '), false);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(sentBodies.length, 1);
+
+  // Text is capped at 2000 characters, the same limit as the composer input.
+  assert.equal(api.ask('x'.repeat(2500)), true);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(sentBodies[1].messages[sentBodies[1].messages.length - 1].content.length, 2000);
+});
+
+test('widget.js ArlingAsistent.ask() is ignored while a reply is still pending', async () => {
+  let resolveFetch;
+  const fetchImpl = () => new Promise((resolve) => { resolveFetch = resolve; });
+  const { windowStub, documentStub } = makeFakeWindowAndDocument();
+  runWidget(documentStub, windowStub, fetchImpl);
+  const api = windowStub.ArlingAsistent;
+  assert.equal(api.ask('prvá otázka'), true);
+  assert.equal(api.ask('druhá otázka'), false, 'second ask while sending must be refused');
+  resolveFetch({ status: 200, ok: true, json: async () => ({ answer: 'ok', products: [] }) });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(api.ask('tretia otázka'), true, 'after the reply arrived ask() works again');
+});
+
+test('widget.js stylesheet keeps the panel closed while its hidden attribute is set (author display:flex must not beat [hidden])', () => {
+  // Regression guard: #panel is display:flex in the widget stylesheet, and an
+  // author rule outranks the UA stylesheet's [hidden]{display:none}, so
+  // without an explicit #panel[hidden] rule the empty panel was open on
+  // every page load of every shop that embeds the widget.
+  assert.match(widgetSource, /#panel\[hidden\]\s*\{\s*display:\s*none;?\s*\}/);
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument();
+  runWidget(documentStub, windowStub);
+  const root = body.children[0].shadowRoot;
+  assert.match(root.innerHTML, /<div id="panel"[^>]*\shidden>/, 'panel markup must start with the hidden attribute');
+});

@@ -38,6 +38,14 @@
  * Everything renders inside a Shadow DOM root so the host page's CSS can
  * never leak in or be broken by the widget's styles.
  *
+ * Public API (optional, for pages that want their own "ask the assistant"
+ * buttons, e.g. suggested questions on a demo shop): once booted, the
+ * widget sets window.ArlingAsistent = {open(), close(), ask(text)}.
+ * ask(text) opens the panel and sends `text` exactly as if the visitor had
+ * typed it (trimmed, capped at 2000 characters); it returns true when the
+ * question was sent, false when the text was empty or a reply is still
+ * pending (then it only opens the panel). Nothing else is exposed.
+ *
  * Privacy: no cookies are set, and nothing is written to localStorage. The
  * only client-side state is a random session id (16 hex characters) kept in
  * sessionStorage for the lifetime of the browser tab, and the message list
@@ -292,6 +300,9 @@
       '  box-shadow:0 8px 28px rgba(0,0,0,.18); color:var(--ink);' +
       '}' +
       ':host(.position-left) #panel { right:auto; left:0; }' +
+      // The author display:flex above would otherwise beat the UA stylesheet's
+      // [hidden]{display:none}, leaving the (empty) panel open on every page load.
+      '#panel[hidden] { display:none; }' +
       '.panel-head {' +
       '  display:flex; align-items:center; justify-content:space-between; padding:12px 14px;' +
       '  border-bottom:1px solid var(--line); background:var(--paper-2);' +
@@ -586,6 +597,21 @@
       els.input.value = '';
       sendMessage(text);
     });
+
+    // -------------------------------------------------------------------
+    // Public API: window.ArlingAsistent (see the header comment)
+    // -------------------------------------------------------------------
+
+    function askQuestion(text) {
+      var clean = String(text == null ? '' : text).trim().slice(0, 2000);
+      if (!isOpen) openPanel();
+      if (!clean || isSending) return false;
+      els.input.value = '';
+      sendMessage(clean);
+      return true;
+    }
+
+    window.ArlingAsistent = { open: openPanel, close: closePanel, ask: askQuestion };
   }
 
   boot();

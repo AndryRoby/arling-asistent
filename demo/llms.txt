@@ -24,6 +24,9 @@ Free up to 100 conversations a month, no card. Starter: 19 EUR/month, up to 1,00
 - German page (Deutsch): https://arling.sk/asistent/de/
 - WooCommerce plugin (English): https://arling.sk/asistent/woocommerce/
 - Shopify (English): https://arling.sk/asistent/shopify/
+- Shoptet and Upgates guide (Slovak; Heureka XML feed URL, script tag via the shop's HTML code editor): https://arling.sk/asistent/shoptet/
+- Shoptet and Upgates guide (Czech): https://arling.sk/asistent/shoptet/cs/
+- Slovak demo shop "Dobrá domácnosť" (fictional, 64 products in 6 categories, Heureka XML feed at https://arling.sk/asistent/ukazka/feed.xml, widget in Slovak with suggested questions; nothing can be bought there): https://arling.sk/asistent/ukazka/
 - Live demo: https://arling.sk/asistent/live/
 
 ## Comparisons (English)

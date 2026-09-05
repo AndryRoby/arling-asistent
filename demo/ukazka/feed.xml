@@ -1,0 +1,1597 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Dobrá domácnosť: FIKTÍVNY ukážkový obchod pre demo ARLing Asistenta (https://arling.sk/asistent/).
+  Výrobky, značky, ceny aj EAN kódy sú vymyslené, nič z toho sa nedá kúpiť a obchod neexistuje.
+  Formát: Heureka/Zboží.cz XML (SHOP/SHOPITEM), https://sluzby.heureka.sk/napoveda/xml-feed/
+  Vygenerované skriptom (ops scratch gen-ukazka.mjs), ceny v EUR s DPH.
+-->
+<SHOP>
+<SHOPITEM>
+  <ITEM_ID>KUC-001</ITEM_ID>
+  <PRODUCTNAME>Hrniec z nehrdzavejúcej ocele 20 cm, 3,5 l</PRODUCTNAME>
+  <DESCRIPTION>Hrniec s trojvrstvovým sendvičovým dnom, vhodný na indukciu, sklokeramiku aj plyn. Priemer 20 cm, objem 3,5 litra, sklenená pokrievka s odvetrávacím otvorom. Rukoväte sú privarené, nie priskrutkované, a celý hrniec sa dá umývať v umývačke.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-KUC-001</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/KUC-001.svg</IMGURL>
+  <PRICE_VAT>34.90</PRICE_VAT>
+  <CATEGORYTEXT>Kuchyňa | Hrnce a panvice</CATEGORYTEXT>
+  <MANUFACTURER>Ferrum Hron</MANUFACTURER>
+  <EAN>8580001000015</EAN>
+  <ITEMGROUP_ID>HRN-NEREZ</ITEMGROUP_ID>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>nerezová oceľ 18/10</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Objem</PARAM_NAME>
+    <VAL>3,5 l</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>strieborná</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Priemer</PARAM_NAME>
+    <VAL>20 cm</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>KUC-002</ITEM_ID>
+  <PRODUCTNAME>Hrniec z nehrdzavejúcej ocele 24 cm, 6 l</PRODUCTNAME>
+  <DESCRIPTION>Väčší hrniec z tej istej rady, na polievku alebo cestoviny pre celú rodinu. Priemer 24 cm, objem 6 litrov, sendvičové dno vhodné na indukciu, sklokeramiku aj plyn. Sklenená pokrievka, privarené rukoväte, umývačka áno.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-KUC-002</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/KUC-002.svg</IMGURL>
+  <PRICE_VAT>44.90</PRICE_VAT>
+  <CATEGORYTEXT>Kuchyňa | Hrnce a panvice</CATEGORYTEXT>
+  <MANUFACTURER>Ferrum Hron</MANUFACTURER>
+  <EAN>8580001000022</EAN>
+  <ITEMGROUP_ID>HRN-NEREZ</ITEMGROUP_ID>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>nerezová oceľ 18/10</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Objem</PARAM_NAME>
+    <VAL>6 l</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>strieborná</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Priemer</PARAM_NAME>
+    <VAL>24 cm</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>KUC-003</ITEM_ID>
+  <PRODUCTNAME>Liatinová panvica 26 cm</PRODUCTNAME>
+  <DESCRIPTION>Ťažká liatinová panvica s priemerom 26 cm a hrúbkou dna 5 mm. Vhodná na indukciu, plyn, do rúry aj na gril, drží teplo a spraví kôrku na mäse. Dodáva sa vypálená ľanovým olejom, po použití stačí utrieť a jemne naolejovať.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-KUC-003</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/KUC-003.svg</IMGURL>
+  <PRICE_VAT>49.90</PRICE_VAT>
+  <CATEGORYTEXT>Kuchyňa | Hrnce a panvice</CATEGORYTEXT>
+  <MANUFACTURER>Ferrum Hron</MANUFACTURER>
+  <EAN>8580001000039</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>liatina</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>čierna</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Priemer</PARAM_NAME>
+    <VAL>26 cm</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>KUC-004</ITEM_ID>
+  <PRODUCTNAME>Panvica s keramickým povrchom 28 cm</PRODUCTNAME>
+  <DESCRIPTION>Ľahká hliníková panvica s keramickým nepriľnavým povrchom bez PFAS. Priemer 28 cm, hrúbka dna 4,5 mm, vhodná na indukciu. Rukoväť z bakelitu ostáva chladná, do rúry len do 160 °C.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-KUC-004</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/KUC-004.svg</IMGURL>
+  <PRICE_VAT>32.90</PRICE_VAT>
+  <CATEGORYTEXT>Kuchyňa | Hrnce a panvice</CATEGORYTEXT>
+  <MANUFACTURER>Ferrum Hron</MANUFACTURER>
+  <EAN>8580001000046</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>hliník s keramickým povrchom</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>krémová</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Priemer</PARAM_NAME>
+    <VAL>28 cm</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>KUC-005</ITEM_ID>
+  <PRODUCTNAME>Doska na krájanie z dubového dreva 40 × 28 cm</PRODUCTNAME>
+  <DESCRIPTION>Masívna dubová doska s hrúbkou 3 cm a drážkou na šťavu po obvode. Rozmery 40 × 28 cm, ošetrená ľanovým olejom a včelím voskom. Neumývať v umývačke, raz za mesiac naolejovať.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-KUC-005</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/KUC-005.svg</IMGURL>
+  <PRICE_VAT>29.90</PRICE_VAT>
+  <CATEGORYTEXT>Kuchyňa | Príprava jedla</CATEGORYTEXT>
+  <MANUFACTURER>Lipová dielňa</MANUFACTURER>
+  <EAN>8580001000053</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>dub</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>prírodná</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Rozmery</PARAM_NAME>
+    <VAL>40 × 28 × 3 cm</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>KUC-006</ITEM_ID>
+  <PRODUCTNAME>Sada troch kuchynských nožov</PRODUCTNAME>
+  <DESCRIPTION>Kuchársky nôž 20 cm, univerzálny nôž 13 cm a lúpací nôž 9 cm z ocele X50CrMoV15 s tvrdosťou 56 HRC. Rukoväte z čierneho polymérového kompozitu, nitované. Dodávame v darčekovej kartónovej krabici.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-KUC-006</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/KUC-006.svg</IMGURL>
+  <PRICE_VAT>59.90</PRICE_VAT>
+  <CATEGORYTEXT>Kuchyňa | Príprava jedla</CATEGORYTEXT>
+  <MANUFACTURER>Ferrum Hron</MANUFACTURER>
+  <EAN>8580001000060</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>nerezová oceľ X50CrMoV15</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>čierna</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>KUC-007</ITEM_ID>
+  <PRODUCTNAME>Kuchynská váha digitálna do 5 kg</PRODUCTNAME>
+  <DESCRIPTION>Plochá váha so sklenenou plochou 18 × 18 cm, presnosť 1 g, nosnosť 5 kg. Funkcia tara, prepínanie gramov a mililitrov, automatické vypnutie. Napájanie 2 × AAA batérie, sú v balení.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-KUC-007</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/KUC-007.svg</IMGURL>
+  <PRICE_VAT>19.90</PRICE_VAT>
+  <CATEGORYTEXT>Kuchyňa | Príprava jedla</CATEGORYTEXT>
+  <MANUFACTURER>Ferrum Hron</MANUFACTURER>
+  <EAN>8580001000077</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>tvrdené sklo</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>biela</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Rozmery</PARAM_NAME>
+    <VAL>18 × 18 cm</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>KUC-008</ITEM_ID>
+  <PRODUCTNAME>Sklenené dózy na potraviny, sada 5 kusov</PRODUCTNAME>
+  <DESCRIPTION>Päť dóz z borosilikátového skla s objemom 0,3, 0,5, 0,8, 1,0 a 1,5 litra. Bambusové veká so silikónovým tesnením držia vzduchotesne. Sklo znesie mrazničku aj mikrovlnku (bez veka), umývačku áno.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-KUC-008</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/KUC-008.svg</IMGURL>
+  <PRICE_VAT>27.90</PRICE_VAT>
+  <CATEGORYTEXT>Kuchyňa | Skladovanie</CATEGORYTEXT>
+  <MANUFACTURER>Lipová dielňa</MANUFACTURER>
+  <EAN>8580001000084</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>borosilikátové sklo, bambus</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Objem</PARAM_NAME>
+    <VAL>0,3 až 1,5 l</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>priehľadná</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>KUC-009</ITEM_ID>
+  <PRODUCTNAME>Pekáč na chlieb liatinový s pokrievkou</PRODUCTNAME>
+  <DESCRIPTION>Oválny smaltovaný pekáč 30 × 22 cm s objemom 4,5 litra a ťažkou pokrievkou na pečenie chleba s kôrkou. Vhodný do rúry do 260 °C aj na indukciu. Smalt nepotrebuje vypaľovanie, umýva sa ručne.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-KUC-009</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/KUC-009.svg</IMGURL>
+  <PRICE_VAT>69.90</PRICE_VAT>
+  <CATEGORYTEXT>Kuchyňa | Pečenie</CATEGORYTEXT>
+  <MANUFACTURER>Ferrum Hron</MANUFACTURER>
+  <EAN>8580001000091</EAN>
+  <DELIVERY_DATE>3</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>smaltovaná liatina</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Objem</PARAM_NAME>
+    <VAL>4,5 l</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>tmavomodrá</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Rozmery</PARAM_NAME>
+    <VAL>30 × 22 cm</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>KUC-010</ITEM_ID>
+  <PRODUCTNAME>Kuchynská utierka ľanová, sada 3 kusov</PRODUCTNAME>
+  <DESCRIPTION>Tri ľanové utierky 50 × 70 cm z hrubšieho ľanu 220 g/m², tkané v Európe. Ľan saje rýchlo a nepúšťa vlákna na poháre. Pred prvým použitím vyprať na 60 °C, mierne sa zrazia.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-KUC-010</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/KUC-010.svg</IMGURL>
+  <PRICE_VAT>16.90</PRICE_VAT>
+  <CATEGORYTEXT>Kuchyňa | Textil</CATEGORYTEXT>
+  <MANUFACTURER>Lipová dielňa</MANUFACTURER>
+  <EAN>8580001000107</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>100 % ľan, 220 g/m²</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>prírodná s modrým pásom</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Rozmery</PARAM_NAME>
+    <VAL>50 × 70 cm</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>KUC-011</ITEM_ID>
+  <PRODUCTNAME>Forma na koláč s odnímateľným dnom 26 cm</PRODUCTNAME>
+  <DESCRIPTION>Tortová forma s priemerom 26 cm a výškou 7 cm, dno sa uvoľní sponou na boku. Nepriľnavá vrstva bez PFOA, do rúry do 230 °C. Umývať ručne, v umývačke povrch časom matnie.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-KUC-011</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/KUC-011.svg</IMGURL>
+  <PRICE_VAT>18.90</PRICE_VAT>
+  <CATEGORYTEXT>Kuchyňa | Pečenie</CATEGORYTEXT>
+  <MANUFACTURER>Ferrum Hron</MANUFACTURER>
+  <EAN>8580001000114</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>uhlíková oceľ s nepriľnavou vrstvou</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>sivá</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Priemer</PARAM_NAME>
+    <VAL>26 cm</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>KAV-001</ITEM_ID>
+  <PRODUCTNAME>Pákový kávovar Orava 15 bar</PRODUCTNAME>
+  <DESCRIPTION>Pákový kávovar s 15 barovým čerpadlom, ohrievanou plochou na šálky a parnou tryskou na mlieko. Nádržka na vodu 1,5 l, kovová páka 51 mm s dvoma sitkami na jedno a dve espressá. Rozmery 30 × 21 × 33 cm, príkon 1350 W.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-KAV-001</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/KAV-001.svg</IMGURL>
+  <PRICE_VAT>189.00</PRICE_VAT>
+  <CATEGORYTEXT>Kávovary a čaj | Kávovary</CATEGORYTEXT>
+  <MANUFACTURER>Kávomlyn Orava</MANUFACTURER>
+  <EAN>8580001000121</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>nerezová oceľ</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Objem</PARAM_NAME>
+    <VAL>1,5 l</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>strieborná</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Príkon</PARAM_NAME>
+    <VAL>1350 W</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>KAV-002</ITEM_ID>
+  <PRODUCTNAME>Automatický kávovar Orava Uno s mlynčekom</PRODUCTNAME>
+  <DESCRIPTION>Plnoautomatický kávovar s keramickým mlynčekom a 13 stupňami hrubosti mletia. Espresso, lungo a horúca voda na jedno stlačenie, parná tryska na mlieko. Nádržka 1,8 l, zásobník na zrná 200 g, odvápňovací program.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-KAV-002</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/KAV-002.svg</IMGURL>
+  <PRICE_VAT>249.00</PRICE_VAT>
+  <CATEGORYTEXT>Kávovary a čaj | Kávovary</CATEGORYTEXT>
+  <MANUFACTURER>Kávomlyn Orava</MANUFACTURER>
+  <EAN>8580001000138</EAN>
+  <DELIVERY_DATE>7</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>plast, nerezová oceľ</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Objem</PARAM_NAME>
+    <VAL>1,8 l</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>čierna</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Príkon</PARAM_NAME>
+    <VAL>1450 W</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>KAV-003</ITEM_ID>
+  <PRODUCTNAME>Kapsulový kávovar Orava Mini, červený</PRODUCTNAME>
+  <DESCRIPTION>Malý kapsulový kávovar na hliníkové kapsule bežného rozmeru, tlak 19 barov, zahriatie za 25 sekúnd. Nádržka 0,7 l, automatické vypnutie po 9 minútach, dve veľkosti šálky. Šírka len 11 cm, zmestí sa aj do malej kuchyne.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-KAV-003</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/KAV-003.svg</IMGURL>
+  <PRICE_VAT>89.90</PRICE_VAT>
+  <CATEGORYTEXT>Kávovary a čaj | Kávovary</CATEGORYTEXT>
+  <MANUFACTURER>Kávomlyn Orava</MANUFACTURER>
+  <EAN>8580001000145</EAN>
+  <ITEMGROUP_ID>KAV-MINI</ITEMGROUP_ID>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>plast</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Objem</PARAM_NAME>
+    <VAL>0,7 l</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>červená</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Príkon</PARAM_NAME>
+    <VAL>1200 W</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>KAV-004</ITEM_ID>
+  <PRODUCTNAME>Kapsulový kávovar Orava Mini, biely</PRODUCTNAME>
+  <DESCRIPTION>Rovnaký kávovar v bielom prevedení: hliníkové kapsule bežného rozmeru, tlak 19 barov, zahriatie za 25 sekúnd. Nádržka 0,7 l, automatické vypnutie, dve veľkosti šálky. Šírka 11 cm.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-KAV-004</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/KAV-004.svg</IMGURL>
+  <PRICE_VAT>89.90</PRICE_VAT>
+  <CATEGORYTEXT>Kávovary a čaj | Kávovary</CATEGORYTEXT>
+  <MANUFACTURER>Kávomlyn Orava</MANUFACTURER>
+  <EAN>8580001000152</EAN>
+  <ITEMGROUP_ID>KAV-MINI</ITEMGROUP_ID>
+  <DELIVERY_DATE>3</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>plast</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Objem</PARAM_NAME>
+    <VAL>0,7 l</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>biela</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Príkon</PARAM_NAME>
+    <VAL>1200 W</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>KAV-005</ITEM_ID>
+  <PRODUCTNAME>Mlynček na kávu ručný s keramickými kameňmi</PRODUCTNAME>
+  <DESCRIPTION>Ručný mlynček s keramickým kónickým mlecím mechanizmom a nastavením hrubosti od espressa po french press. Telo z nerezovej ocele s priemerom 5 cm sa zmestí do batohu. Zásobník na 30 g kávy, mletie jednej dávky trvá asi minútu.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-KAV-005</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/KAV-005.svg</IMGURL>
+  <PRICE_VAT>34.90</PRICE_VAT>
+  <CATEGORYTEXT>Kávovary a čaj | Mlynčeky</CATEGORYTEXT>
+  <MANUFACTURER>Kávomlyn Orava</MANUFACTURER>
+  <EAN>8580001000169</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>nerezová oceľ, keramika</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Objem</PARAM_NAME>
+    <VAL>30 g</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>strieborná</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>KAV-006</ITEM_ID>
+  <PRODUCTNAME>French press 1 l z borosilikátového skla</PRODUCTNAME>
+  <DESCRIPTION>Zaparovacia kanvica s objemom 1 liter (asi 4 šálky), sklenená nádoba a nerezový rám s piestom. Dvojité sitko zachytí aj jemnejšie mletie. Sklo je vymeniteľné, náhradné dodávame samostatne.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-KAV-006</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/KAV-006.svg</IMGURL>
+  <PRICE_VAT>24.90</PRICE_VAT>
+  <CATEGORYTEXT>Kávovary a čaj | Príprava kávy</CATEGORYTEXT>
+  <MANUFACTURER>Čajovňa Liptov</MANUFACTURER>
+  <EAN>8580001000176</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>borosilikátové sklo, nerezová oceľ</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Objem</PARAM_NAME>
+    <VAL>1 l</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>strieborná</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>KAV-007</ITEM_ID>
+  <PRODUCTNAME>Kanvica na filtrovanú kávu s dlhým hrdlom 0,9 l</PRODUCTNAME>
+  <DESCRIPTION>Kanvica s tenkým hrdlom na presné liatie pri príprave filtrovanej kávy. Objem 0,9 l, vhodná na indukciu aj plyn, bez teplomeru. Drevená rukoväť a gombík na pokrievke sa nezohrievajú.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-KAV-007</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/KAV-007.svg</IMGURL>
+  <PRICE_VAT>39.90</PRICE_VAT>
+  <CATEGORYTEXT>Kávovary a čaj | Príprava kávy</CATEGORYTEXT>
+  <MANUFACTURER>Kávomlyn Orava</MANUFACTURER>
+  <EAN>8580001000183</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>nerezová oceľ</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Objem</PARAM_NAME>
+    <VAL>0,9 l</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>matná čierna</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>KAV-008</ITEM_ID>
+  <PRODUCTNAME>Rýchlovarná kanvica s nastavením teploty 1,7 l</PRODUCTNAME>
+  <DESCRIPTION>Kanvica s voľbou teploty 40 až 100 °C po 5 stupňoch, na zelený čaj aj kávu. Objem 1,7 l, udržiavanie teploty 30 minút, príkon 2200 W. Vnútro celé z nerezovej ocele, bez plastu v kontakte s vodou.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-KAV-008</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/KAV-008.svg</IMGURL>
+  <PRICE_VAT>54.90</PRICE_VAT>
+  <CATEGORYTEXT>Kávovary a čaj | Kanvice</CATEGORYTEXT>
+  <MANUFACTURER>Kávomlyn Orava</MANUFACTURER>
+  <EAN>8580001000190</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>nerezová oceľ</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Objem</PARAM_NAME>
+    <VAL>1,7 l</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>strieborná</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Príkon</PARAM_NAME>
+    <VAL>2200 W</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>KAV-009</ITEM_ID>
+  <PRODUCTNAME>Čajník liatinový 0,8 l so sitkom</PRODUCTNAME>
+  <DESCRIPTION>Liatinový čajník v japonskom štýle s vnútorným smaltom a nerezovým sitkom na sypaný čaj. Objem 0,8 l, drží teplo asi 40 minút. Nie je určený na varenie vody na sporáku, voda sa doň nalieva už horúca.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-KAV-009</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/KAV-009.svg</IMGURL>
+  <PRICE_VAT>44.90</PRICE_VAT>
+  <CATEGORYTEXT>Kávovary a čaj | Čaj</CATEGORYTEXT>
+  <MANUFACTURER>Čajovňa Liptov</MANUFACTURER>
+  <EAN>8580001000206</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>liatina so smaltom</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Objem</PARAM_NAME>
+    <VAL>0,8 l</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>zelená</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>KAV-010</ITEM_ID>
+  <PRODUCTNAME>Sypaný čierny čaj Assam, 100 g</PRODUCTNAME>
+  <DESCRIPTION>Celolistový čierny čaj z Assamu, druhý zber, s plnou sladovou chuťou. Balenie 100 g v sáčku so zipsom, vystačí asi na 40 šálok. Lúhovať 3 až 4 minúty vo vode 95 °C.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-KAV-010</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/KAV-010.svg</IMGURL>
+  <PRICE_VAT>12.90</PRICE_VAT>
+  <CATEGORYTEXT>Kávovary a čaj | Čaj</CATEGORYTEXT>
+  <MANUFACTURER>Čajovňa Liptov</MANUFACTURER>
+  <EAN>8580001000213</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Hmotnosť</PARAM_NAME>
+    <VAL>100 g</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Pôvod</PARAM_NAME>
+    <VAL>India, Assam</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>KAV-011</ITEM_ID>
+  <PRODUCTNAME>Sada 4 dvojstenných pohárov na kávu 250 ml</PRODUCTNAME>
+  <DESCRIPTION>Štyri poháre s dvojitou stenou, ktoré nepália do ruky a nerosia sa. Objem 250 ml, na cappuccino alebo čaj. Ručne fúkané sklo, umývačka áno, mikrovlnka áno.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-KAV-011</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/KAV-011.svg</IMGURL>
+  <PRICE_VAT>22.90</PRICE_VAT>
+  <CATEGORYTEXT>Kávovary a čaj | Šálky a poháre</CATEGORYTEXT>
+  <MANUFACTURER>Čajovňa Liptov</MANUFACTURER>
+  <EAN>8580001000220</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>borosilikátové sklo</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Objem</PARAM_NAME>
+    <VAL>250 ml</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>priehľadná</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>ZAH-001</ITEM_ID>
+  <PRODUCTNAME>Záhradné nožnice na konáre obojručné 60 cm</PRODUCTNAME>
+  <DESCRIPTION>Nožnice na konáre do priemeru 35 mm s prevodovým mechanizmom, ktorý znižuje potrebnú silu. Hliníkové rukoväte 60 cm s mäkkým úchopom, hmotnosť 900 g. Čepeľ z kalenej ocele s nepriľnavou vrstvou.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-ZAH-001</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/ZAH-001.svg</IMGURL>
+  <PRICE_VAT>34.90</PRICE_VAT>
+  <CATEGORYTEXT>Záhrada | Náradie</CATEGORYTEXT>
+  <MANUFACTURER>Zelený dvor</MANUFACTURER>
+  <EAN>8580001000237</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>kalená oceľ, hliník</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>zelená</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Dĺžka</PARAM_NAME>
+    <VAL>60 cm</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>ZAH-002</ITEM_ID>
+  <PRODUCTNAME>Ručné záhradnícke nožnice</PRODUCTNAME>
+  <DESCRIPTION>Nožnice na ruže a vetvičky do 20 mm s presnou obojstrannou čepeľou. Pružina a poistka, rukoväť pre pravákov aj ľavákov. Dĺžka 21 cm, hmotnosť 220 g.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-ZAH-002</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/ZAH-002.svg</IMGURL>
+  <PRICE_VAT>18.90</PRICE_VAT>
+  <CATEGORYTEXT>Záhrada | Náradie</CATEGORYTEXT>
+  <MANUFACTURER>Zelený dvor</MANUFACTURER>
+  <EAN>8580001000244</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>kalená oceľ, plast</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>červená</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Dĺžka</PARAM_NAME>
+    <VAL>21 cm</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>ZAH-003</ITEM_ID>
+  <PRODUCTNAME>Vyvýšený záhon z modrínového dreva 120 × 80 cm</PRODUCTNAME>
+  <DESCRIPTION>Skladací vyvýšený záhon z modrínových dosiek hrúbky 28 mm, bez chemického ošetrenia. Rozmery 120 × 80 × 40 cm, objem asi 380 litrov substrátu. Zloží sa bez náradia za 15 minút.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-ZAH-003</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/ZAH-003.svg</IMGURL>
+  <PRICE_VAT>129.00</PRICE_VAT>
+  <CATEGORYTEXT>Záhrada | Pestovanie</CATEGORYTEXT>
+  <MANUFACTURER>Zelený dvor</MANUFACTURER>
+  <EAN>8580001000251</EAN>
+  <DELIVERY_DATE>7</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>modrín</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>prírodná</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Rozmery</PARAM_NAME>
+    <VAL>120 × 80 × 40 cm</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Objem</PARAM_NAME>
+    <VAL>380 l</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>ZAH-004</ITEM_ID>
+  <PRODUCTNAME>Kanva na polievanie 10 l pozinkovaná</PRODUCTNAME>
+  <DESCRIPTION>Kanva z pozinkovaného plechu s odnímateľným kropiacim nadstavcom. Objem 10 litrov, dva držiaky na pohodlné nesenie a liatie. Nehrdzavie, vydrží roky vonku.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-ZAH-004</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/ZAH-004.svg</IMGURL>
+  <PRICE_VAT>27.90</PRICE_VAT>
+  <CATEGORYTEXT>Záhrada | Polievanie</CATEGORYTEXT>
+  <MANUFACTURER>Zelený dvor</MANUFACTURER>
+  <EAN>8580001000268</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>pozinkovaný plech</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Objem</PARAM_NAME>
+    <VAL>10 l</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>strieborná</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>ZAH-005</ITEM_ID>
+  <PRODUCTNAME>Záhradná hadica 20 m so sadou koncoviek</PRODUCTNAME>
+  <DESCRIPTION>Trojvrstvová hadica s priemerom 1/2 palca (13 mm), dĺžka 20 m, tlak do 20 barov. V balení rýchlospojky, koncovka na kohútik a nastaviteľná striekacia pištoľ. Odolná voči UV žiareniu a zauzleniu.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-ZAH-005</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/ZAH-005.svg</IMGURL>
+  <PRICE_VAT>32.90</PRICE_VAT>
+  <CATEGORYTEXT>Záhrada | Polievanie</CATEGORYTEXT>
+  <MANUFACTURER>Zelený dvor</MANUFACTURER>
+  <EAN>8580001000275</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>PVC s výstužou</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>zelená</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Dĺžka</PARAM_NAME>
+    <VAL>20 m</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>ZAH-006</ITEM_ID>
+  <PRODUCTNAME>Kompostér 300 l z recyklovaného plastu</PRODUCTNAME>
+  <DESCRIPTION>Kompostér z recyklovaného plastu s objemom 300 litrov, vetracie otvory po stranách a dvierka na odber kompostu dole. Rozmery 80 × 80 × 82 cm, bez dna, stavia sa priamo na zem. Zloží sa bez náradia.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-ZAH-006</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/ZAH-006.svg</IMGURL>
+  <PRICE_VAT>49.90</PRICE_VAT>
+  <CATEGORYTEXT>Záhrada | Pestovanie</CATEGORYTEXT>
+  <MANUFACTURER>Zelený dvor</MANUFACTURER>
+  <EAN>8580001000282</EAN>
+  <DELIVERY_DATE>3</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>recyklovaný plast</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Objem</PARAM_NAME>
+    <VAL>300 l</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>čierna</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Rozmery</PARAM_NAME>
+    <VAL>80 × 80 × 82 cm</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>ZAH-007</ITEM_ID>
+  <PRODUCTNAME>Semená bylinkovej záhradky, 6 druhov</PRODUCTNAME>
+  <DESCRIPTION>Šesť sáčkov semien: bazalka, petržlen, pažítka, kôpor, tymian a rukola. Určené na výsev od apríla do júla, na balkón aj na záhon. Každý sáčok má návod na výsev a hĺbku sadenia.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-ZAH-007</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/ZAH-007.svg</IMGURL>
+  <PRICE_VAT>12.90</PRICE_VAT>
+  <CATEGORYTEXT>Záhrada | Pestovanie</CATEGORYTEXT>
+  <MANUFACTURER>Zelený dvor</MANUFACTURER>
+  <EAN>8580001000299</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Obsah</PARAM_NAME>
+    <VAL>bazalka, petržlen, pažítka, kôpor, tymian, rukola</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>ZAH-008</ITEM_ID>
+  <PRODUCTNAME>Terasové kreslo z akáciového dreva</PRODUCTNAME>
+  <DESCRIPTION>Skladacie kreslo z akáciového dreva ošetreného olejom, nosnosť 120 kg. Rozmery 58 × 62 × 88 cm, hmotnosť 6 kg. Na zimu odporúčame uložiť pod strechu a raz ročne naolejovať.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-ZAH-008</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/ZAH-008.svg</IMGURL>
+  <PRICE_VAT>89.90</PRICE_VAT>
+  <CATEGORYTEXT>Záhrada | Nábytok</CATEGORYTEXT>
+  <MANUFACTURER>Zelený dvor</MANUFACTURER>
+  <EAN>8580001000305</EAN>
+  <DELIVERY_DATE>7</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>akácia</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>hnedá</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Rozmery</PARAM_NAME>
+    <VAL>58 × 62 × 88 cm</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Nosnosť</PARAM_NAME>
+    <VAL>120 kg</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>ZAH-009</ITEM_ID>
+  <PRODUCTNAME>Záhradné rukavice z kozej kože, veľkosť M</PRODUCTNAME>
+  <DESCRIPTION>Rukavice z kozej kože s bavlneným chrbtom, na prácu s ružami a ostrými kríkmi. Predĺžená manžeta chráni zápästie. Veľkosť M zodpovedá obvodu dlane 20 až 22 cm.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-ZAH-009</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/ZAH-009.svg</IMGURL>
+  <PRICE_VAT>14.90</PRICE_VAT>
+  <CATEGORYTEXT>Záhrada | Náradie</CATEGORYTEXT>
+  <MANUFACTURER>Zelený dvor</MANUFACTURER>
+  <EAN>8580001000312</EAN>
+  <ITEMGROUP_ID>RUK-KOZA</ITEMGROUP_ID>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>kozia koža, bavlna</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>hnedá</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Veľkosť</PARAM_NAME>
+    <VAL>M</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>ZAH-010</ITEM_ID>
+  <PRODUCTNAME>Záhradné rukavice z kozej kože, veľkosť L</PRODUCTNAME>
+  <DESCRIPTION>Rukavice z kozej kože s bavlneným chrbtom, na prácu s ružami a ostrými kríkmi. Predĺžená manžeta chráni zápästie. Veľkosť L zodpovedá obvodu dlane 22 až 24 cm.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-ZAH-010</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/ZAH-010.svg</IMGURL>
+  <PRICE_VAT>14.90</PRICE_VAT>
+  <CATEGORYTEXT>Záhrada | Náradie</CATEGORYTEXT>
+  <MANUFACTURER>Zelený dvor</MANUFACTURER>
+  <EAN>8580001000329</EAN>
+  <ITEMGROUP_ID>RUK-KOZA</ITEMGROUP_ID>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>kozia koža, bavlna</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>hnedá</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Veľkosť</PARAM_NAME>
+    <VAL>L</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>ZAH-011</ITEM_ID>
+  <PRODUCTNAME>Solárne lampy do záhrady, sada 4 kusov</PRODUCTNAME>
+  <DESCRIPTION>Štyri zapichovacie lampy výšky 38 cm s teplým bielym svetlom 3000 K. Solárny panel nabije batériu za slnečného dňa, svieti 6 až 8 hodín. Krytie IP44, znesie dážď.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-ZAH-011</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/ZAH-011.svg</IMGURL>
+  <PRICE_VAT>24.90</PRICE_VAT>
+  <CATEGORYTEXT>Záhrada | Osvetlenie</CATEGORYTEXT>
+  <MANUFACTURER>Zelený dvor</MANUFACTURER>
+  <EAN>8580001000336</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>nerezová oceľ, plast</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>strieborná</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Výška</PARAM_NAME>
+    <VAL>38 cm</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>UPR-001</ITEM_ID>
+  <PRODUCTNAME>Plochý mop s vedrom so žmýkaním</PRODUCTNAME>
+  <DESCRIPTION>Plochý mop 33 cm s dvoma návlekmi z mikrovlákna a vedro so žmýkacím mechanizmom, ktorý sa ovláda nohou. Objem vedra 8 litrov, teleskopická tyč 80 až 130 cm. Návleky sa perú na 60 °C.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-UPR-001</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/UPR-001.svg</IMGURL>
+  <PRICE_VAT>39.90</PRICE_VAT>
+  <CATEGORYTEXT>Upratovanie | Podlahy</CATEGORYTEXT>
+  <MANUFACTURER>Čistá izba</MANUFACTURER>
+  <EAN>8580001000343</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>plast, mikrovlákno</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Objem</PARAM_NAME>
+    <VAL>8 l</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>sivá</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>UPR-002</ITEM_ID>
+  <PRODUCTNAME>Utierky z mikrovlákna, sada 10 kusov</PRODUCTNAME>
+  <DESCRIPTION>Desať utierok 30 × 30 cm z mikrovlákna s gramážou 300 g/m², na prach, sklo aj kuchyňu. Farebne odlíšené podľa miestnosti. Perú sa na 60 °C bez aviváže, vydržia asi 300 praní.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-UPR-002</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/UPR-002.svg</IMGURL>
+  <PRICE_VAT>12.90</PRICE_VAT>
+  <CATEGORYTEXT>Upratovanie | Utierky</CATEGORYTEXT>
+  <MANUFACTURER>Čistá izba</MANUFACTURER>
+  <EAN>8580001000350</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>mikrovlákno 300 g/m²</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>mix farieb</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Rozmery</PARAM_NAME>
+    <VAL>30 × 30 cm</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>UPR-003</ITEM_ID>
+  <PRODUCTNAME>Tyčový vysávač akumulátorový</PRODUCTNAME>
+  <DESCRIPTION>Bezšnúrový vysávač s výdržou 40 minút na jedno nabitie a sacím výkonom 22 kPa. Motorizovaná hubica s LED svetlom, štrbinová hubica a kefa na čalúnenie. Hmotnosť 2,4 kg, nádoba 0,6 l, nabitie za 4 hodiny.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-UPR-003</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/UPR-003.svg</IMGURL>
+  <PRICE_VAT>179.00</PRICE_VAT>
+  <CATEGORYTEXT>Upratovanie | Vysávače</CATEGORYTEXT>
+  <MANUFACTURER>Čistá izba</MANUFACTURER>
+  <EAN>8580001000367</EAN>
+  <DELIVERY_DATE>3</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>plast</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>modrá</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Objem</PARAM_NAME>
+    <VAL>0,6 l</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Výdrž</PARAM_NAME>
+    <VAL>40 minút</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>UPR-004</ITEM_ID>
+  <PRODUCTNAME>Sada kief na riad z dreva a kokosového vlákna</PRODUCTNAME>
+  <DESCRIPTION>Kefa na riad, kefa na fľaše a kefka na zeleninu s bukovými rukoväťami a štetinami z kokosového vlákna. Kefa na riad má vymeniteľnú hlavu. Sušiť zavesené, nenechávať stáť vo vode.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-UPR-004</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/UPR-004.svg</IMGURL>
+  <PRICE_VAT>16.90</PRICE_VAT>
+  <CATEGORYTEXT>Upratovanie | Kuchyňa</CATEGORYTEXT>
+  <MANUFACTURER>Čistá izba</MANUFACTURER>
+  <EAN>8580001000374</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>bukové drevo, kokosové vlákno</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>prírodná</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>UPR-005</ITEM_ID>
+  <PRODUCTNAME>Odvlhčovač vzduchu 12 l za deň</PRODUCTNAME>
+  <DESCRIPTION>Kompresorový odvlhčovač na miestnosti do 25 m², výkon 12 litrov vody za deň pri 30 °C a 80 % vlhkosti. Nádrž 2 l s automatickým vypnutím, možnosť trvalého odtoku hadičkou. Hlučnosť 42 dB, príkon 220 W.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-UPR-005</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/UPR-005.svg</IMGURL>
+  <PRICE_VAT>149.00</PRICE_VAT>
+  <CATEGORYTEXT>Upratovanie | Vzduch</CATEGORYTEXT>
+  <MANUFACTURER>Čistá izba</MANUFACTURER>
+  <EAN>8580001000381</EAN>
+  <DELIVERY_DATE>7</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>plast</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Objem</PARAM_NAME>
+    <VAL>2 l</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>biela</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Príkon</PARAM_NAME>
+    <VAL>220 W</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>UPR-006</ITEM_ID>
+  <PRODUCTNAME>Kôš na bielizeň z morskej trávy 60 l</PRODUCTNAME>
+  <DESCRIPTION>Ručne pletený kôš s objemom 60 litrov, vnútorný bavlnený vak sa vyberá a perie. Rozmery 40 × 40 × 55 cm, dve rúčky. Držať v suchu, tráva nemá rada vlhkú kúpeľňu.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-UPR-006</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/UPR-006.svg</IMGURL>
+  <PRICE_VAT>34.90</PRICE_VAT>
+  <CATEGORYTEXT>Upratovanie | Bielizeň</CATEGORYTEXT>
+  <MANUFACTURER>Čistá izba</MANUFACTURER>
+  <EAN>8580001000398</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>morská tráva, bavlna</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Objem</PARAM_NAME>
+    <VAL>60 l</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>prírodná</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Rozmery</PARAM_NAME>
+    <VAL>40 × 40 × 55 cm</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>UPR-007</ITEM_ID>
+  <PRODUCTNAME>Stierka na okná s teleskopickou tyčou</PRODUCTNAME>
+  <DESCRIPTION>Stierka s 35 cm gumenou lištou a obojstrannou hlavou: z jednej strany mikrovlákno na umytie, z druhej guma na stiahnutie vody. Teleskopická tyč 1 až 2 m s hákom na zavesenie. Vhodná na okná aj sprchový kút.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-UPR-007</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/UPR-007.svg</IMGURL>
+  <PRICE_VAT>22.90</PRICE_VAT>
+  <CATEGORYTEXT>Upratovanie | Okná</CATEGORYTEXT>
+  <MANUFACTURER>Čistá izba</MANUFACTURER>
+  <EAN>8580001000404</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>hliník, guma, mikrovlákno</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>strieborná</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Dĺžka</PARAM_NAME>
+    <VAL>1 až 2 m</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>UPR-008</ITEM_ID>
+  <PRODUCTNAME>Prostriedok na riad koncentrovaný 1 l</PRODUCTNAME>
+  <DESCRIPTION>Koncentrát na riad na báze cukrových tenzidov, bez parfumu a farbív, biologicky rozložiteľný. Jedna fľaša 1 l vystačí asi na 200 umytí. Vhodný aj pre citlivú pokožku.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-UPR-008</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/UPR-008.svg</IMGURL>
+  <PRICE_VAT>13.90</PRICE_VAT>
+  <CATEGORYTEXT>Upratovanie | Kuchyňa</CATEGORYTEXT>
+  <MANUFACTURER>Čistá izba</MANUFACTURER>
+  <EAN>8580001000411</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Objem</PARAM_NAME>
+    <VAL>1 l</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Vôňa</PARAM_NAME>
+    <VAL>bez parfumu</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>UPR-009</ITEM_ID>
+  <PRODUCTNAME>Sušiak na bielizeň skladací 18 m</PRODUCTNAME>
+  <DESCRIPTION>Skladací sušiak so sušiacou dĺžkou 18 metrov a dvoma sklopnými krídlami. Rozložený 180 × 55 × 100 cm, zložený len 8 cm hrubý. Nosnosť 20 kg, nohy s kolieskami.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-UPR-009</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/UPR-009.svg</IMGURL>
+  <PRICE_VAT>44.90</PRICE_VAT>
+  <CATEGORYTEXT>Upratovanie | Bielizeň</CATEGORYTEXT>
+  <MANUFACTURER>Čistá izba</MANUFACTURER>
+  <EAN>8580001000428</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>oceľ s práškovou farbou</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>biela</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Rozmery</PARAM_NAME>
+    <VAL>180 × 55 × 100 cm</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Nosnosť</PARAM_NAME>
+    <VAL>20 kg</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>DET-001</ITEM_ID>
+  <PRODUCTNAME>Drevená vkladačka tvary a farby</PRODUCTNAME>
+  <DESCRIPTION>Doska 30 × 22 cm s dvanástimi geometrickými tvarmi na uchopenie, natreté farbami na vodnej báze. Pre deti od 12 mesiacov, precvičuje jemnú motoriku a názvy farieb. Hrany brúsené, bez malých častí.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-DET-001</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/DET-001.svg</IMGURL>
+  <PRICE_VAT>19.90</PRICE_VAT>
+  <CATEGORYTEXT>Deti | Hračky</CATEGORYTEXT>
+  <MANUFACTURER>Malý svet</MANUFACTURER>
+  <EAN>8580001000435</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>bukové drevo</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>farebná</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Vek</PARAM_NAME>
+    <VAL>od 1 roka</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>DET-002</ITEM_ID>
+  <PRODUCTNAME>Detský batoh do škôlky 8 l, modrý</PRODUCTNAME>
+  <DESCRIPTION>Batoh na škôlku s objemom 8 litrov, na desiatu, fľašu a pyžamo. Polstrované popruhy, hrudný pás a menovka vnútri. Rozmery 30 × 24 × 12 cm, hmotnosť 250 g, perie sa v práčke na 30 °C.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-DET-002</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/DET-002.svg</IMGURL>
+  <PRICE_VAT>29.90</PRICE_VAT>
+  <CATEGORYTEXT>Deti | Batohy a tašky</CATEGORYTEXT>
+  <MANUFACTURER>Malý svet</MANUFACTURER>
+  <EAN>8580001000442</EAN>
+  <ITEMGROUP_ID>BAT-DETI</ITEMGROUP_ID>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>recyklovaný polyester</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Objem</PARAM_NAME>
+    <VAL>8 l</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>modrá</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>DET-003</ITEM_ID>
+  <PRODUCTNAME>Detský batoh do škôlky 8 l, žltý</PRODUCTNAME>
+  <DESCRIPTION>Ten istý batoh v žltej farbe: objem 8 litrov, polstrované popruhy, hrudný pás a menovka vnútri. Rozmery 30 × 24 × 12 cm, hmotnosť 250 g, perie sa v práčke na 30 °C.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-DET-003</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/DET-003.svg</IMGURL>
+  <PRICE_VAT>29.90</PRICE_VAT>
+  <CATEGORYTEXT>Deti | Batohy a tašky</CATEGORYTEXT>
+  <MANUFACTURER>Malý svet</MANUFACTURER>
+  <EAN>8580001000459</EAN>
+  <ITEMGROUP_ID>BAT-DETI</ITEMGROUP_ID>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>recyklovaný polyester</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Objem</PARAM_NAME>
+    <VAL>8 l</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>žltá</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>DET-004</ITEM_ID>
+  <PRODUCTNAME>Detský príbor z nerezovej ocele, 4 kusy</PRODUCTNAME>
+  <DESCRIPTION>Lyžica, vidlička, nôž a lyžička s kratšími rukoväťami pre deti od 3 rokov. Zaoblené hroty a tupý nôž, ktorý ale krája mäkké jedlo. Umývačka áno, darčeková krabička.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-DET-004</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/DET-004.svg</IMGURL>
+  <PRICE_VAT>16.90</PRICE_VAT>
+  <CATEGORYTEXT>Deti | Stolovanie</CATEGORYTEXT>
+  <MANUFACTURER>Malý svet</MANUFACTURER>
+  <EAN>8580001000466</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>nerezová oceľ 18/10</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>strieborná</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Vek</PARAM_NAME>
+    <VAL>od 3 rokov</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>DET-005</ITEM_ID>
+  <PRODUCTNAME>Detská fľaša na vodu 350 ml so slamkou</PRODUCTNAME>
+  <DESCRIPTION>Nerezová fľaša s objemom 350 ml a silikónovou slamkou, bez BPA. Uzáver s krytom proti prachu, drží studené 8 hodín. Pre deti od 2 rokov, fľašu umývať ručne, slamka v umývačke áno.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-DET-005</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/DET-005.svg</IMGURL>
+  <PRICE_VAT>14.90</PRICE_VAT>
+  <CATEGORYTEXT>Deti | Stolovanie</CATEGORYTEXT>
+  <MANUFACTURER>Malý svet</MANUFACTURER>
+  <EAN>8580001000473</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>nerezová oceľ, silikón</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Objem</PARAM_NAME>
+    <VAL>350 ml</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>zelená</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Vek</PARAM_NAME>
+    <VAL>od 2 rokov</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>DET-006</ITEM_ID>
+  <PRODUCTNAME>Drevená detská kuchynka</PRODUCTNAME>
+  <DESCRIPTION>Detská kuchynka výšky 92 cm s dvoma platničkami, rúrou s okienkom, drezom a poličkou. Gombíky sa otáčajú a klikajú. Pre deti od 3 rokov, montáž asi 45 minút, hmotnosť 12 kg.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-DET-006</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/DET-006.svg</IMGURL>
+  <PRICE_VAT>149.00</PRICE_VAT>
+  <CATEGORYTEXT>Deti | Hračky</CATEGORYTEXT>
+  <MANUFACTURER>Malý svet</MANUFACTURER>
+  <EAN>8580001000480</EAN>
+  <DELIVERY_DATE>7</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>preglejka, bukové drevo</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>biela</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Rozmery</PARAM_NAME>
+    <VAL>60 × 30 × 92 cm</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Vek</PARAM_NAME>
+    <VAL>od 3 rokov</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>DET-007</ITEM_ID>
+  <PRODUCTNAME>Stavebnica drevené kocky, 100 kusov</PRODUCTNAME>
+  <DESCRIPTION>Sto kociek z neošetreného bukového dreva v základnom module 3 cm: kocky, hranoly, valce a oblúky. Dodávame v plátennom vreci so sťahovacou šnúrkou. Pre deti od 18 mesiacov.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-DET-007</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/DET-007.svg</IMGURL>
+  <PRICE_VAT>39.90</PRICE_VAT>
+  <CATEGORYTEXT>Deti | Hračky</CATEGORYTEXT>
+  <MANUFACTURER>Malý svet</MANUFACTURER>
+  <EAN>8580001000497</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>bukové drevo</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>prírodná</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Vek</PARAM_NAME>
+    <VAL>od 18 mesiacov</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>DET-008</ITEM_ID>
+  <PRODUCTNAME>Nočná lampička králik</PRODUCTNAME>
+  <DESCRIPTION>Silikónová lampička v tvare králika, výška 18 cm, mäkká na dotyk, dá sa vziať do postele. Teplé biele svetlo s tromi stupňami jasu a časovačom 30 minút. Nabíja sa cez USB-C, výdrž 10 hodín.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-DET-008</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/DET-008.svg</IMGURL>
+  <PRICE_VAT>24.90</PRICE_VAT>
+  <CATEGORYTEXT>Deti | Do izby</CATEGORYTEXT>
+  <MANUFACTURER>Malý svet</MANUFACTURER>
+  <EAN>8580001000503</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>silikón</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>biela</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Výška</PARAM_NAME>
+    <VAL>18 cm</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>DET-009</ITEM_ID>
+  <PRODUCTNAME>Pexeso zvieratá z hôr</PRODUCTNAME>
+  <DESCRIPTION>Pexeso s 32 pármi zvierat žijúcich v Tatrách, ilustrácie akvarelom. Kartičky 6 × 6 cm z hrubého kartónu so zaoblenými rohmi. Pre deti od 3 rokov, 2 až 6 hráčov.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-DET-009</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/DET-009.svg</IMGURL>
+  <PRICE_VAT>12.90</PRICE_VAT>
+  <CATEGORYTEXT>Deti | Hry</CATEGORYTEXT>
+  <MANUFACTURER>Malý svet</MANUFACTURER>
+  <EAN>8580001000510</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>kartón</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>farebná</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Vek</PARAM_NAME>
+    <VAL>od 3 rokov</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>DET-010</ITEM_ID>
+  <PRODUCTNAME>Rastúca detská stolička z bukového dreva</PRODUCTNAME>
+  <DESCRIPTION>Rastúca stolička z bukového dreva s nastaviteľným sedadlom a opierkou na nohy, od 6 mesiacov do dospelosti (nosnosť 100 kg). V balení pultík, popruhy a mäkký vankúšik. Rozmery 47 × 50 × 80 cm.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-DET-010</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/DET-010.svg</IMGURL>
+  <PRICE_VAT>119.00</PRICE_VAT>
+  <CATEGORYTEXT>Deti | Nábytok</CATEGORYTEXT>
+  <MANUFACTURER>Malý svet</MANUFACTURER>
+  <EAN>8580001000527</EAN>
+  <DELIVERY_DATE>3</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>bukové drevo</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>prírodná</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Rozmery</PARAM_NAME>
+    <VAL>47 × 50 × 80 cm</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Nosnosť</PARAM_NAME>
+    <VAL>100 kg</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>DAR-001</ITEM_ID>
+  <PRODUCTNAME>Darčeková sada medu z podhoria, 3 × 250 g</PRODUCTNAME>
+  <DESCRIPTION>Tri sklené poháre medu po 250 g: lipový, lesný a kvetový, od včelárov z podhoria. Balené v drevenej krabičke s výplňou z drevitej vlny. Med je surový a nefiltrovaný, časom môže kryštalizovať.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-DAR-001</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/DAR-001.svg</IMGURL>
+  <PRICE_VAT>24.90</PRICE_VAT>
+  <CATEGORYTEXT>Darčeky | Jedlé darčeky</CATEGORYTEXT>
+  <MANUFACTURER>Darka Tatry</MANUFACTURER>
+  <EAN>8580001000534</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Obsah</PARAM_NAME>
+    <VAL>lipový, lesný, kvetový med</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Hmotnosť</PARAM_NAME>
+    <VAL>750 g</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>DAR-002</ITEM_ID>
+  <PRODUCTNAME>Vlnená deka 130 × 180 cm, sivá</PRODUCTNAME>
+  <DESCRIPTION>Tkaná deka z merino vlny, 130 × 180 cm, hmotnosť 1,1 kg, so strapcami. Hreje aj v chladnej chate a vlna neabsorbuje pachy. Prať ručne vlažnou vodou alebo čistiť chemicky.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-DAR-002</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/DAR-002.svg</IMGURL>
+  <PRICE_VAT>79.90</PRICE_VAT>
+  <CATEGORYTEXT>Darčeky | Do domácnosti</CATEGORYTEXT>
+  <MANUFACTURER>Darka Tatry</MANUFACTURER>
+  <EAN>8580001000541</EAN>
+  <ITEMGROUP_ID>DEKA-VLNA</ITEMGROUP_ID>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>100 % merino vlna</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>sivá</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Rozmery</PARAM_NAME>
+    <VAL>130 × 180 cm</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>DAR-003</ITEM_ID>
+  <PRODUCTNAME>Vlnená deka 130 × 180 cm, terakotová</PRODUCTNAME>
+  <DESCRIPTION>Tá istá deka z merino vlny v terakotovej farbe, 130 × 180 cm, hmotnosť 1,1 kg, so strapcami. Prať ručne vlažnou vodou alebo čistiť chemicky.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-DAR-003</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/DAR-003.svg</IMGURL>
+  <PRICE_VAT>79.90</PRICE_VAT>
+  <CATEGORYTEXT>Darčeky | Do domácnosti</CATEGORYTEXT>
+  <MANUFACTURER>Darka Tatry</MANUFACTURER>
+  <EAN>8580001000558</EAN>
+  <ITEMGROUP_ID>DEKA-VLNA</ITEMGROUP_ID>
+  <DELIVERY_DATE>3</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>100 % merino vlna</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>terakotová</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Rozmery</PARAM_NAME>
+    <VAL>130 × 180 cm</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>DAR-004</ITEM_ID>
+  <PRODUCTNAME>Sviečka zo sójového vosku, borovica a smola</PRODUCTNAME>
+  <DESCRIPTION>Sviečka v sklenenom pohári 200 ml s vôňou borovice a smoly, drevený knôt pri horení tichučko praská. Doba horenia asi 40 hodín. Vosk bez parafínu, pohár po dohorení stačí vymyť a použiť na ceruzky.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-DAR-004</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/DAR-004.svg</IMGURL>
+  <PRICE_VAT>18.90</PRICE_VAT>
+  <CATEGORYTEXT>Darčeky | Do domácnosti</CATEGORYTEXT>
+  <MANUFACTURER>Darka Tatry</MANUFACTURER>
+  <EAN>8580001000565</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>sójový vosk, sklo, drevený knôt</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Objem</PARAM_NAME>
+    <VAL>200 ml</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>zelená</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>DAR-005</ITEM_ID>
+  <PRODUCTNAME>Keramická miska ručne točená 18 cm</PRODUCTNAME>
+  <DESCRIPTION>Miska s priemerom 18 cm točená na kruhu, každý kus je mierne iný. Kamenina s modrou glazúrou, vhodná do umývačky aj do rúry. Na polievku, ovsenú kašu alebo ovocie.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-DAR-005</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/DAR-005.svg</IMGURL>
+  <PRICE_VAT>32.90</PRICE_VAT>
+  <CATEGORYTEXT>Darčeky | Do domácnosti</CATEGORYTEXT>
+  <MANUFACTURER>Darka Tatry</MANUFACTURER>
+  <EAN>8580001000572</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>kamenina</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>modrá glazúra</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Priemer</PARAM_NAME>
+    <VAL>18 cm</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>DAR-006</ITEM_ID>
+  <PRODUCTNAME>Zápisník A5 v koženej väzbe</PRODUCTNAME>
+  <DESCRIPTION>Zápisník A5 so 192 stranami bodkovaného papiera 100 g/m² v mäkkej koženej väzbe s gumičkou. Koža časom tmavne a získava patinu. Vhodný ako darček k novej práci alebo štúdiu.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-DAR-006</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/DAR-006.svg</IMGURL>
+  <PRICE_VAT>29.90</PRICE_VAT>
+  <CATEGORYTEXT>Darčeky | Papiernictvo</CATEGORYTEXT>
+  <MANUFACTURER>Darka Tatry</MANUFACTURER>
+  <EAN>8580001000589</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>hovädzia koža, papier 100 g/m²</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>hnedá</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Rozmery</PARAM_NAME>
+    <VAL>A5, 192 strán</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>DAR-007</ITEM_ID>
+  <PRODUCTNAME>Bylinkový čaj darčekový box, 4 druhy</PRODUCTNAME>
+  <DESCRIPTION>Štyri sypané bylinkové čaje po 30 g: lipa, mäta, medovka a šípka, sušené v tieni bez zahrievania. Balené v papierovom boxe s krátkym popisom účinkov. Lúhovať 8 minút, prikryté.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-DAR-007</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/DAR-007.svg</IMGURL>
+  <PRICE_VAT>21.90</PRICE_VAT>
+  <CATEGORYTEXT>Darčeky | Jedlé darčeky</CATEGORYTEXT>
+  <MANUFACTURER>Darka Tatry</MANUFACTURER>
+  <EAN>8580001000596</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Obsah</PARAM_NAME>
+    <VAL>lipa, mäta, medovka, šípka</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Hmotnosť</PARAM_NAME>
+    <VAL>4 × 30 g</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>DAR-008</ITEM_ID>
+  <PRODUCTNAME>Drevené šachy skladacie 40 cm</PRODUCTNAME>
+  <DESCRIPTION>Skladacia šachovnica 40 × 40 cm z bukového dreva s vypálenými poľami, figúrky z hrabu s výškou kráľa 8 cm. Vnútri priečinky na figúrky vyložené plsťou. Vhodné pre babku aj vnúča, hrá sa v dvojici.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-DAR-008</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/DAR-008.svg</IMGURL>
+  <PRICE_VAT>59.90</PRICE_VAT>
+  <CATEGORYTEXT>Darčeky | Hry</CATEGORYTEXT>
+  <MANUFACTURER>Darka Tatry</MANUFACTURER>
+  <EAN>8580001000602</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>bukové a hrabové drevo</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>prírodná</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Rozmery</PARAM_NAME>
+    <VAL>40 × 40 cm</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>DAR-009</ITEM_ID>
+  <PRODUCTNAME>Kúpeľová soľ s levanduľou 1 kg</PRODUCTNAME>
+  <DESCRIPTION>Hrubozrnná morská soľ so sušenou levanduľou a levanduľovým olejom, v sklenenom pohári s korkom. Jedna kúpeľ potrebuje 3 lyžice, pohár vystačí asi na 20 kúpeľov. Bez farbív a syntetických vôní.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-DAR-009</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/DAR-009.svg</IMGURL>
+  <PRICE_VAT>14.90</PRICE_VAT>
+  <CATEGORYTEXT>Darčeky | Kúpeľ</CATEGORYTEXT>
+  <MANUFACTURER>Darka Tatry</MANUFACTURER>
+  <EAN>8580001000619</EAN>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>morská soľ, sušená levanduľa</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>fialová</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Hmotnosť</PARAM_NAME>
+    <VAL>1 kg</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>DAR-010</ITEM_ID>
+  <PRODUCTNAME>Nástenný kalendár slovenské hory 2027</PRODUCTNAME>
+  <DESCRIPTION>Kalendár na rok 2027 s dvanástimi fotografiami slovenských hôr, formát A3 na šírku, špirálová väzba. Papier 200 g/m² s matným povrchom, sviatky vyznačené. Fotografie sa dajú po roku zarámovať.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-DAR-010</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/DAR-010.svg</IMGURL>
+  <PRICE_VAT>16.90</PRICE_VAT>
+  <CATEGORYTEXT>Darčeky | Papiernictvo</CATEGORYTEXT>
+  <MANUFACTURER>Darka Tatry</MANUFACTURER>
+  <EAN>8580001000626</EAN>
+  <DELIVERY_DATE>3</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>papier 200 g/m²</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>farebná</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Rozmery</PARAM_NAME>
+    <VAL>A3 na šírku</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>DAR-011</ITEM_ID>
+  <PRODUCTNAME>Vlnené papuče, veľkosť 40 až 41</PRODUCTNAME>
+  <DESCRIPTION>Papuče z plstenej ovčej vlny s koženou podrážkou, teplé a priedušné. Vlna sa časom prispôsobí tvaru chodidla, pri výbere zoberte svoju bežnú veľkosť. Nosia sa naboso alebo v tenkej ponožke.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-DAR-011</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/DAR-011.svg</IMGURL>
+  <PRICE_VAT>34.90</PRICE_VAT>
+  <CATEGORYTEXT>Darčeky | Do domácnosti</CATEGORYTEXT>
+  <MANUFACTURER>Darka Tatry</MANUFACTURER>
+  <EAN>8580001000633</EAN>
+  <ITEMGROUP_ID>PAP-VLNA</ITEMGROUP_ID>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>plstená ovčia vlna, koža</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>sivá</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Veľkosť</PARAM_NAME>
+    <VAL>40 až 41</VAL>
+  </PARAM>
+</SHOPITEM>
+<SHOPITEM>
+  <ITEM_ID>DAR-012</ITEM_ID>
+  <PRODUCTNAME>Vlnené papuče, veľkosť 42 až 43</PRODUCTNAME>
+  <DESCRIPTION>Tie isté papuče z plstenej ovčej vlny s koženou podrážkou vo veľkosti 42 až 43. Vlna sa časom prispôsobí tvaru chodidla, pri výbere zoberte svoju bežnú veľkosť.</DESCRIPTION>
+  <URL>https://arling.sk/asistent/ukazka/#p-DAR-012</URL>
+  <IMGURL>https://arling.sk/asistent/ukazka/img/DAR-012.svg</IMGURL>
+  <PRICE_VAT>34.90</PRICE_VAT>
+  <CATEGORYTEXT>Darčeky | Do domácnosti</CATEGORYTEXT>
+  <MANUFACTURER>Darka Tatry</MANUFACTURER>
+  <EAN>8580001000640</EAN>
+  <ITEMGROUP_ID>PAP-VLNA</ITEMGROUP_ID>
+  <DELIVERY_DATE>0</DELIVERY_DATE>
+  <PARAM>
+    <PARAM_NAME>Materiál</PARAM_NAME>
+    <VAL>plstená ovčia vlna, koža</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Farba</PARAM_NAME>
+    <VAL>sivá</VAL>
+  </PARAM>
+  <PARAM>
+    <PARAM_NAME>Veľkosť</PARAM_NAME>
+    <VAL>42 až 43</VAL>
+  </PARAM>
+</SHOPITEM>
+</SHOP>
