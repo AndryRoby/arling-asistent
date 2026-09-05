@@ -1,5 +1,5 @@
 === ARLing Asistent for WooCommerce ===
-Contributors: arling
+Contributors: arlingsk
 Tags: woocommerce, chatbot, ai assistant, customer support, product search
 Requires at least: 6.0
 Tested up to: 6.9
@@ -72,7 +72,7 @@ No. This plugin reads your store's public WooCommerce Store API product feed, so
 
 = What does it cost? =
 
-Free during the beta, for up to 100 conversations a month. After the beta, plans start at 19 EUR/month. You will be notified by e-mail before any charge applies to your store; the free tier continues to work if you choose not to upgrade, subject to its conversation limit.
+Free up to 100 conversations a month, no card needed. Above that, 19 EUR a month up to 1,000 conversations or 39 EUR up to 5,000, paid through Stripe on arling.sk. Nothing is charged automatically: the free tier keeps working within its limit until you choose a paid plan.
 
 = Which languages does the widget support? =
 

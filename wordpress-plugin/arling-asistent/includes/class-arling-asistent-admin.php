@@ -100,7 +100,7 @@ class Arling_Asistent_Admin {
 	public function handle_connect() {
 		$this->require_capability_and_nonce( 'arling_asistent_connect', 'arling_asistent_connect_nonce' );
 
-		$consent = isset( $_POST['arling_asistent_consent'] ) && '1' === wp_unslash( $_POST['arling_asistent_consent'] );
+		$consent = isset( $_POST['arling_asistent_consent'] ) && '1' === sanitize_text_field( wp_unslash( $_POST['arling_asistent_consent'] ) );
 		if ( ! $consent ) {
 			$this->redirect_with_notice( 'error', __( 'Please tick the consent checkbox to connect your store.', 'arling-asistent' ) );
 		}

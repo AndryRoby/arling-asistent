@@ -135,10 +135,11 @@ function arling_asistent_init_plugin() {
 }
 add_action( 'plugins_loaded', 'arling_asistent_init_plugin' );
 
-/**
- * Deactivation deliberately does nothing to stored settings (a merchant
- * who deactivates while testing another plugin should not lose their
- * tenant connection). All ARLing Asistent options are only ever removed
- * by uninstall.php, and only when the plugin is deleted from wp-admin.
+/*
+ * There is no deactivation hook here on purpose: deactivating (as opposed
+ * to deleting) the plugin deliberately leaves all stored settings in place,
+ * so a merchant who briefly deactivates it while troubleshooting another
+ * plugin does not lose their tenant connection. Options are only ever
+ * removed by uninstall.php, and only when the plugin is deleted from
+ * wp-admin.
  */
-register_deactivation_hook( ARLING_ASISTENT_FILE, '__return_null' );
