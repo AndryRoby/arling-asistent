@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://homelab.tailbf8f27.ts.net; connect-src 'self' https://homelab.tailbf8f27.ts.net; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<title>KI-Einkaufsassistent für WooCommerce und Shopify: ARLing Asistent</title>
+<meta name="description" content="Einkaufsassistent für Ihren Online-Shop, in 10 Minuten aus dem Produktfeed eingerichtet. Läuft auf Cloudflare Workers, speichert keine Kundengespräche. Kostenlos bis 100 Gespräche im Monat, danach ab 19 EUR im Monat." />
+<meta name="robots" content="index, follow" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="KI-Einkaufsassistent für WooCommerce und Shopify: ARLing Asistent" />
+<meta property="og:description" content="Einkaufsassistent für Ihren Online-Shop, in 10 Minuten aus dem Produktfeed eingerichtet. Läuft auf Cloudflare Workers, speichert keine Kundengespräche. Kostenlos bis 100 Gespräche im Monat, danach ab 19 EUR im Monat." />
+<meta property="og:url" content="https://arling.sk/asistent/de/" />
+<meta property="og:locale" content="de_DE" />
+<meta property="og:image" content="https://arling.sk/asistent/icon-512.png" />
+<link rel="canonical" href="https://arling.sk/asistent/de/" />
+<link rel="alternate" hreflang="sk" href="https://arling.sk/asistent/?lang=sk" />
+<link rel="alternate" hreflang="en" href="https://arling.sk/asistent/?lang=en" />
+<link rel="alternate" hreflang="de" href="https://arling.sk/asistent/de/" />
+<link rel="alternate" hreflang="x-default" href="https://arling.sk/asistent/" />
+<link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+<link rel="alternate icon" href="../favicon.ico" />
+<link rel="apple-touch-icon" href="../icon-192.png" />
+<link rel="manifest" href="../manifest.json" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "ARLing Asistent",
+  "url": "https://arling.sk/asistent/de/",
+  "description": "KI-Einkaufsassistent für Online-Shops: richtet sich in 10 Minuten aus dem Produktfeed ein (Google Shopping XML, Shopify, WooCommerce, generisches XML), läuft auf Cloudflare Workers und speichert keine Gesprächsinhalte, nur Zähler.",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Beliebig (Webbrowser, ein <script>-Tag)",
+  "inLanguage": ["de", "sk", "en"],
+  "offers": [
+    { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/de/#preise" },
+    { "@type": "Offer", "name": "Starter", "price": "19", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/de/#preise" },
+    { "@type": "Offer", "name": "Pro", "price": "39", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/de/#preise" }
+  ],
+  "author": {
+    "@type": "Organization",
+    "name": "ARLing s. r. o.",
+    "url": "https://arling.sk/",
+    "email": "andrej@arling.sk",
+    "address": { "@type": "PostalAddress", "streetAddress": "Ivanská cesta 19112/32E", "addressLocality": "Bratislava", "postalCode": "821 04", "addressCountry": "SK" }
+  }
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Wie lange dauert die Einrichtung?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Sie geben die URL Ihres Produktfeeds und eine E-Mail-Adresse ein. Ein Worker lädt den Feed, teilt ihn in Abschnitte und speichert ihn als Embeddings, je nach Größe des Katalogs meist innerhalb weniger Minuten (Limit: 5.000 Produkte). Danach fügen Sie einen <script>-Tag in Ihren Shop ein." }
+    },
+    {
+      "@type": "Question",
+      "name": "Welche Feed-Formate werden unterstützt?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Google Shopping RSS/XML (auch das Heureka-Format mit g:-Tags), Shopify /products.json, WooCommerce REST/Store API JSON und ein einfacher XML-Feed mit den Tags item/name/price/url/description/image." }
+    },
+    {
+      "@type": "Question",
+      "name": "Speichern Sie die Gespräche der Kunden?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Nein. Der Inhalt eines Gesprächs wird nirgends gespeichert, weder bei uns noch in einer Datenbank. Wir führen nur Zähler: wie viele Gespräche und Produktklicks es pro Tag gab, für die Abrechnung und das Monatslimit." }
+    },
+    {
+      "@type": "Question",
+      "name": "In welcher Sprache antwortet der Assistent?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Deutsch, Englisch, Slowakisch oder Tschechisch, je nach Einstellung des Widgets auf der Seite (data-lang) oder automatisch in der Sprache der Frage. Die Antwort stammt immer nur aus den Produkten in Ihrem Feed, es wird nichts erfunden." }
+    },
+    {
+      "@type": "Question",
+      "name": "Was passiert, wenn der Assistent nicht antworten kann?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Findet sich im Feed nichts Passendes zur Frage, sagt der Assistent das klar und empfiehlt dem Kunden, den Shop direkt zu kontaktieren, unter der bei der Einrichtung angegebenen E-Mail-Adresse." }
+    },
+    {
+      "@type": "Question",
+      "name": "Funktioniert das mit WooCommerce, Shopify oder anderen Shopsystemen?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Der Script-Tag funktioniert sofort in jedem Shop, Sie fügen ihn in der Administration oder im Theme ein. Das eigene WooCommerce-Plugin ist bei wordpress.org eingereicht und wartet auf die Freigabe (bis dahin wird es als ZIP von GitHub installiert), die Shopify-App ist in Vorbereitung." }
+    },
+    {
+      "@type": "Question",
+      "name": "Was ist kostenlos?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Bis 100 Gespräche im Monat, dauerhaft, ohne Zahlungskarte. Sie können es mit Ihrem eigenen Feed im Testformular auf der Hauptseite ausprobieren, der Chat erscheint unten rechts." }
+    },
+    {
+      "@type": "Question",
+      "name": "Wo werden die Daten verarbeitet?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Im globalen Netz von Cloudflare (Workers, Vectorize, D1). Cloudflare garantiert öffentlich keinen Verarbeitungsort ausschließlich in der EU, deshalb stützt sich der Auftragsverarbeitungsvertrag (AVV) zwischen ARLing und dem Shop auf Standardvertragsklauseln (SCC) und den EU Cloud Code of Conduct von Cloudflare." }
+    },
+    {
+      "@type": "Question",
+      "name": "Wie funktionieren Zahlung und Abrechnung?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Bis 100 Gespräche im Monat ist die Nutzung vollständig kostenlos, ohne Karte. Darüber wechseln Sie von Ihrer Kontoseite aus (arling.sk/asistent/tenant/?t=Ihre Konto-ID), deren Link Sie direkt nach dem Anlegen des Kontos erhalten, zu Starter (19 EUR im Monat, bis 1.000 Gespräche) oder Pro (39 EUR im Monat, bis 5.000 Gespräche). Sie zahlen per Karte über Stripe, Stripe schickt Bestätigung und Rechnung per E-Mail, kündbar jederzeit." }
+    }
+  ]
+}
+</script>
+
+<style>
+  :root {
+    --paper:#f6f2ea; --paper-2:#fbf9f4; --ink:#1b1a17; --ink-2:#4a4741; --muted:#66625a; --line:#d9d2c4;
+    --accent:#b23a1d; --accent-soft:#f3e2dc; --ok:#2f6f3e; --warn:#9a6b00;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --sans:system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"Cascadia Code",Consolas,Menlo,monospace;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper:#151412; --paper-2:#1d1b18; --ink:#efe9de; --ink-2:#c9c2b5; --muted:#8f887b; --line:#2e2b26; --accent:#e0623f; --accent-soft:#3a1f17; --ok:#7fbf8e; --warn:#caa552; }
+  }
+  * { box-sizing:border-box; }
+  html { background:var(--paper); }
+  body { margin:0; color:var(--ink); background:var(--paper); font:16px/1.55 var(--sans); -webkit-font-smoothing:antialiased; }
+  a { color:inherit; text-decoration-color:var(--line); text-underline-offset:3px; }
+  a:hover { text-decoration-color:var(--accent); }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+  img { max-width:100%; height:auto; display:block; }
+  [hidden] { display:none !important; }
+  .skip { position:absolute; left:-999px; top:8px; background:var(--ink); color:var(--paper); padding:8px 12px; z-index:10; }
+  .skip:focus { left:8px; }
+  .wrap { max-width:1040px; margin:0 auto; padding:0 24px; min-width:0; }
+  code { font:13.5px/1.4 var(--mono); background:var(--paper-2); border:1px solid var(--line); border-radius:3px; padding:1px 5px; overflow-wrap:anywhere; }
+
+  header.top { border-bottom:1px solid var(--line); }
+  header.top .wrap { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px 24px; padding:18px 24px; }
+  .brand { display:flex; align-items:baseline; flex-wrap:wrap; gap:2px 10px; min-width:0; }
+  .wordmark { font:600 21px/1.25 var(--serif); text-decoration:none; overflow-wrap:anywhere; }
+  .wordmark-sub { font:13px/1 var(--sans); color:var(--muted); letter-spacing:.02em; text-decoration:none; white-space:nowrap; }
+  .wordmark-sub:hover { color:var(--accent); }
+  nav.main { display:flex; flex-wrap:wrap; align-items:center; }
+  nav.main a { font-size:14px; margin-left:20px; text-decoration:none; color:var(--ink-2); white-space:nowrap; }
+  nav.main a:first-child { margin-left:0; }
+  nav.main a:hover { color:var(--accent); }
+  .lang-switch { display:flex; align-items:center; gap:0; margin-left:20px; }
+  .lang-switch a { font:600 12px/1 var(--sans); padding:6px 9px; border:1px solid var(--line); background:var(--paper); color:var(--ink-2); text-decoration:none; margin-left:0; }
+  .lang-switch a:first-child { border-radius:4px 0 0 4px; }
+  .lang-switch a:last-child { border-radius:0 4px 4px 0; }
+  .lang-switch a + a { margin-left:-1px; }
+  .lang-switch a:hover { border-color:var(--accent); color:var(--accent); position:relative; z-index:1; }
+  .lang-switch a.lang-active { background:var(--ink); border-color:var(--ink); color:var(--paper); position:relative; z-index:1; }
+
+  .hero { padding:64px 0 40px; border-bottom:1px solid var(--line); }
+  .hero h1 { font:400 clamp(30px,4.6vw,46px)/1.14 var(--serif); letter-spacing:-.01em; margin:0 0 18px; max-width:24ch; }
+  .hero p.lead { font-size:18px; color:var(--ink-2); max-width:60ch; margin:0 0 26px; }
+  .facts { list-style:none; margin:22px 0 0; padding:0; display:flex; flex-wrap:wrap; gap:8px 0; color:var(--muted); font-size:14px; }
+  .facts li + li::before { content:"·"; margin:0 10px; color:var(--line); }
+  .facts b { color:var(--ink); font-weight:600; }
+
+  .btn { display:inline-block; font:600 15px/1 var(--sans); padding:13px 18px; border-radius:4px; text-decoration:none; cursor:pointer; border:2px solid transparent; appearance:none; -webkit-appearance:none; }
+  .btn-solid { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .btn-solid:hover { background:var(--ink); border-color:var(--ink); color:var(--paper); }
+  .btn-line { border:2px solid var(--ink); color:var(--ink); background:transparent; }
+  .btn-line:hover { border-color:var(--accent); color:var(--accent); }
+  .btn + .btn { margin-left:10px; }
+
+  section { padding:44px 0; border-bottom:1px solid var(--line); }
+  section[id], header.top { scroll-margin-top:14px; }
+  .kicker { font:400 14px/1 var(--serif); color:var(--accent); letter-spacing:.06em; text-transform:uppercase; margin:0 0 10px; }
+  h2 { font:400 28px/1.2 var(--serif); margin:0 0 8px; letter-spacing:-.005em; max-width:30ch; }
+  .sub { color:var(--ink-2); max-width:64ch; margin:0 0 24px; }
+
+  .rules { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:26px 32px; margin:0; padding:0; list-style:none; counter-reset:r; }
+  .rules li { padding-top:14px; border-top:1px solid var(--line); min-width:0; }
+  .rules li::before { counter-increment:r; content:counter(r,decimal-leading-zero); font:400 14px/1 var(--serif); color:var(--accent); display:block; margin-bottom:8px; }
+  .rules b { display:block; font-weight:600; margin-bottom:4px; }
+  .rules p { margin:0; color:var(--ink-2); font-size:15px; overflow-wrap:anywhere; }
+
+  .trial { border:1px solid var(--line); background:var(--paper-2); padding:24px; min-width:0; margin-top:26px; }
+  .trial p { margin:0 0 14px; color:var(--ink-2); }
+  .trial-hint { font-size:12px; color:var(--muted); margin:12px 0 0; }
+
+  .pricing-table { width:100%; border-collapse:collapse; }
+  .pricing-table th, .pricing-table td { text-align:left; padding:14px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .pricing-table th { font:600 12px/1 var(--sans); text-transform:uppercase; letter-spacing:.03em; color:var(--muted); }
+  .pricing-table td.plan { font:600 16px/1.3 var(--sans); }
+  .pricing-table td.price { font:400 26px/1 var(--serif); white-space:nowrap; }
+  .pricing-table td.price span { font:13px/1 var(--sans); color:var(--muted); }
+  .pricing-table-wrap { overflow-x:auto; }
+  .pricing-table .btn { white-space:nowrap; }
+  @media (max-width:480px) {
+    .pricing-table th, .pricing-table td { padding:12px 6px; }
+    .pricing-table td.price { font-size:21px; }
+    .pricing-table .btn { padding:9px 12px; font-size:13px; }
+  }
+  .pricing-note { color:var(--ink-2); font-size:14px; margin:16px 0 0; }
+
+  .privacy-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:14px; }
+  .privacy-list li { display:flex; gap:12px; align-items:flex-start; }
+  .privacy-list li::before { content:"\2022"; color:var(--accent); flex-shrink:0; font-family:var(--serif); }
+  .privacy-list p { margin:0; color:var(--ink-2); }
+  .privacy-list b { color:var(--ink); }
+
+  .pro-objections { margin-top:28px; }
+  .objections-label { margin:0 0 4px; font:600 13px/1 var(--sans); letter-spacing:.03em; text-transform:uppercase; color:var(--ink-2); }
+
+  .hp { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+  .subscribe-ask { border-top:1px solid var(--line); margin-top:20px; padding-top:20px; }
+  .subscribe-form { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  .subscribe-form input[type="email"] { height:44px; min-width:0; flex:1 1 240px; padding:0 14px; border:1px solid var(--line); border-radius:4px; background:var(--paper-2); color:var(--ink); font:15px/1 var(--sans); }
+  .subscribe-form .btn { flex:none; }
+  #subscribe-thanks { color:var(--ok); font-weight:600; }
+  #subscribe-error { color:var(--accent); font-weight:600; }
+  .subscribe-privacy { flex-basis:100%; margin:0; }
+  @media (max-width:480px) { .subscribe-form input[type="email"], .subscribe-form button { width:100%; } }
+
+  details { border-top:1px solid var(--line); padding:14px 0; }
+  details:last-of-type { border-bottom:1px solid var(--line); }
+  summary { cursor:pointer; font:400 18px/1.3 var(--serif); list-style:none; display:flex; justify-content:space-between; gap:12px; }
+  summary::-webkit-details-marker { display:none; }
+  summary::after { content:"+"; color:var(--accent); flex:none; font-family:var(--sans); }
+  details[open] summary::after { content:"\2013"; }
+  details p { color:var(--ink-2); margin:10px 0 0; max-width:70ch; overflow-wrap:anywhere; }
+
+  footer { padding:32px 0 56px; color:var(--muted); font-size:14px; }
+  footer .cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:20px 32px; }
+  footer b { color:var(--ink); font-weight:600; }
+  footer a { color:var(--ink-2); }
+  .footer-note { margin-top:14px; font-size:12px; color:var(--muted); }
+
+  @media (max-width:480px) {
+    .hero { padding:44px 0 32px; }
+    nav.main a { margin-left:12px; }
+    .wordmark-sub { display:none; }
+    .btn + .btn { margin-left:0; margin-top:10px; }
+  }
+
+  .sticky-cta { position:fixed; left:0; right:0; bottom:0; z-index:30; background:var(--paper-2); border-top:1px solid var(--line); }
+  .sticky-cta-inner { display:flex; align-items:center; gap:10px; max-width:1040px; margin:0 auto; padding:10px 14px; }
+  .sticky-cta-text { flex:1 1 auto; min-width:0; font-size:12.5px; color:var(--ink-2); overflow-wrap:anywhere; }
+  .sticky-cta .btn { flex:none; padding:10px 14px; font-size:13.5px; margin:0; }
+  .sticky-cta-close { flex:none; width:30px; height:30px; border:1px solid var(--line); background:var(--paper); color:var(--ink-2); border-radius:4px; cursor:pointer; font:16px/1 var(--sans); padding:0; }
+  .sticky-cta-close:hover { border-color:var(--accent); color:var(--accent); }
+  @media (min-width:761px) { .sticky-cta { display:none !important; } }
+  @media print { .sticky-cta { display:none !important; } }
+</style>
+</head>
+<body>
+
+<a class="skip" href="#testen">Zum Ausprobieren springen</a>
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <a class="wordmark" href="../">ARLing Asistent</a>
+      <a class="wordmark-sub" href="https://arling.sk/">ein Tool von ARLing</a>
+    </div>
+    <nav class="main" aria-label="Seite">
+      <a href="#so-funktioniert-es">So funktioniert es</a>
+      <a href="#preise">Preise</a>
+      <a href="#testen">Ausprobieren</a>
+      <a href="#datenschutz">Datenschutz</a>
+      <a href="#fragen">Fragen</a>
+      <span class="lang-switch" role="group" aria-label="Sprache der Seite">
+        <a href="../?lang=sk" hreflang="sk" lang="sk" aria-label="Slovenčina">SK</a>
+        <a href="../?lang=en" hreflang="en" lang="en" aria-label="English">EN</a>
+        <a href="./" class="lang-active" aria-current="page" aria-label="Deutsch">DE</a>
+      </span>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <div class="wrap">
+      <h1>KI-Einkaufsassistent für WooCommerce und Shopify, in 10 Minuten aus Ihrem Feed eingerichtet.</h1>
+      <p class="lead">Sie geben die URL Ihres Produktfeeds und eine E-Mail-Adresse ein. Der Assistent beantwortet Kundenfragen aus Ihren echten Produkten, in der Sprache des Kunden, und verlinkt immer konkrete Artikel. Keine gespeicherten Gespräche, keine Cookies.</p>
+      <a class="btn btn-solid" href="../?lang=en#playground" data-umami-event="trial_click" data-umami-event-place="hero">Kostenlos starten</a><a class="btn btn-line" href="https://github.com/AndryRoby/arling-asistent" target="_blank" rel="noopener">Quellcode auf GitHub</a>
+      <ul class="facts">
+        <li><b>4</b> Feed-Formate</li>
+        <li><b>0</b> gespeicherte Gespräche</li>
+        <li><b>100</b> Gespräche/Monat kostenlos</li>
+        <li>DE · EN · SK · CS</li>
+        <li>läuft auf Cloudflare Workers</li>
+      </ul>
+    </div>
+  </div>
+
+  <section id="so-funktioniert-es">
+    <div class="wrap">
+      <p class="kicker">01</p>
+      <h2>So funktioniert es</h2>
+      <p class="sub">Drei Schritte, keine Installation auf dem Server, kein Verkaufsgespräch.</p>
+      <ol class="rules">
+        <li>
+          <b>Sie geben Feed-URL und E-Mail ein.</b>
+          <p>Unterstützt werden Google Shopping RSS/XML (auch im Heureka-Format), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON und ein einfacher XML-Feed mit den Tags <code>item/name/price/url</code>.</p>
+        </li>
+        <li>
+          <b>Der Feed wird zu Embeddings verarbeitet.</b>
+          <p>Ein Worker lädt den Feed, kürzt die Beschreibungen, teilt sie in Abschnitte und speichert sie in Cloudflare Vectorize (bis zu 5.000 Produkte). Der Feed wird einmal täglich automatisch aktualisiert.</p>
+        </li>
+        <li>
+          <b>Sie fügen einen <code>&lt;script&gt;</code>-Tag ein.</b>
+          <p>Der Assistent erscheint unten rechts auf der Seite. Er antwortet ausschließlich aus Ihrem Feed und den Kontaktdaten Ihres Shops, erfindet nichts, und wenn er etwas nicht weiß, verweist er auf den Kontakt Ihres Shops.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="preise">
+    <div class="wrap">
+      <p class="kicker">02</p>
+      <h2>Preise</h2>
+      <p class="sub">Dauerhaft kostenlos bis 100 Gespräche im Monat, ohne Karte. Darüber ein einfacher Preis nach der Zahl der Gespräche pro Monat. Noch kein Jahresabo, nur monatliche Abrechnung.</p>
+      <div class="pricing-table-wrap">
+        <table class="pricing-table">
+          <thead>
+            <tr><th>Plan</th><th>Preis</th><th>Gespräche / Monat</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="plan">Free</td>
+              <td class="price">0&nbsp;&euro;</td>
+              <td>bis 100</td>
+              <td><a class="btn btn-line" href="../?lang=en#playground" data-umami-event="trial_click" data-umami-event-place="pricing">Kostenlos starten</a></td>
+            </tr>
+            <tr>
+              <td class="plan">Starter</td>
+              <td class="price">19 &euro;<span> / Monat</span></td>
+              <td>bis 1.000</td>
+              <td><a class="btn btn-line" href="../?lang=en#playground" data-umami-event="trial_click" data-umami-event-place="pricing-starter">Kostenlos starten</a></td>
+            </tr>
+            <tr>
+              <td class="plan">Pro</td>
+              <td class="price">39 &euro;<span> / Monat</span></td>
+              <td>bis 5.000</td>
+              <td><a class="btn btn-line" href="../?lang=en#playground" data-umami-event="trial_click" data-umami-event-place="pricing-pro">Kostenlos starten</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="pricing-note">Bis 100 Gespräche im Monat kostenlos, dauerhaft, ohne Zahlungskarte. Darüber wechselt der Shop von seiner Kontoseite aus, deren Link er direkt nach dem Anlegen des Kontos erhält, zu Starter (19 EUR im Monat, bis 1.000 Gespräche) oder Pro (39 EUR im Monat, bis 5.000). Preise inkl. MwSt., Kartenzahlung über Stripe, jederzeit kündbar, die Rechnung schickt Stripe. Noch kein Jahresabo.</p>
+
+      <div class="pro-objections">
+        <p class="objections-label">Bevor Sie starten</p>
+        <details>
+          <summary>Speichern Sie die Gespräche der Kunden?</summary>
+          <p>Nein. Der Inhalt eines Gesprächs wird nirgends gespeichert, weder bei uns noch in einer Datenbank. Wir führen nur Zähler: wie viele Gespräche und Produktklicks es pro Tag gab, für die Abrechnung und das Monatslimit.</p>
+        </details>
+        <details>
+          <summary>Gibt es einen Auftragsverarbeitungsvertrag nach Art. 28 DSGVO?</summary>
+          <p>Ja. ARLing s. r. o. ist bei der Verarbeitung der Nachrichten Ihrer Shop-Besucher Auftragsverarbeiter. Vorlage: <a href="https://github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md" target="_blank" rel="noopener">Auftragsverarbeitungsvertrag (AVV, DPA)</a>. Die Vorlage ist auf Slowakisch verfasst; eine englische Übersetzung erhalten Sie auf Anfrage unter andrej@arling.sk.</p>
+        </details>
+        <details>
+          <summary>Wie kündige ich, wenn es nicht passt?</summary>
+          <p>Der kostenlose Plan bis 100 Gespräche im Monat hat keine Laufzeit und keine Karte, Sie hören einfach auf, ihn zu nutzen. Ein bezahlter Plan über diesem Limit läuft über Stripe und ist jederzeit kündbar, wie bei jedem anderen ARLing-Tool.</p>
+        </details>
+        <details>
+          <summary>Was, wenn mein Feed in keinem der unterstützten Formate vorliegt?</summary>
+          <p>Unterstützt werden Google Shopping RSS/XML (auch Heureka mit <code>g:</code>-Tags), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON und ein einfacher XML-Feed mit den Tags <code>item/name/price/url/description/image</code>. Probieren Sie ein anderes Format im Testformular aus; lehnt die Verarbeitung es ab, schreiben Sie an andrej@arling.sk mit einem Ausschnitt Ihres Feeds.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section id="testen">
+    <div class="wrap">
+      <p class="kicker">03</p>
+      <h2>Mit dem eigenen Feed ausprobieren</h2>
+      <p class="sub">Das Testformular liegt auf der Hauptseite (Formular auf Englisch, das Widget selbst antwortet auf Deutsch). Sie geben Feed-URL und E-Mail ein, wählen Deutsch als Sprache des Widgets, und nach wenigen Minuten erscheint unten rechts ein Chat mit Ihren eigenen Produkten. Die Domain wird automatisch aus der Feed-URL abgeleitet.</p>
+      <ol class="rules">
+        <li>
+          <b>Feed-URL und E-Mail eingeben.</b>
+          <p>Zum Beispiel <code>https://ihr-shop.de/feed.xml</code> oder <code>https://ihr-shop.myshopify.com/products.json</code>. Der Feed muss öffentlich erreichbar sein.</p>
+        </li>
+        <li>
+          <b>Auf „Fertig“ warten.</b>
+          <p>Meist wenige Minuten. Danach sehen Sie den Chat auf der Seite, Ihre Konto-ID und den Einbettungscode, jeweils mit Kopieren-Schaltfläche.</p>
+        </li>
+        <li>
+          <b>Code einfügen.</b>
+          <p>Einen <code>&lt;script&gt;</code>-Tag vor <code>&lt;/body&gt;</code> in Ihrem Theme, oder das WooCommerce-Plugin. Nutzung und Wechsel auf einen bezahlten Plan laufen über Ihre Kontoseite.</p>
+        </li>
+      </ol>
+      <div class="trial">
+        <p>Kostenlos bis 100 Gespräche im Monat, keine Zahlungskarte. Der Feed wird nur zum Anlegen des Testassistenten verwendet; das Chatgespräch selbst wird nirgends gespeichert.</p>
+        <a class="btn btn-solid" href="../?lang=en#playground" data-umami-event="trial_click" data-umami-event-place="playground">Zum Testformular</a>
+        <p class="trial-hint">Bei Fragen auf Deutsch schreiben Sie an andrej@arling.sk.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="datenschutz">
+    <div class="wrap">
+      <p class="kicker">04</p>
+      <h2>Datenschutz als Eigenschaft, nicht als Nachtrag</h2>
+      <p class="sub">Das Widget ist so gebaut, dass es so wenig wie möglich über die Besucher Ihres Shops weiß.</p>
+      <ul class="privacy-list">
+        <li><p><b>Gespräche werden nicht gespeichert.</b> Der Inhalt der Nachrichten bleibt nirgends erhalten, weder bei uns noch in einer Datenbank. Wir führen nur Tageszähler für Gespräche und Produktklicks, für das Monatslimit und die Abrechnung.</p></li>
+        <li><p><b>Keine Cookies.</b> Das Widget verwendet weder Cookies noch localStorage, abgesehen von einer optionalen Sitzungskennung, die nur im Arbeitsspeicher des Browsers lebt und beim Schließen der Seite verschwindet.</p></li>
+        <li><p><b>Ihr Produktfeed ist die einzige Quelle.</b> Der Assistent antwortet nur aus dem, was in Ihrem Feed und Ihren Kontaktdaten steht, erfindet nichts und behandelt Produkttexte als Daten, nie als Anweisungen.</p></li>
+        <li><p><b>Auftragsverarbeitungsvertrag nach Art. 28 DSGVO.</b> ARLing s. r. o. ist bei der Verarbeitung der Nachrichten Ihrer Shop-Besucher Auftragsverarbeiter. Vorlage: <a href="https://github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md" target="_blank" rel="noopener">Auftragsverarbeitungsvertrag (AVV, DPA)</a>, auf Slowakisch verfasst, englische Übersetzung auf Anfrage.</p></li>
+        <li><p><b>Betrieb im globalen Netz von Cloudflare.</b> Cloudflare garantiert für Workers AI öffentlich keinen Verarbeitungsort ausschließlich in der EU; der AVV stützt sich deshalb auf Standardvertragsklauseln (SCC) und die Zertifizierung von Cloudflare nach dem EU Cloud Code of Conduct.</p></li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="fragen">
+    <div class="wrap">
+      <p class="kicker">05</p>
+      <h2>Fragen</h2>
+
+      <details>
+        <summary>Wie lange dauert die Einrichtung?</summary>
+        <p>Sie geben die URL Ihres Produktfeeds und eine E-Mail-Adresse ein. Ein Worker lädt den Feed, teilt ihn in Abschnitte und speichert ihn als Embeddings, je nach Größe des Katalogs meist innerhalb weniger Minuten (Limit: 5.000 Produkte). Danach fügen Sie einen <code>&lt;script&gt;</code>-Tag in Ihren Shop ein.</p>
+      </details>
+      <details>
+        <summary>Welche Feed-Formate werden unterstützt?</summary>
+        <p>Google Shopping RSS/XML (auch das Heureka-Format mit <code>g:</code>-Tags), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON und ein einfacher XML-Feed mit den Tags <code>item/name/price/url/description/image</code>.</p>
+      </details>
+      <details>
+        <summary>Speichern Sie die Gespräche der Kunden?</summary>
+        <p>Nein. Der Inhalt eines Gesprächs wird nirgends gespeichert, weder bei uns noch in einer Datenbank. Wir führen nur Zähler: wie viele Gespräche und Produktklicks es pro Tag gab, für die Abrechnung und das Monatslimit.</p>
+      </details>
+      <details>
+        <summary>In welcher Sprache antwortet der Assistent?</summary>
+        <p>Deutsch, Englisch, Slowakisch oder Tschechisch, je nach Einstellung des Widgets auf der Seite (<code>data-lang</code>) oder automatisch in der Sprache der Frage. Die Antwort stammt immer nur aus den Produkten in Ihrem Feed, es wird nichts erfunden.</p>
+      </details>
+      <details>
+        <summary>Was passiert, wenn der Assistent nicht antworten kann?</summary>
+        <p>Findet sich im Feed nichts Passendes zur Frage, sagt der Assistent das klar und empfiehlt dem Kunden, den Shop direkt zu kontaktieren, unter der bei der Einrichtung angegebenen E-Mail-Adresse.</p>
+      </details>
+      <details>
+        <summary>Funktioniert das mit WooCommerce, Shopify oder anderen Shopsystemen?</summary>
+        <p>Der Script-Tag funktioniert sofort in jedem Shop, Sie fügen ihn in der Administration oder im Theme ein. Das eigene <a href="../woocommerce/" hreflang="en">WooCommerce-Plugin</a> ist bei wordpress.org eingereicht und wartet auf die Freigabe (bis dahin wird es als ZIP von GitHub installiert), die <a href="../shopify/" hreflang="en">Shopify-App</a> ist in Vorbereitung. Beide Seiten sind auf Englisch.</p>
+      </details>
+      <details>
+        <summary>Was ist kostenlos?</summary>
+        <p>Bis 100 Gespräche im Monat, dauerhaft, ohne Zahlungskarte. Sie können es mit Ihrem eigenen Feed im Testformular auf der Hauptseite ausprobieren, der Chat erscheint unten rechts.</p>
+      </details>
+      <details>
+        <summary>Wo werden die Daten verarbeitet?</summary>
+        <p>Im globalen Netz von Cloudflare (Workers, Vectorize, D1). Cloudflare garantiert öffentlich keinen Verarbeitungsort ausschließlich in der EU, deshalb stützt sich der Auftragsverarbeitungsvertrag (AVV) zwischen ARLing und dem Shop auf Standardvertragsklauseln (SCC) und den EU Cloud Code of Conduct von Cloudflare.</p>
+      </details>
+      <details>
+        <summary>Wie funktionieren Zahlung und Abrechnung?</summary>
+        <p>Bis 100 Gespräche im Monat ist die Nutzung vollständig kostenlos, ohne Karte. Darüber wechseln Sie von Ihrer Kontoseite aus (arling.sk/asistent/tenant/?t=Ihre Konto-ID), deren Link Sie direkt nach dem Anlegen des Kontos erhalten, zu Starter (19 EUR im Monat, bis 1.000 Gespräche) oder Pro (39 EUR im Monat, bis 5.000 Gespräche). Sie zahlen per Karte über Stripe, Stripe schickt Bestätigung und Rechnung per E-Mail, kündbar jederzeit.</p>
+      </details>
+
+      <div class="subscribe-ask">
+        <p class="sub" style="margin-bottom:14px">Möchten Sie erfahren, wenn das WooCommerce-Plugin auf wordpress.org freigegeben ist oder die Shopify-App erscheint?</p>
+        <form class="subscribe-form" data-subscribe data-source="asistent-de" data-lang="de" data-thanks="subscribe-thanks" data-error="subscribe-error">
+          <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off">
+          <input type="email" name="email" placeholder="sie@ihr-shop.de" required>
+          <button class="btn btn-solid" type="submit">Benachrichtigen</button>
+          <p class="subscribe-privacy trial-hint">Nur E-Mails zu Neuigkeiten von ARLing Asistent. Abmeldung jederzeit mit einem Klick.</p>
+        </form>
+        <p id="subscribe-thanks" hidden>Danke, wir melden uns.</p>
+        <p id="subscribe-error" hidden>Etwas ist schiefgegangen, bitte versuchen Sie es erneut oder schreiben Sie an andrej@arling.sk.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="closing-cta">
+    <div class="wrap" style="text-align:center;">
+      <p class="sub" style="margin:0 auto 18px;">Feed-URL und E-Mail eingeben. Kostenlos bis 100 Gespräche im Monat, ohne Zahlungskarte.</p>
+      <a class="btn btn-solid" href="../?lang=en#playground" data-umami-event="trial_click" data-umami-event-place="closing">Kostenlos starten</a>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <div class="cols">
+        <div>
+          <b>ARLing Asistent</b><br>
+          ein Tool von <a href="https://arling.sk/">ARLing s. r. o.</a>
+        </div>
+        <div>
+          Handelsregister-Nr. (IČO) 56583486 · USt-IdNr. (IČ DPH) SK2122352100<br>
+          Ivanská cesta 19112/32E, 821 04 Bratislava, Slowakei<br>
+          <a href="mailto:andrej@arling.sk">andrej@arling.sk</a>
+        </div>
+        <div>
+          <a href="../?lang=en" hreflang="en">English</a> · <a href="../?lang=sk" hreflang="sk">Slovensky</a><br>
+          Vergleiche (EN): <a href="../compare/tidio-alternative/" hreflang="en">Tidio</a> · <a href="../compare/gorgias-alternative/" hreflang="en">Gorgias</a> · <a href="../compare/smartsupp-alternative/" hreflang="en">Smartsupp</a><br>
+          <a href="https://github.com/AndryRoby/arling-asistent" target="_blank" rel="noopener">Quellcode (GitHub)</a> · <a href="../llms.txt">llms.txt</a> · <a href="../sitemap.xml">sitemap.xml</a><br>
+          <a href="https://github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md" target="_blank" rel="noopener">AVV (DSGVO Art. 28)</a>
+        </div>
+      </div>
+      <p class="footer-note">Besuche messen wir mit unserem eigenen, cookiefreien Tool Umami. Es speichert weder Cookies noch einen Browser-Fingerabdruck.</p>
+    </div>
+  </footer>
+</main>
+
+<div class="sticky-cta" id="sticky-cta" hidden>
+  <div class="sticky-cta-inner">
+    <span class="sticky-cta-text">Kostenlos bis 100 Gespräche im Monat.</span>
+    <a class="btn btn-solid" href="../?lang=en#playground" data-umami-event="trial_click" data-umami-event-place="sticky">Kostenlos starten</a>
+    <button type="button" class="sticky-cta-close" id="sticky-cta-close" aria-label="Leiste schließen">&times;</button>
+  </div>
+</div>
+
+<script defer src="https://homelab.tailbf8f27.ts.net/script.js" data-website-id="09cc54da-8172-43b3-8aa2-84e3ab5a17f1"></script>
+<script src="../subscribe.js" defer></script>
+<script src="../sell.js" defer></script>
+</body>
+</html>
