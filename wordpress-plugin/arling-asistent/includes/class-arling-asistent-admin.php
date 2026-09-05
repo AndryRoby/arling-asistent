@@ -100,11 +100,13 @@ class Arling_Asistent_Admin {
 	public function handle_connect() {
 		$this->require_capability_and_nonce( 'arling_asistent_connect', 'arling_asistent_connect_nonce' );
 
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce and capability already verified by require_capability_and_nonce() above; the sniff cannot see across that method call.
 		$consent = isset( $_POST['arling_asistent_consent'] ) && '1' === sanitize_text_field( wp_unslash( $_POST['arling_asistent_consent'] ) );
 		if ( ! $consent ) {
 			$this->redirect_with_notice( 'error', __( 'Please tick the consent checkbox to connect your store.', 'arling-asistent' ) );
 		}
 
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce and capability already verified by require_capability_and_nonce() above.
 		$email = isset( $_POST['arling_asistent_email'] ) ? sanitize_email( wp_unslash( $_POST['arling_asistent_email'] ) ) : '';
 		if ( empty( $email ) || ! is_email( $email ) ) {
 			$this->redirect_with_notice( 'error', __( 'Please enter a valid contact e-mail address.', 'arling-asistent' ) );
@@ -178,21 +180,25 @@ class Arling_Asistent_Admin {
 	public function handle_save_settings() {
 		$this->require_capability_and_nonce( 'arling_asistent_save_settings', 'arling_asistent_save_settings_nonce' );
 
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce and capability already verified by require_capability_and_nonce() above; the sniff cannot see across that method call.
 		$lang = isset( $_POST['arling_asistent_lang'] ) ? sanitize_text_field( wp_unslash( $_POST['arling_asistent_lang'] ) ) : 'auto';
 		if ( ! in_array( $lang, array( 'auto', 'sk', 'cs', 'en', 'de' ), true ) ) {
 			$lang = 'auto';
 		}
 
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce and capability already verified by require_capability_and_nonce() above.
 		$color = isset( $_POST['arling_asistent_color'] ) ? sanitize_text_field( wp_unslash( $_POST['arling_asistent_color'] ) ) : 'auto';
 		if ( ! in_array( $color, array( 'auto', 'light', 'dark' ), true ) ) {
 			$color = 'auto';
 		}
 
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce and capability already verified by require_capability_and_nonce() above.
 		$position = isset( $_POST['arling_asistent_position'] ) ? sanitize_text_field( wp_unslash( $_POST['arling_asistent_position'] ) ) : 'bottom-right';
 		if ( ! in_array( $position, array( 'bottom-right', 'bottom-left' ), true ) ) {
 			$position = 'bottom-right';
 		}
 
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce and capability already verified by require_capability_and_nonce() above.
 		$scope = isset( $_POST['arling_asistent_display_scope'] ) ? sanitize_text_field( wp_unslash( $_POST['arling_asistent_display_scope'] ) ) : 'shop';
 		if ( ! in_array( $scope, array( 'disabled', 'shop', 'all' ), true ) ) {
 			$scope = 'shop';
@@ -263,6 +269,8 @@ class Arling_Asistent_Admin {
 
 		if ( $tenant_id ) {
 			$this->render_status_section( $tenant_id, $status );
+			echo '<hr />';
+			$this->render_upgrade_section( $tenant_id, $status );
 			echo '<hr />';
 			$this->render_settings_form();
 			echo '<hr />';
@@ -420,6 +428,63 @@ class Arling_Asistent_Admin {
 			// this one settings screen only (never on the public site).
 			echo '<meta http-equiv="refresh" content="10;url=' . esc_url( $this->settings_url() ) . '" />';
 		}
+	}
+
+	/**
+	 * Builds an "Upgrade" URL from a Stripe Payment Link base URL by
+	 * appending `client_reference_id=$tenant_id` (or, if the link already
+	 * has a query string, `&client_reference_id=...`), so the licence
+	 * service's Stripe webhook (see products/licence-service/app.py) can
+	 * tell which tenant a successful checkout belongs to. Returns '' (never
+	 * a malformed URL) when `$base_link` is empty, i.e. not configured yet.
+	 *
+	 * @param string $base_link Stripe Payment Link URL, or ''.
+	 * @param string $tenant_id This site's connected tenant id.
+	 * @return string
+	 */
+	private function build_upgrade_url( $base_link, $tenant_id ) {
+		$base_link = trim( (string) $base_link );
+		if ( '' === $base_link || empty( $tenant_id ) ) {
+			return '';
+		}
+		$separator = ( false === strpos( $base_link, '?' ) ) ? '?' : '&';
+		return $base_link . $separator . 'client_reference_id=' . rawurlencode( $tenant_id );
+	}
+
+	/**
+	 * "Upgrade" section on the settings page: one button per paid plan
+	 * (Starter 19 EUR/month, Pro 39 EUR/month), each linking to that plan's
+	 * Stripe Payment Link with this store's tenant id attached (see
+	 * build_upgrade_url() above). A plan whose link is not configured yet
+	 * (see ARLING_ASISTENT_DEFAULT_STRIPE_LINK_STARTER/_PRO and their
+	 * filters in class-arling-asistent-api.php) shows a disabled "coming
+	 * soon" button instead of a link, never a broken/empty href.
+	 *
+	 * @param string     $tenant_id This site's connected tenant id.
+	 * @param array|null $status    Cached tenant status (see fetch_status()), or null.
+	 */
+	private function render_upgrade_section( $tenant_id, $status ) {
+		$plan          = isset( $status['plan'] ) ? sanitize_text_field( $status['plan'] ) : 'free';
+		$starter_link  = $this->build_upgrade_url( Arling_Asistent_Api::stripe_link_starter(), $tenant_id );
+		$pro_link      = $this->build_upgrade_url( Arling_Asistent_Api::stripe_link_pro(), $tenant_id );
+
+		echo '<h2>' . esc_html__( 'Upgrade', 'arling-asistent' ) . '</h2>';
+		echo '<p>' . esc_html__( 'Current plan', 'arling-asistent' ) . ': <b>' . esc_html( ucfirst( $plan ) ) . '</b></p>';
+		echo '<p>';
+		if ( $starter_link ) {
+			echo '<a class="button button-primary" href="' . esc_url( $starter_link ) . '" target="_blank" rel="noopener noreferrer">' .
+				esc_html__( 'Upgrade to Starter (19 EUR/month, up to 1,000 conversations)', 'arling-asistent' ) . '</a> ';
+		} else {
+			echo '<span class="button disabled" aria-disabled="true">' . esc_html__( 'Starter: coming soon', 'arling-asistent' ) . '</span> ';
+		}
+		if ( $pro_link ) {
+			echo '<a class="button button-primary" href="' . esc_url( $pro_link ) . '" target="_blank" rel="noopener noreferrer">' .
+				esc_html__( 'Upgrade to Pro (39 EUR/month, up to 5,000 conversations)', 'arling-asistent' ) . '</a>';
+		} else {
+			echo '<span class="button disabled" aria-disabled="true">' . esc_html__( 'Pro: coming soon', 'arling-asistent' ) . '</span>';
+		}
+		echo '</p>';
+		echo '<p class="description">' . esc_html__( 'Opens Stripe Checkout in a new tab. Your plan updates automatically within a few minutes of a successful payment.', 'arling-asistent' ) . '</p>';
 	}
 
 	private function render_settings_form() {

@@ -85,9 +85,12 @@ wrangler kv namespace create ASISTENT_CACHE
 # treba ho vytvoriť čo najskôr):
 wrangler vectorize create-metadata-index asistent-products --property-name=tenant --type=string
 
-# Admin token pre POST /v1/tenants/:id/reingest (ľubovoľný náhodný reťazec,
-# napr. `openssl rand -hex 32`); bez neho endpoint odmietne úplne všetky
-# požiadavky, nikdy nepovolí re-ingest bez neho:
+# Admin token pre POST /v1/tenants/:id/reingest a PATCH/POST
+# /v1/tenants/:id/plan (ľubovoľný náhodný reťazec, napr. `openssl rand -hex
+# 32`); bez neho oba endpointy odmietnu úplne všetky požiadavky, nikdy
+# nepovolia re-ingest ani zmenu plánu bez neho. Rovnaká hodnota ide aj do
+# products/licence-service ako ASISTENT_ADMIN_TOKEN, pozri "Platby cez
+# Stripe" vyššie:
 wrangler secret put ADMIN_TOKEN
 
 cd worker
@@ -133,15 +136,65 @@ Ten istý `ingestFeedForTenant()` beží aj v dennom crone (`worker/src/cron.js`
 
 ## Plány
 
-`POST /v1/tenants` dnes vytvorí tenanta na pláne `free` bez platby (Stripe zatiaľ nie je zapojený, pozri "Čo ešte nie je hotové" nižšie). Kvóta sa zatiaľ počíta na jeden `POST /v1/chat` request, nie na správu v ňom (pozri komentár v `worker/src/tenants.js` a bod nižšie).
+`POST /v1/tenants` dnes vytvorí tenanta na pláne `free` bez platby. Kvóta sa zatiaľ počíta na jeden `POST /v1/chat` request, nie na správu v ňom (pozri komentár v `worker/src/tenants.js` a bod nižšie v "Čo ešte nie je hotové").
 
-| Plán | Cena | Mesačná kvóta |
+| Plán | Cena | Mesačná kvóta (predvolená) |
 |---|---|---|
 | `free` | zadarmo | 100 rozhovorov |
 | `starter` | 19 EUR/mesiac | 1 000 rozhovorov |
 | `pro` | 39 EUR/mesiac | 5 000 rozhovorov |
 
-Zmena plánu/kvóty existujúceho tenanta (napr. po platbe) sa dnes robí len priamym zápisom do D1 (`UPDATE tenants SET plan = ?, monthly_quota = ? WHERE id = ?`), keďže Stripe upgrade flow ešte nie je zapojený.
+### Zmena plánu (PATCH alebo POST `/v1/tenants/:id/plan`)
+
+Toto je miesto, kde platený plán skutočne zmení, čo tenant smie používať (predtým `POST /v1/tenants` vytvoril vždy len `free` tenanta a nič ho z toho nikdy nedostalo, aj keď zaplatil). Chránené rovnako ako `POST /v1/tenants/:id/reingest`: hlavička `X-Admin-Token` musí sedieť s `ADMIN_TOKEN` secretom, inak `401` (a bez nastaveného `ADMIN_TOKEN` endpoint odmietne úplne všetko).
+
+Telo požiadavky:
+
+```json
+{ "plan": "starter", "monthly_quota": 1000, "billing_ref": "sub_...", "valid_until": "2026-11-05" }
+```
+
+- `plan` (povinné): `"free"`, `"starter"` alebo `"pro"`, inak `400 validation_failed`.
+- `monthly_quota` (voliteľné): kladné celé číslo. Bez neho sa použije predvolená kvóta daného plánu (tabuľka vyššie, `DEFAULT_QUOTAS` v `worker/src/tenants.js`).
+- `billing_ref` (voliteľné): ľubovoľný reťazec (napr. Stripe subscription id), uložený tak ako je. Bez neho sa nastaví na `null`.
+- `valid_until` (voliteľné): dátum/čas ako reťazec (ISO, napr. `"2026-11-05"`), dokedy plán platí. Bez neho sa nastaví na `null`. Vynucovanie expirácie (downgrade na `free` po `valid_until`) nerobí tento worker sám od seba, robí ho `expire_asistent_plans()` v `products/licence-service/app.py`, volaním tohto istého endpointu s `plan: "free"`, pozri README toho projektu.
+
+`billing_ref` a `valid_until` sú nové nullable stĺpce (`billing_ref TEXT`, `valid_until TEXT`), pridané rovnako ako `product_count`: guardovaným runtime `ALTER TABLE` (`ensureBillingColumns` v `worker/src/tenants.js`), takže existujúca nasadená databáza ich dostane automaticky pri prvom volaní tohto endpointu, bez potreby ručne spúšťať `schema.sql` znova. `GET /v1/tenants/:id/status` vracia oba stĺpce (`null`, kým nie sú nastavené).
+
+Toto je presne to, čo volá Stripe webhook v `products/licence-service/app.py` (vlastný `ASISTENT_ADMIN_TOKEN`, ktorý sa musí zhodovať s týmto `ADMIN_TOKEN`) po úspešnej platbe alebo obnove predplatného za plán `asistent-starter`/`asistent-pro`, pozri "Platby cez Stripe" nižšie a README `products/licence-service`.
+
+## Platby cez Stripe
+
+Samotné platenie beží v `products/licence-service` (homelab), nie v tomto Cloudflare Workeri: ten webhook prijme Stripe udalosť a zavolá späť sem, na `PATCH /v1/tenants/:id/plan` vyššie. Aby to fungovalo end-to-end, treba dve veci: nastaviť dva `.env` kľúče na homelabe (`products/licence-service`), a vyplniť dva placeholdery na strane frontendu (táto demo stránka, jej kópia v `arling-sk/asistent/`, a WordPress plugin).
+
+### `.env` kľúče na homelabe (`products/licence-service/.env` vedľa `compose.yaml`)
+
+| Kľúč | Hodnota |
+|---|---|
+| `ASISTENT_ADMIN_TOKEN` | Rovnaká hodnota ako `ADMIN_TOKEN` secret tohto Workera (`wrangler secret put ADMIN_TOKEN` vyššie): jeden zdieľaný token, dve mená v dvoch službách. |
+| `ASISTENT_API_BASE` | `https://arling-asistent.arling.workers.dev` (predvolené, netreba nastavovať, ak sa doména Workera nezmenila). |
+| `PLANS_JSON` | Doplniť o dva záznamy, jeden na cenu (pozri presný JSON nižšie). |
+
+Presný `PLANS_JSON` snippet na doplnenie (zlúčiť s existujúcimi záznamami pre ostatné nástroje ARLing, nie nahradiť celý súbor):
+
+```json
+{
+  "price_asistent_starter": {"plan": "asistent-starter", "days": 35},
+  "price_asistent_pro": {"plan": "asistent-pro", "days": 35}
+}
+```
+
+(`price_asistent_starter`/`price_asistent_pro` sú placeholder názvy, nahraďte skutočnými Stripe price id z kroku 2 nižšie. `days: 35` namiesto 30/31 zámerne: pár dní rezervy, aby oneskorené `invoice.paid` doručenie nikdy nestihlo tenanta downgradnúť skôr, než v skutočnosti prestal platiť.)
+
+### Kroky pre vlastníka v Stripe Dashboard
+
+1. **Products** → nový produkt "ARLing Asistent".
+2. Na ňom dve **recurring** ceny: 19 EUR/mesiac a 39 EUR/mesiac, obe **s DPH** (tax inclusive), tax code `txcd_10000000` (SaaS/softvér).
+3. Pre každú cenu **Payment Link** (Dashboard → Payment links → New): v pokročilých nastaveniach zapnúť **"Collect a client reference ID"** (client reference ID passthrough), bez toho `?client_reference_id=...` z tlačidla nižšie do Stripe Checkout Session vôbec nedorazí, a webhook potom nevie, ktorému tenantovi kvótu zdvihnúť. Success URL: `https://arling.sk/asistent/?upgraded=1`.
+4. Skopírovať obe Payment Link URL do `data-stripe-link` atribútov v `demo/index.html` (a rovnako do `arling-sk/asistent/index.html`, presná kópia) na tlačidlách `#btn-plan-starter` / `#btn-plan-pro` (miesto komentárov `STRIPE_LINK_STARTER` / `STRIPE_LINK_PRO`), a do `arling_asistent_stripe_link_starter` / `arling_asistent_stripe_link_pro` filtrov (alebo priamo do `ARLING_ASISTENT_DEFAULT_STRIPE_LINK_STARTER`/`_PRO` konštánt v `wordpress-plugin/arling-asistent/arling-asistent.php`) pre WordPress plugin. Kým sú tieto placeholdery prázdne, príslušné tlačidlo ukazuje "Čoskoro"/"coming soon" a je neaktívne, nikdy nevedie na rozbitý odkaz.
+5. Doplniť skutočné price id do `PLANS_JSON` (krok vyššie) a reštartovať `licence` službu (`docker compose up -d --build` alebo `restart`).
+
+Po tomto: zákazník klikne na tlačidlo s vlastným `tenant_id` v `client_reference_id`, zaplatí cez Stripe, `checkout.session.completed` dorazí do `licence-service`, ten zavolá `PATCH /v1/tenants/:id/plan` sem, a tenant má hneď zvýšenú kvótu, bez ručného zásahu.
 
 ## Náklady na bezplatnej úrovni Cloudflare (zdroj: `opportunities/asistent-research.md`, stav 09/2026)
 
@@ -158,7 +211,7 @@ Najtesnejší limit je 10 000 Workers AI neuronov/deň (embeddingy pri onboardin
 
 ## Čo ešte nie je hotové
 
-- **Platby.** Stripe (mesačné predplatné, 14-dňová skúšobná verzia, licencia podľa domény) nie je zapojený. `POST /v1/tenants` dnes vytvorí `free` tenanta s pevnou kvótou (pozri "Plány" vyššie), bez platby.
+- **Platby: zapojené na strane servera, čaká sa na Stripe účet vlastníka.** `PATCH/POST /v1/tenants/:id/plan` (pozri "Plány" vyššie) a `products/licence-service`'s Stripe webhook (checkout/renewal pre `asistent-starter`/`asistent-pro` plány, denný `expire_asistent_plans()` cron) sú hotové a otestované. Chýba už len: vlastník vytvorí produkt a dve ceny v Stripe, vyplní `STRIPE_LINK_STARTER`/`STRIPE_LINK_PRO` na demo stránke a vo WordPress pluginu (pozri "Platby cez Stripe" nižšie), a nastaví `PLANS_JSON`/`ASISTENT_ADMIN_TOKEN`/`ASISTENT_API_BASE` na homelabe. `POST /v1/tenants` naďalej vytvorí `free` tenanta s pevnou kvótou bez platby, presne ako doteraz.
 - **Kvóta na rozhovor, nie na správu.** MVP zjednodušenie: každé volanie `POST /v1/chat` sa počíta ako jeden rozhovor voči mesačnej kvóte (pozri komentár v `worker/src/tenants.js`). Presnejšie počítanie raz za reláciu (podľa in-memory session id na strane widgetu) je budúce rozšírenie.
 - **Shoptet doplnok.** Vyžaduje partnerské schválenie (Shoptet reaguje do 4 týždňov, pozri `opportunities/asistent-research.md`), nie je súčasťou tohto MVP. Skript tag funguje na Shoptete aj bez doplnku.
 - **WooCommerce plugin a Shopify aplikácia** (inštalácia na klik z ich obchodov s doplnkami). Feed formáty oboch platforiem worker už vie spracovať (`worker/src/feed.js`), chýba len samotný distribučný balík.
@@ -169,7 +222,7 @@ Najtesnejší limit je 10 000 Workers AI neuronov/deň (embeddingy pri onboardin
 
 ## Testy
 
-`npm test` (`node --test tests/*.test.mjs`), Node 20+, bez siete. 133 testov, 426 volaní `assert.*`, pokrývajúcich: parsovanie všetkých 4 formátov feedu a normalizáciu, chunkovanie a embedding pipeline, CORS allowlist (vrátane hlavičky na skutočných JSON odpovediach `POST /v1/tenants` a `GET /v1/tenants/:id/status`, nielen na OPTIONS preflighte), rate limiting a jeho fail-open správanie pri chybe KV, limity veľkosti vstupu a ich mapovanie na 413/400 namiesto 500, ochranu proti prompt injection (vrátane popisu produktu s textom "ignore previous instructions"), retrieval z Vectorize vrátane degradovaného nefiltrovaného fallbacku pri chýbajúcom metadata indexe, admin re-ingest endpoint (`POST /v1/tenants/:id/reingest`), validáciu a vytvorenie tenanta (vrátane predvoleného plánu `free` a jeho kvóty), idempotentné `POST /v1/tenants` pri opakovanej doméne (existujúci tenant, obnovenie feedu pri zmene URL alebo starnutí nad 24h, mapovanie iného D1 konfliktu na 409), `product_count` vrátane guardovaného runtime `ALTER TABLE` pre existujúcu D1 databázu (`ensureProductCountColumn`/`setProductCount` v `worker/src/tenants.js`), mesačnú kvótu a počítadlá, stavbu groundovaného promptu, jazyk `auto` (heuristika `detectLangFromText` a systémový prompt, ktorý necháva model rozpoznať jazyk zákazníka), spracovanie odpovede modelu a celý chat flow s mockovaným modelom vracajúcim JSON, `widget/widget.js` samotný (načítanie cez `node:vm` s minimálnym fake DOM, bez jsdom, vrátane `data-position`, `data-title`, `data-greeting` a `data-lang="auto"` podľa `navigator.language`), a napokon aj wiring na úrovni HTTP routera (`worker/src/index.js`) so skutočnými `Request`/`Response` objektmi.
+`npm test` (`node --test tests/*.test.mjs`), Node 20+, bez siete. 146 testov, 460 volaní `assert.*`, pokrývajúcich: parsovanie všetkých 4 formátov feedu a normalizáciu, chunkovanie a embedding pipeline, CORS allowlist (vrátane hlavičky na skutočných JSON odpovediach `POST /v1/tenants` a `GET /v1/tenants/:id/status`, nielen na OPTIONS preflighte), rate limiting a jeho fail-open správanie pri chybe KV, limity veľkosti vstupu a ich mapovanie na 413/400 namiesto 500, ochranu proti prompt injection (vrátane popisu produktu s textom "ignore previous instructions"), retrieval z Vectorize vrátane degradovaného nefiltrovaného fallbacku pri chýbajúcom metadata indexe, admin re-ingest endpoint (`POST /v1/tenants/:id/reingest`), admin set-plan endpoint (`PATCH`/`POST /v1/tenants/:id/plan`: autorizáciu, validáciu plánu, predvolené aj vlastné `monthly_quota`, ukladanie a čistenie `billing_ref`/`valid_until`, alias `POST`), validáciu a vytvorenie tenanta (vrátane predvoleného plánu `free` a jeho kvóty), idempotentné `POST /v1/tenants` pri opakovanej doméne (existujúci tenant, obnovenie feedu pri zmene URL alebo starnutí nad 24h, mapovanie iného D1 konfliktu na 409), `product_count` a `billing_ref`/`valid_until` vrátane guardovaného runtime `ALTER TABLE` pre existujúcu D1 databázu (`ensureProductCountColumn`/`setProductCount`, `ensureBillingColumns`/`setTenantPlan` v `worker/src/tenants.js`), mesačnú kvótu a počítadlá, stavbu groundovaného promptu, jazyk `auto` (heuristika `detectLangFromText` a systémový prompt, ktorý necháva model rozpoznať jazyk zákazníka), spracovanie odpovede modelu a celý chat flow s mockovaným modelom vracajúcim JSON, `widget/widget.js` samotný (načítanie cez `node:vm` s minimálnym fake DOM, bez jsdom, vrátane `data-position`, `data-title`, `data-greeting` a `data-lang="auto"` podľa `navigator.language`), a napokon aj wiring na úrovni HTTP routera (`worker/src/index.js`) so skutočnými `Request`/`Response` objektmi.
 
 ## Kontakt
 

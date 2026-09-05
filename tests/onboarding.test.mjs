@@ -6,7 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createTenantFromRequest, ingestFeedForTenant, tenantStatusResponse, handleCreateTenantRoute, handleTenantStatusRoute, handleReingestRoute, TENANT_STATUS } from '../worker/src/onboarding.js';
+import { createTenantFromRequest, ingestFeedForTenant, tenantStatusResponse, handleCreateTenantRoute, handleTenantStatusRoute, handleReingestRoute, handleSetPlanRoute, TENANT_STATUS } from '../worker/src/onboarding.js';
 import { getTenantById, listTenants, SQL } from '../worker/src/tenants.js';
 import { createMockD1 } from './helpers/mock-d1.mjs';
 import { createMockAI, createMockVectorize } from './helpers/mock-cf.mjs';
@@ -342,4 +342,123 @@ test('handleReingestRoute returns 404 for an unknown tenant even with a correct 
   const env = makeEnv();
   const res = await handleReingestRoute(new Request('https://x/', { method: 'POST', headers: { 'X-Admin-Token': ADMIN_TOKEN } }), env, 'ghost');
   assert.equal(res.status, 404);
+});
+
+// ---------------------------------------------------------------------------
+// Admin: set plan (PATCH/POST /v1/tenants/:id/plan), the actual billing
+// fix: a paid Stripe plan must change monthly_quota, not just plan.
+// ---------------------------------------------------------------------------
+
+function planRequest(body, { method = 'PATCH', token = ADMIN_TOKEN } = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['X-Admin-Token'] = token;
+  return new Request('https://x/', { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+}
+
+test('handleSetPlanRoute rejects a missing or wrong X-Admin-Token with 401', async () => {
+  const env = makeEnv();
+  const tenant = await createTenantFromRequest(env, { feedUrl: 'https://shop.sk/feed.xml', domain: 'plan1.sk', email: 'a@plan1.sk' });
+
+  const noToken = await handleSetPlanRoute(planRequest({ plan: 'starter' }, { token: null }), env, tenant.id);
+  assert.equal(noToken.status, 401);
+
+  const wrongToken = await handleSetPlanRoute(planRequest({ plan: 'starter' }, { token: 'nope' }), env, tenant.id);
+  assert.equal(wrongToken.status, 401);
+});
+
+test('handleSetPlanRoute refuses every request when ADMIN_TOKEN is not configured', async () => {
+  const env = makeEnv();
+  delete env.ADMIN_TOKEN;
+  const tenant = await createTenantFromRequest(env, { feedUrl: 'https://shop.sk/feed.xml', domain: 'plan2.sk', email: 'a@plan2.sk' });
+  const res = await handleSetPlanRoute(planRequest({ plan: 'starter' }, { token: 'anything' }), env, tenant.id);
+  assert.equal(res.status, 401);
+});
+
+test('handleSetPlanRoute rejects an invalid plan value with 400 validation_failed', async () => {
+  const env = makeEnv();
+  const tenant = await createTenantFromRequest(env, { feedUrl: 'https://shop.sk/feed.xml', domain: 'plan3.sk', email: 'a@plan3.sk' });
+  const res = await handleSetPlanRoute(planRequest({ plan: 'ultra' }), env, tenant.id);
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.equal(body.error, 'validation_failed');
+});
+
+test('handleSetPlanRoute returns 404 for an unknown tenant even with a correct token', async () => {
+  const env = makeEnv();
+  const res = await handleSetPlanRoute(planRequest({ plan: 'starter' }), env, 'ghost');
+  assert.equal(res.status, 404);
+});
+
+test('handleSetPlanRoute sets plan and defaults monthly_quota from the plan when not given, and GET status reflects it', async () => {
+  const env = makeEnv();
+  const tenant = await createTenantFromRequest(env, { feedUrl: 'https://shop.sk/feed.xml', domain: 'plan4.sk', email: 'a@plan4.sk' });
+  const res = await handleSetPlanRoute(planRequest({ plan: 'starter' }), env, tenant.id);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.plan, 'starter');
+  assert.equal(body.monthly_quota, 1000);
+
+  const status = await tenantStatusResponse(env, tenant.id);
+  assert.equal(status.plan, 'starter');
+  assert.equal(status.monthly_quota, 1000);
+});
+
+test('handleSetPlanRoute defaults pro to 5000 and free to 100', async () => {
+  const env = makeEnv();
+  const tenant = await createTenantFromRequest(env, { feedUrl: 'https://shop.sk/feed.xml', domain: 'plan5.sk', email: 'a@plan5.sk' });
+  const proRes = await handleSetPlanRoute(planRequest({ plan: 'pro' }), env, tenant.id);
+  const proBody = await proRes.json();
+  assert.equal(proBody.monthly_quota, 5000);
+
+  const freeRes = await handleSetPlanRoute(planRequest({ plan: 'free' }), env, tenant.id);
+  const freeBody = await freeRes.json();
+  assert.equal(freeBody.monthly_quota, 100);
+});
+
+test('handleSetPlanRoute accepts an explicit monthly_quota override instead of the plan default', async () => {
+  const env = makeEnv();
+  const tenant = await createTenantFromRequest(env, { feedUrl: 'https://shop.sk/feed.xml', domain: 'plan6.sk', email: 'a@plan6.sk' });
+  const res = await handleSetPlanRoute(planRequest({ plan: 'starter', monthly_quota: 2500 }), env, tenant.id);
+  const body = await res.json();
+  assert.equal(body.monthly_quota, 2500);
+});
+
+test('handleSetPlanRoute stores billing_ref and valid_until, returned by both the PATCH response and GET status', async () => {
+  const env = makeEnv();
+  const tenant = await createTenantFromRequest(env, { feedUrl: 'https://shop.sk/feed.xml', domain: 'plan7.sk', email: 'a@plan7.sk' });
+  const res = await handleSetPlanRoute(planRequest({ plan: 'pro', billing_ref: 'sub_123', valid_until: '2026-11-01' }), env, tenant.id);
+  const body = await res.json();
+  assert.equal(body.billing_ref, 'sub_123');
+  assert.equal(body.valid_until, '2026-11-01');
+
+  const status = await tenantStatusResponse(env, tenant.id);
+  assert.equal(status.billing_ref, 'sub_123');
+  assert.equal(status.valid_until, '2026-11-01');
+});
+
+test('handleSetPlanRoute clears billing_ref/valid_until to null when a later call omits them (e.g. downgrade to free)', async () => {
+  const env = makeEnv();
+  const tenant = await createTenantFromRequest(env, { feedUrl: 'https://shop.sk/feed.xml', domain: 'plan8.sk', email: 'a@plan8.sk' });
+  await handleSetPlanRoute(planRequest({ plan: 'starter', billing_ref: 'sub_456', valid_until: '2026-10-01' }), env, tenant.id);
+  const res = await handleSetPlanRoute(planRequest({ plan: 'free' }), env, tenant.id);
+  const body = await res.json();
+  assert.equal(body.plan, 'free');
+  assert.equal(body.billing_ref, null);
+  assert.equal(body.valid_until, null);
+});
+
+test('handleSetPlanRoute accepts POST as an alias of PATCH, same result', async () => {
+  const env = makeEnv();
+  const tenant = await createTenantFromRequest(env, { feedUrl: 'https://shop.sk/feed.xml', domain: 'plan9.sk', email: 'a@plan9.sk' });
+  const res = await handleSetPlanRoute(planRequest({ plan: 'starter' }, { method: 'POST' }), env, tenant.id);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.plan, 'starter');
+});
+
+test('handleSetPlanRoute returns 400 on invalid JSON body', async () => {
+  const env = makeEnv();
+  const tenant = await createTenantFromRequest(env, { feedUrl: 'https://shop.sk/feed.xml', domain: 'plan10.sk', email: 'a@plan10.sk' });
+  const res = await handleSetPlanRoute(new Request('https://x/', { method: 'PATCH', headers: { 'X-Admin-Token': ADMIN_TOKEN }, body: '{not json' }), env, tenant.id);
+  assert.equal(res.status, 400);
 });

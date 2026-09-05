@@ -188,3 +188,45 @@ test('POST /v1/tenants/:id/reingest is wired up end to end: unauthorized without
   const body = await ok.json();
   assert.equal(body.ok, true);
 });
+
+test('PATCH /v1/tenants/:id/plan is wired up end to end: unauthorized without the admin token, changes plan and quota with it', async () => {
+  const env = makeEnv();
+  const tenant = await readyTenant(env, 'shop8.sk');
+
+  const unauthorized = await worker.fetch(new Request(`https://asistent.arling.sk/v1/tenants/${tenant.id}/plan`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ plan: 'starter' }),
+  }), env, {});
+  assert.equal(unauthorized.status, 401);
+
+  const ok = await worker.fetch(new Request(`https://asistent.arling.sk/v1/tenants/${tenant.id}/plan`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'X-Admin-Token': 'test-admin-token' },
+    body: JSON.stringify({ plan: 'pro', billing_ref: 'sub_789', valid_until: '2026-12-01' }),
+  }), env, {});
+  assert.equal(ok.status, 200);
+  const body = await ok.json();
+  assert.equal(body.plan, 'pro');
+  assert.equal(body.monthly_quota, 5000);
+  assert.equal(body.billing_ref, 'sub_789');
+
+  const statusRes = await worker.fetch(new Request(`https://asistent.arling.sk/v1/tenants/${tenant.id}/status`), env, {});
+  const statusBody = await statusRes.json();
+  assert.equal(statusBody.plan, 'pro');
+  assert.equal(statusBody.monthly_quota, 5000);
+  assert.equal(statusBody.valid_until, '2026-12-01');
+});
+
+test('POST /v1/tenants/:id/plan is accepted as an alias of PATCH at the router level', async () => {
+  const env = makeEnv();
+  const tenant = await readyTenant(env, 'shop9.sk');
+  const res = await worker.fetch(new Request(`https://asistent.arling.sk/v1/tenants/${tenant.id}/plan`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Admin-Token': 'test-admin-token' },
+    body: JSON.stringify({ plan: 'starter' }),
+  }), env, {});
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.plan, 'starter');
+});

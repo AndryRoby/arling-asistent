@@ -79,6 +79,20 @@ define( 'ARLING_ASISTENT_URL', plugin_dir_url( __FILE__ ) );
  */
 define( 'ARLING_ASISTENT_DEFAULT_API_BASE', 'https://arling-asistent.arling.workers.dev' );
 
+/**
+ * Stripe Payment Link URLs for the Starter (19 EUR/month) and Pro
+ * (39 EUR/month) plans, shown as "Upgrade" buttons on the settings page
+ * (see Arling_Asistent_Admin::render_upgrade_section()). Empty by default
+ * (STRIPE_LINK_STARTER / STRIPE_LINK_PRO placeholders): ARLing has not
+ * created the Stripe product/prices yet, see
+ * products/arling-asistent/README.md "Platby cez Stripe". Until a link is
+ * set (here, or via the `arling_asistent_stripe_link_starter` /
+ * `arling_asistent_stripe_link_pro` filters below), the corresponding
+ * button shows "coming soon" instead of a link.
+ */
+define( 'ARLING_ASISTENT_DEFAULT_STRIPE_LINK_STARTER', 'https://buy.stripe.com/5kQcMZ1fA6tZaoWaOh4ko03' );
+define( 'ARLING_ASISTENT_DEFAULT_STRIPE_LINK_PRO', 'https://buy.stripe.com/14AdR30bw05BgNk3lP4ko04' );
+
 require_once ARLING_ASISTENT_DIR . 'includes/class-arling-asistent-api.php';
 require_once ARLING_ASISTENT_DIR . 'includes/class-arling-asistent-admin.php';
 require_once ARLING_ASISTENT_DIR . 'includes/class-arling-asistent-frontend.php';
@@ -100,14 +114,13 @@ add_action(
 );
 
 /**
- * Load the translation files bundled in /languages. Text domain
- * "arling-asistent" matches the plugin slug, as required for
- * wordpress.org translate.wordpress.org auto-loading.
+ * No manual translation loading call here on purpose: this plugin's text
+ * domain "arling-asistent" matches its wordpress.org slug, and WordPress
+ * 4.6+ auto-loads translations for such plugins (from translate.wordpress.org
+ * once approved, or from /languages as a fallback) without a
+ * load_plugin_textdomain() call. Calling it explicitly is unnecessary and
+ * flagged by the wordpress.org Plugin Check tool as a discouraged function.
  */
-function arling_asistent_load_textdomain() {
-	load_plugin_textdomain( 'arling-asistent', false, dirname( plugin_basename( ARLING_ASISTENT_FILE ) ) . '/languages' );
-}
-add_action( 'init', 'arling_asistent_load_textdomain' );
 
 /**
  * Bail out (with an admin notice) if WooCommerce is not active. The

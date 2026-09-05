@@ -2,7 +2,7 @@
 Contributors: arlingsk
 Tags: woocommerce, chatbot, ai assistant, customer support, product search
 Requires at least: 6.0
-Tested up to: 6.9
+Tested up to: 7.1
 Requires PHP: 7.4
 Stable tag: 0.1.0
 License: GPLv2 or later
@@ -41,6 +41,8 @@ This plugin relies on the ARLing Asistent service to work. Provider: ARLing s. r
 No customer data and no order data is ever sent. Nothing is sent before you connect.
 
 **While connected**, the settings page periodically checks your assistant's setup status by calling the ARLing Asistent API (`GET /v1/tenants/{id}/status`), and the front-end widget script is loaded from ARLing's servers (`https://arling-asistent.arling.workers.dev/widget.js`, or a self-hosted URL if you use the `arling_asistent_widget_endpoint` filter) on the pages you configure. When a shopper uses the chat, their question and the assistant's answer are sent to and processed by this same service to generate a reply; the service does not store that conversation content, only daily aggregate counters used to enforce your plan's monthly quota.
+
+**Upgrading**: the "Upgrade" buttons on the settings page link to Stripe Checkout (a payment page hosted by Stripe, https://stripe.com), with your tenant id attached so your plan updates automatically after a successful payment. No payment details ever pass through this plugin or through ARLing's own servers.
 
 Use of this service is subject to ARLing's:
 

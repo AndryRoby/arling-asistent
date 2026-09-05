@@ -54,6 +54,8 @@ export const DICT = {
     en: 'Paste your product feed URL and an email address. The assistant answers customers from your real products, in their language, and always adds links to specific items. No conversations stored, no cookies.',
   },
   'cta.startFree': { sk: 'Začať zadarmo', en: 'Start for free' },
+  'cta.comingSoon': { sk: 'Čoskoro', en: 'Coming soon' },
+  'cta.upgrade': { sk: 'Prejsť na platený plán', en: 'Upgrade' },
   'hero.source': { sk: 'Zdrojový kód na GitHube', en: 'Source code on GitHub' },
   'hero.fact.formats': { sk: '<b>4</b> formáty feedu', en: '<b>4</b> feed formats' },
   'hero.fact.stored': { sk: '<b>0</b> rozhovorov sa ukladá', en: '<b>0</b> conversations stored' },

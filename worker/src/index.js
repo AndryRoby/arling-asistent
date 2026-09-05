@@ -10,6 +10,9 @@
  *   POST /v1/tenants                 -> onboarding.js
  *   GET  /v1/tenants/:id/status      -> onboarding.js
  *   POST /v1/tenants/:id/reingest    -> onboarding.js (admin only, X-Admin-Token)
+ *   PATCH/POST /v1/tenants/:id/plan  -> onboarding.js (admin only, X-Admin-Token;
+ *                                        this is what a paid Stripe plan actually
+ *                                        changes, see licence-service/app.py)
  *   GET  /widget.js                  -> the embeddable widget, served from
  *                                        this worker's own origin
  *   GET  /health                     -> static ok
@@ -28,7 +31,7 @@
  */
 
 import { handleChatRoute } from './chat.js';
-import { handleCreateTenantRoute, handleTenantStatusRoute, handleReingestRoute } from './onboarding.js';
+import { handleCreateTenantRoute, handleTenantStatusRoute, handleReingestRoute, handleSetPlanRoute } from './onboarding.js';
 import { parseAllowedOrigins, corsHeaders, InputTooLargeError } from './security.js';
 import { ValidationError } from './tenants.js';
 import widgetSource from './widget-src.js';
@@ -101,6 +104,11 @@ export default {
       const reingestMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/reingest$/);
       if (reingestMatch && request.method === 'POST') {
         return await handleReingestRoute(request, env, reingestMatch[1]);
+      }
+
+      const planMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/plan$/);
+      if (planMatch && (request.method === 'PATCH' || request.method === 'POST')) {
+        return await handleSetPlanRoute(request, env, planMatch[1]);
       }
 
       return jsonResponse({ error: 'not_found' }, 404, corsFor(request, env));

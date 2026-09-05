@@ -16,6 +16,11 @@ export function createMockD1() {
   // tenants.js ensureProductCountColumn/setProductCount), same as a
   // deployed D1 database that has not seen that guarded ALTER TABLE yet.
   let hasProductCountColumn = false;
+  // Same idea for billing_ref/valid_until (see tenants.js
+  // ensureBillingColumns/setTenantPlan): each is its own ALTER TABLE
+  // statement in real SQLite, so each gets its own independent flag.
+  let hasBillingRefColumn = false;
+  let hasValidUntilColumn = false;
 
   const clone = (row) => (row ? { ...row } : row);
 
@@ -41,10 +46,13 @@ export function createMockD1() {
           id, domain, feed_url, contact_email, plan, status, quota_month,
           monthly_quota, used_this_month, created_at, last_ingested_at: null,
         };
-        // INSERT_TENANT never lists product_count explicitly, so a row only
-        // gets it if the column (with its DEFAULT 0) already exists, exactly
-        // like real SQLite.
+        // INSERT_TENANT never lists product_count/billing_ref/valid_until
+        // explicitly, so a row only gets them if the column already exists,
+        // exactly like real SQLite (DEFAULT 0 for product_count, NULL for
+        // the two billing columns).
         if (hasProductCountColumn) row.product_count = 0;
+        if (hasBillingRefColumn) row.billing_ref = null;
+        if (hasValidUntilColumn) row.valid_until = null;
         tenants.set(id, row);
         return { success: true, meta: { changes: 1 } };
       }
@@ -69,6 +77,33 @@ export function createMockD1() {
         const [feedUrl, id] = args;
         const row = tenants.get(id);
         if (row) row.feed_url = feedUrl;
+        return { success: true, meta: { changes: row ? 1 : 0 } };
+      }
+      case SQL.ADD_BILLING_REF_COLUMN: {
+        if (hasBillingRefColumn) throw new Error('duplicate column name: billing_ref');
+        hasBillingRefColumn = true;
+        for (const row of tenants.values()) {
+          if (row.billing_ref === undefined) row.billing_ref = null;
+        }
+        return { success: true, meta: { changes: 0 } };
+      }
+      case SQL.ADD_VALID_UNTIL_COLUMN: {
+        if (hasValidUntilColumn) throw new Error('duplicate column name: valid_until');
+        hasValidUntilColumn = true;
+        for (const row of tenants.values()) {
+          if (row.valid_until === undefined) row.valid_until = null;
+        }
+        return { success: true, meta: { changes: 0 } };
+      }
+      case SQL.SET_TENANT_PLAN: {
+        const [plan, monthlyQuota, billingRef, validUntil, id] = args;
+        const row = tenants.get(id);
+        if (row) {
+          row.plan = plan;
+          row.monthly_quota = monthlyQuota;
+          row.billing_ref = billingRef;
+          row.valid_until = validUntil;
+        }
         return { success: true, meta: { changes: row ? 1 : 0 } };
       }
       case SQL.SET_TENANT_STATUS: {

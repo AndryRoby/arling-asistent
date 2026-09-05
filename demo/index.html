@@ -157,6 +157,7 @@
   .btn-line:hover { border-color:var(--accent); color:var(--accent); }
   .btn + .btn { margin-left:10px; }
   .btn:disabled { opacity:.6; cursor:default; }
+  .btn[aria-disabled="true"] { opacity:.55; cursor:default; pointer-events:none; }
 
   section { padding:44px 0; border-bottom:1px solid var(--line); }
   section[id], header.top { scroll-margin-top:14px; }
@@ -338,13 +339,15 @@
               <td class="plan">Starter</td>
               <td class="price">19 &euro;<span> / mesiac</span></td>
               <td data-i18n="pricing.limit.starter">do 1&nbsp;000</td>
-              <td><a class="btn btn-line" href="#playground" data-umami-event="trial_click" data-umami-event-place="pricing" data-i18n="cta.startFree">Začať zadarmo</a></td>
+              <!-- Owner: fill data-stripe-link with the Stripe Payment Link URL for the 19 EUR/month price (STRIPE_LINK_STARTER placeholder, see README "Platby cez Stripe"). Empty = button stays "Coming soon" and disabled. -->
+              <td><a class="btn btn-line" id="btn-plan-starter" href="#playground" data-stripe-link="https://buy.stripe.com/5kQcMZ1fA6tZaoWaOh4ko03" data-umami-event="upgrade_click" data-umami-event-place="pricing-starter" data-i18n="cta.upgrade">Prejsť na platený plán</a></td>
             </tr>
             <tr>
               <td class="plan">Growth</td>
               <td class="price">39 &euro;<span> / mesiac</span></td>
               <td data-i18n="pricing.limit.growth">do 5&nbsp;000</td>
-              <td><a class="btn btn-line" href="#playground" data-umami-event="trial_click" data-umami-event-place="pricing" data-i18n="cta.startFree">Začať zadarmo</a></td>
+              <!-- Owner: fill data-stripe-link with the Stripe Payment Link URL for the 39 EUR/month price (STRIPE_LINK_PRO placeholder, see README "Platby cez Stripe"). Empty = button stays "Coming soon" and disabled. -->
+              <td><a class="btn btn-line" id="btn-plan-pro" href="#playground" data-stripe-link="https://buy.stripe.com/14AdR30bw05BgNk3lP4ko04" data-umami-event="upgrade_click" data-umami-event-place="pricing-pro" data-i18n="cta.upgrade">Prejsť na platený plán</a></td>
             </tr>
           </tbody>
         </table>
