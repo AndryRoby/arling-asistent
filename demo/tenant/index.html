@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://homelab.tailbf8f27.ts.net; connect-src 'self' https://homelab.tailbf8f27.ts.net https://arling-asistent.arling.workers.dev; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta name="robots" content="noindex, nofollow" />
+<title>Používanie a predplatné: ARLing Asistent</title>
+<meta name="description" content="Stránka účtu ARLing Asistenta: rozhovory použité tento mesiac, embed kód a prechod na plán Starter alebo Pro cez Stripe." />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Používanie a predplatné: ARLing Asistent" />
+<meta property="og:description" content="Stránka účtu ARLing Asistenta: rozhovory použité tento mesiac, embed kód a prechod na plán Starter alebo Pro cez Stripe." />
+<meta property="og:url" content="https://arling.sk/asistent/tenant/" />
+<meta property="og:locale" content="sk_SK" />
+<meta property="og:image" content="https://arling.sk/asistent/icon-512.png" />
+<link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+<link rel="alternate icon" href="../favicon.ico" />
+<link rel="apple-touch-icon" href="../icon-192.png" />
+<link rel="manifest" href="../manifest.json" />
+
+<style>
+  :root {
+    --paper:#f6f2ea; --paper-2:#fbf9f4; --ink:#1b1a17; --ink-2:#4a4741; --muted:#66625a; --line:#d9d2c4;
+    --accent:#b23a1d; --accent-soft:#f3e2dc; --ok:#2f6f3e; --warn:#9a6b00;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --sans:system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"Cascadia Code",Consolas,Menlo,monospace;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper:#151412; --paper-2:#1d1b18; --ink:#efe9de; --ink-2:#c9c2b5; --muted:#8f887b; --line:#2e2b26; --accent:#e0623f; --accent-soft:#3a1f17; --ok:#7fbf8e; --warn:#caa552; }
+  }
+  * { box-sizing:border-box; }
+  html { background:var(--paper); }
+  body { margin:0; color:var(--ink); background:var(--paper); font:16px/1.55 var(--sans); -webkit-font-smoothing:antialiased; }
+  a { color:inherit; text-decoration-color:var(--line); text-underline-offset:3px; }
+  a:hover { text-decoration-color:var(--accent); }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+  [hidden] { display:none !important; }
+  .skip { position:absolute; left:-999px; top:8px; background:var(--ink); color:var(--paper); padding:8px 12px; z-index:10; }
+  .skip:focus { left:8px; }
+  .wrap { max-width:1040px; margin:0 auto; padding:0 24px; min-width:0; }
+  code { font:13.5px/1.4 var(--mono); background:var(--paper-2); border:1px solid var(--line); border-radius:3px; padding:1px 5px; overflow-wrap:anywhere; }
+
+  header.top { border-bottom:1px solid var(--line); }
+  header.top .wrap { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px 24px; padding:18px 24px; }
+  .brand { display:flex; align-items:baseline; flex-wrap:wrap; gap:2px 10px; min-width:0; }
+  .wordmark { font:600 21px/1.25 var(--serif); text-decoration:none; overflow-wrap:anywhere; }
+  .wordmark-sub { font:13px/1 var(--sans); color:var(--muted); letter-spacing:.02em; text-decoration:none; white-space:nowrap; }
+  .wordmark-sub:hover { color:var(--accent); }
+  nav.main { display:flex; flex-wrap:wrap; align-items:center; }
+  nav.main a { font-size:14px; margin-left:20px; text-decoration:none; color:var(--ink-2); white-space:nowrap; }
+  nav.main a:first-child { margin-left:0; }
+  nav.main a:hover { color:var(--accent); }
+  .lang-switch { display:flex; align-items:center; gap:0; margin-left:20px; }
+  .lang-switch button { font:600 12px/1 var(--sans); padding:6px 9px; border:1px solid var(--line); background:var(--paper); color:var(--ink-2); cursor:pointer; appearance:none; -webkit-appearance:none; }
+  .lang-switch button:first-child { border-radius:4px 0 0 4px; }
+  .lang-switch button:last-child { border-radius:0 4px 4px 0; }
+  .lang-switch button + button { margin-left:-1px; }
+  .lang-switch button:hover { border-color:var(--accent); color:var(--accent); position:relative; z-index:1; }
+  .lang-switch button.lang-active { background:var(--ink); border-color:var(--ink); color:var(--paper); position:relative; z-index:1; }
+
+  .hero { padding:52px 0 36px; border-bottom:1px solid var(--line); }
+  .hero h1 { font:400 clamp(30px,4.6vw,44px)/1.14 var(--serif); letter-spacing:-.01em; margin:0 0 16px; max-width:22ch; }
+  .hero p.lead { font-size:17px; color:var(--ink-2); max-width:62ch; margin:0 0 14px; }
+  .hero p.tip { font-size:14px; color:var(--muted); max-width:62ch; margin:0; }
+  .kicker { font:400 14px/1 var(--serif); color:var(--accent); letter-spacing:.06em; text-transform:uppercase; margin:0 0 10px; }
+
+  .state { margin:22px 0 0; padding:12px 14px; border:1px solid var(--line); background:var(--paper-2); border-radius:4px; font-size:15px; color:var(--ink-2); max-width:70ch; overflow-wrap:anywhere; }
+  .state-loading { color:var(--muted); }
+  .state-error { border-color:var(--accent); color:var(--ink); }
+  .state-warn { border-color:var(--warn); color:var(--ink); }
+
+  section { padding:40px 0; border-bottom:1px solid var(--line); }
+  section[id], header.top { scroll-margin-top:14px; }
+  h2 { font:400 28px/1.2 var(--serif); margin:0 0 8px; letter-spacing:-.005em; max-width:30ch; }
+  .sub { color:var(--ink-2); max-width:64ch; margin:0 0 22px; }
+
+  .kv { list-style:none; margin:0; padding:0; border-top:1px solid var(--line); max-width:760px; }
+  .kv li { display:grid; grid-template-columns:minmax(0,230px) minmax(0,1fr); gap:4px 24px; padding:12px 0; border-bottom:1px solid var(--line); min-width:0; }
+  .kv .k { color:var(--muted); font-size:14px; padding-top:2px; }
+  .kv .v { color:var(--ink); overflow-wrap:anywhere; min-width:0; }
+  .kv .v b { font-weight:600; }
+  @media (max-width:560px) { .kv li { grid-template-columns:minmax(0,1fr); gap:2px; } }
+  .bar { height:10px; border:1px solid var(--line); border-radius:4px; background:var(--paper-2); overflow:hidden; margin:8px 0 0; max-width:480px; }
+  .bar > span { display:block; height:100%; width:0; background:var(--ok); transition:width .3s ease; }
+  .bar.warn > span { background:var(--warn); }
+  .bar.full > span { background:var(--accent); }
+  .bar-text { font:600 15px/1.4 var(--sans); }
+  .kv-note { margin:14px 0 0; font-size:13.5px; color:var(--muted); max-width:70ch; }
+
+  .btn { display:inline-block; font:600 15px/1 var(--sans); padding:13px 18px; border-radius:4px; text-decoration:none; cursor:pointer; border:2px solid transparent; appearance:none; -webkit-appearance:none; }
+  .btn-solid { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .btn-solid:hover { background:var(--ink); border-color:var(--ink); color:var(--paper); }
+  .btn-line { border:2px solid var(--ink); color:var(--ink); background:transparent; }
+  .btn-line:hover { border-color:var(--accent); color:var(--accent); }
+
+  .embed-block { padding:16px; border:1px solid var(--line); background:var(--paper-2); border-radius:4px; max-width:760px; }
+  .embed-field { margin:0 0 14px; }
+  .embed-field:last-of-type { margin-bottom:0; }
+  .embed-field label, .embed-field-label { display:block; font-size:12px; color:var(--muted); margin:0 0 5px; }
+  .embed-row { display:flex; gap:8px; }
+  .embed-row input { flex:1 1 auto; min-width:0; background:var(--paper); color:var(--ink); border:1px solid var(--line); border-radius:4px; padding:9px 10px; font:13px/1.3 var(--mono); }
+  .embed-snippet { margin:0 0 8px; padding:10px 12px; background:var(--paper); border:1px solid var(--line); border-radius:4px; font:12.5px/1.5 var(--mono); overflow-x:auto; white-space:pre-wrap; word-break:break-all; }
+  .embed-copy { flex:none; padding:9px 12px; font-size:13px; }
+  .embed-note { margin:12px 0 0; font-size:13.5px; color:var(--muted); }
+  @media (max-width:480px) { .embed-row { flex-wrap:wrap; } .embed-row input { flex-basis:100%; } }
+
+  .pricing-table-wrap { overflow-x:auto; max-width:760px; }
+  .pricing-table { width:100%; border-collapse:collapse; }
+  .pricing-table th, .pricing-table td { text-align:left; padding:14px 10px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  .pricing-table th { font:600 12px/1 var(--sans); text-transform:uppercase; letter-spacing:.03em; color:var(--muted); }
+  .pricing-table td.plan { font:600 16px/1.3 var(--sans); }
+  .pricing-table td.price { font:400 26px/1 var(--serif); white-space:nowrap; }
+  .pricing-table td.price span { font:13px/1 var(--sans); color:var(--muted); }
+  .pricing-table td.action { text-align:right; }
+  .pricing-table .btn { white-space:nowrap; }
+  .plan-current { display:inline-block; font:600 12px/1 var(--sans); letter-spacing:.03em; text-transform:uppercase; color:var(--ok); border:1px solid var(--ok); border-radius:4px; padding:6px 9px; white-space:nowrap; }
+  .plan-lower { font-size:13px; color:var(--muted); white-space:nowrap; }
+  /* Narrow screens: each plan becomes a two-line block (name and price, then limit and button) instead of a clipped table. */
+  @media (max-width:560px) {
+    .pricing-table thead { display:none; }
+    .pricing-table tr { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:6px 12px; align-items:center; padding:14px 0; border-bottom:1px solid var(--line); }
+    .pricing-table td { display:block; padding:0; border:0; }
+    .pricing-table td.plan { grid-column:1; grid-row:1; }
+    .pricing-table td.price { grid-column:2; grid-row:1; text-align:right; font-size:22px; }
+    .pricing-table td.limit { grid-column:1; grid-row:2; color:var(--ink-2); font-size:14px; }
+    .pricing-table td.action { grid-column:2; grid-row:2; }
+    .pricing-table .btn { padding:10px 14px; font-size:14px; }
+  }
+  .pricing-note { color:var(--ink-2); font-size:14px; margin:16px 0 0; max-width:70ch; }
+  .manage { margin-top:22px; padding:16px; border:1px solid var(--line); background:var(--paper-2); border-radius:4px; max-width:760px; }
+  .manage b { display:block; font-weight:600; margin-bottom:6px; }
+  .manage p { margin:0; color:var(--ink-2); font-size:15px; }
+
+  footer { padding:32px 0 56px; color:var(--muted); font-size:14px; }
+  footer .cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:20px 32px; }
+  footer b { color:var(--ink); font-weight:600; }
+  footer a { color:var(--ink-2); }
+  .footer-note { margin-top:14px; font-size:12px; color:var(--muted); }
+
+  @media (max-width:480px) {
+    .hero { padding:40px 0 30px; }
+    nav.main a { margin-left:12px; }
+    .wordmark-sub { display:none; }
+  }
+</style>
+</head>
+<body>
+
+<a class="skip" href="#usage" data-i18n="skip">Skočiť na obsah</a>
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <a class="wordmark" href="../">ARLing Asistent</a>
+      <a class="wordmark-sub" href="https://arling.sk/" data-i18n="brand.sub">nástroj ARLing</a>
+    </div>
+    <nav class="main" aria-label="Stránka">
+      <a href="../#cennik" data-i18n="nav.pricing">Cenník</a>
+      <a href="../#faq" data-i18n="nav.faq">Otázky</a>
+      <div class="lang-switch" role="group" aria-label="Jazyk stránky" data-i18n-aria-label="lang.switch.aria">
+        <button type="button" data-set-lang="sk" aria-pressed="true" aria-label="Slovenčina" data-i18n-aria-label="lang.sk.aria">SK</button>
+        <button type="button" data-set-lang="en" aria-pressed="false" aria-label="English" data-i18n-aria-label="lang.en.aria">EN</button>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <div class="wrap">
+      <p class="kicker" data-i18n="hero.kicker">Váš účet</p>
+      <h1 data-i18n="hero.h1">Používanie a predplatné</h1>
+      <p class="lead" data-i18n="hero.lead">Prehľad účtu ARLing Asistenta pre váš e-shop: koľko rozhovorov ste tento mesiac použili, embed kód a prechod na platený plán. Stránka ukazuje len počítadlá, žiadne osobné údaje ani obsah rozhovorov.</p>
+      <p class="tip" data-i18n="hero.tip">Odkaz na túto stránku si uložte: obsahuje id vášho účtu a nikde inde ho nezobrazujeme.</p>
+
+      <p class="state state-loading" id="state-loading" role="status" data-i18n="state.loading">Načítavam údaje účtu.</p>
+      <p class="state state-error" id="state-missing" role="alert" hidden><span data-i18n="state.missing">V odkaze chýba id účtu (parameter t). Otvorte túto stránku z odkazu, ktorý ste dostali po vytvorení účtu, alebo si vytvorte nový účet na</span> <a href="../" data-i18n="state.link">arling.sk/asistent</a>.</p>
+      <p class="state state-error" id="state-notfound" role="alert" hidden><span data-i18n="state.notfound">Účet s týmto id sme nenašli. Skontrolujte odkaz, alebo si vytvorte nový účet na</span> <a href="../" data-i18n="state.link">arling.sk/asistent</a>.</p>
+      <p class="state state-warn" id="state-network" role="alert" hidden data-i18n="state.network">Údaje o používaní sa teraz nepodarilo načítať. Skúste obnoviť stránku o chvíľu. Embed kód a prechod na platený plán nižšie fungujú aj tak.</p>
+    </div>
+  </div>
+
+  <div id="sections">
+    <section id="usage">
+      <div class="wrap">
+        <p class="kicker">01</p>
+        <h2 data-i18n="s1.h2">Používanie tento mesiac</h2>
+        <ul class="kv">
+          <li><span class="k" data-i18n="usage.domain">E-shop</span><span class="v"><b id="v-domain">n/a</b></span></li>
+          <li><span class="k" data-i18n="usage.plan">Plán</span><span class="v" id="v-plan">n/a</span></li>
+          <li><span class="k" data-i18n="usage.status">Stav</span><span class="v" id="v-status">n/a</span></li>
+          <li>
+            <span class="k" data-i18n="usage.conversations">Rozhovory</span>
+            <div class="v">
+              <span class="bar-text" id="v-bar-text">n/a</span>
+              <div class="bar" id="v-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="v-bar-text"><span id="v-bar-fill"></span></div>
+            </div>
+          </li>
+          <li><span class="k" data-i18n="usage.periodEnd">Počítadlo sa vynuluje</span><span class="v" id="v-period-end">n/a</span></li>
+          <li><span class="k" data-i18n="usage.products">Produkty v indexe</span><span class="v" id="v-products">n/a</span></li>
+          <li><span class="k" data-i18n="usage.lastIngest">Posledné obnovenie feedu</span><span class="v" id="v-last-ingest">n/a</span></li>
+          <li id="row-valid-until" hidden><span class="k" data-i18n="usage.validUntil">Plán platí do</span><span class="v" id="v-valid-until">n/a</span></li>
+        </ul>
+        <p class="kv-note" data-i18n="usage.note">Rozhovor je jedna relácia widgetu (jeden návštevník, jedno otvorenie chatu), nie jedna správa. Počítadlo sa vynuluje prvý deň každého mesiaca (UTC). Feed sa obnovuje automaticky raz denne.</p>
+      </div>
+    </section>
+
+    <section id="embed">
+      <div class="wrap">
+        <p class="kicker">02</p>
+        <h2 data-i18n="s2.h2">Embed kód</h2>
+        <p class="sub" data-i18n="s2.sub">Vložte pred &lt;/body&gt; vo vašej šablóne, alebo použite WooCommerce plugin. Rovnaký kód funguje na každom e-shope.</p>
+        <div class="embed-block">
+          <div class="embed-field">
+            <label for="embed-id" data-i18n="embed.idLabel">ID účtu</label>
+            <div class="embed-row">
+              <input type="text" id="embed-id" readonly>
+              <button type="button" class="btn btn-line embed-copy" id="embed-copy-id" data-i18n="embed.copy">Kopírovať</button>
+            </div>
+          </div>
+          <div class="embed-field">
+            <p class="embed-field-label" data-i18n="embed.snippetLabel">Kód na vloženie do stránky</p>
+            <pre class="embed-snippet" id="embed-snippet"></pre>
+            <button type="button" class="btn btn-line embed-copy" id="embed-copy-snippet" data-i18n="embed.copy">Kopírovať</button>
+          </div>
+          <p class="embed-note"><a id="embed-livedemo" href="../live/" data-i18n="embed.livedemo">Vyskúšať asistenta na živej ukážke</a></p>
+        </div>
+      </div>
+    </section>
+
+    <section id="upgrade">
+      <div class="wrap">
+        <p class="kicker">03</p>
+        <h2 data-i18n="s3.h2">Platený plán</h2>
+        <p class="sub" data-i18n="s3.sub">Zadarmo do 100 rozhovorov mesačne. Nad tento limit si vyberiete plán nižšie: platba kartou cez Stripe, potvrdenie a faktúru pošle Stripe e-mailom, zrušiť sa dá kedykoľvek.</p>
+        <div class="pricing-table-wrap">
+          <table class="pricing-table">
+            <thead>
+              <tr><th data-i18n="s3.th.plan">Plán</th><th data-i18n="s3.th.price">Cena</th><th data-i18n="s3.th.conversations">Rozhovory / mesiac</th><th></th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="plan">Starter</td>
+                <td class="price">19 &euro;<span> <span data-i18n="price.perMonth">/ mesiac</span></span></td>
+                <td class="limit" data-i18n="limit.starter">do 1 000</td>
+                <td class="action">
+                  <a class="btn btn-solid" id="btn-starter" href="https://buy.stripe.com/5kQcMZ1fA6tZaoWaOh4ko03" target="_blank" rel="noopener" data-umami-event="upgrade_click" data-umami-event-plan="starter" data-umami-event-place="tenant" data-i18n="cta.starter">Prejsť na Starter</a>
+                  <span class="plan-current" id="current-starter" hidden data-i18n="plan.current">Váš aktuálny plán</span>
+                  <span class="plan-lower" id="lower-starter" hidden data-i18n="plan.lower">nižší plán, zmena cez Stripe</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="plan">Pro</td>
+                <td class="price">39 &euro;<span> <span data-i18n="price.perMonth">/ mesiac</span></span></td>
+                <td class="limit" data-i18n="limit.pro">do 5 000</td>
+                <td class="action">
+                  <a class="btn btn-solid" id="btn-pro" href="https://buy.stripe.com/14AdR30bw05BgNk3lP4ko04" target="_blank" rel="noopener" data-umami-event="upgrade_click" data-umami-event-plan="pro" data-umami-event-place="tenant" data-i18n="cta.pro">Prejsť na Pro</a>
+                  <span class="plan-current" id="current-pro" hidden data-i18n="plan.current">Váš aktuálny plán</span>
+                  <span class="plan-lower" id="lower-pro" hidden data-i18n="plan.lower">nižší plán, zmena cez Stripe</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="pricing-note" id="upgrade-note" data-i18n="upgrade.note">Tlačidlo otvorí Stripe Checkout s id vášho účtu. Plán sa zvýši automaticky po zaplatení, zvyčajne do minúty. Ročné predplatné zatiaľ nie je v ponuke.</p>
+        <div class="manage" id="manage" hidden>
+          <b data-i18n="manage.title">Správa predplatného</b>
+          <p data-i18n="manage.body">Predplatné spravujete cez odkaz v e-maile s potvrdením platby od Stripe: zmena karty, faktúry aj zrušenie. Po zrušení sa účet po skončení zaplateného obdobia vráti na plán Free. Ak e-mail nenájdete, napíšte na andrej@arling.sk.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    <div class="wrap">
+      <div class="cols">
+        <div>
+          <b>ARLing Asistent</b><br>
+          <span data-i18n="footer.tool">nástroj</span> <a href="https://arling.sk/">ARLing s. r. o.</a>
+        </div>
+        <div>
+          <span data-i18n="footer.regIds">IČO 56583486 · IČ DPH SK2122352100</span><br>
+          Ivanská cesta 19112/32E, 821 04 Bratislava<br>
+          <a href="mailto:andrej@arling.sk">andrej@arling.sk</a>
+        </div>
+        <div>
+          <a href="https://github.com/AndryRoby/arling-asistent" target="_blank" rel="noopener" data-i18n="footer.sourceCode">Zdrojový kód (GitHub)</a><br>
+          <a href="../llms.txt">llms.txt</a> · <a href="../sitemap.xml">sitemap.xml</a><br>
+          <a href="https://github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md" target="_blank" rel="noopener" data-i18n="footer.dpa">DPA (GDPR čl. 28)</a>
+        </div>
+      </div>
+      <p class="footer-note" data-i18n="footer.note">Návštevnosť meriame vlastným, cookie-free nástrojom Umami. Neukladá cookies ani odtlačok prehliadača.</p>
+    </div>
+  </footer>
+</main>
+
+<script defer src="https://homelab.tailbf8f27.ts.net/script.js" data-website-id="09cc54da-8172-43b3-8aa2-84e3ab5a17f1"></script>
+<script type="module" src="i18n.js"></script>
+<script type="module" src="tenant.js"></script>
+</body>
+</html>

@@ -16,7 +16,7 @@ No conversation content is ever stored, by any component. The only stored state 
 
 ## Pricing
 
-Starter: 19 EUR/month, up to 1,000 conversations. Growth: 39 EUR/month, up to 5,000 conversations. 14-day free trial, no card required. Billing (Stripe) is not wired up yet; see the repository README for current status.
+Free up to 100 conversations a month, no card. Starter: 19 EUR/month, up to 1,000 conversations. Pro: 39 EUR/month, up to 5,000 conversations. The shop upgrades from its own account page (https://arling.sk/asistent/tenant/?t=ACCOUNT_ID, linked right after signup), pays by card through Stripe, and can cancel any time.
 
 ## Links
 
