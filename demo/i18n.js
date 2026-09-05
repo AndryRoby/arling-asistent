@@ -138,6 +138,15 @@ export const DICT = {
     en: 'The feed is used only to create a trial assistant for this demo. The chat conversation itself is never stored anywhere. Free up to 100 conversations a month, no payment card.',
   },
   's3.widgetNote': { sk: 'Asistent je pripravený. Hľadajte okrúhle tlačidlo vpravo dole na tejto stránke.', en: 'The assistant is ready. Look for the round button in the bottom right of this page.' },
+  's3.embed.title': { sk: 'Váš embed kód', en: 'Your embed code' },
+  's3.embed.idLabel': { sk: 'ID skúšobného účtu', en: 'Trial account ID' },
+  's3.embed.snippetLabel': { sk: 'Kód na vloženie do stránky', en: 'Code to paste into your page' },
+  's3.embed.copy': { sk: 'Kopírovať', en: 'Copy' },
+  's3.embed.copied': { sk: 'Skopírované', en: 'Copied' },
+  's3.embed.note': {
+    sk: 'Vložte pred </body> vo vašej šablóne, alebo použite WooCommerce plugin.',
+    en: 'Paste before </body> in your theme, or use the WooCommerce plugin.',
+  },
 
   // ── section 04: privacy ──────────────────────────────────────────────
   's4.h2': { sk: 'Súkromie ako vlastnosť, nie dodatok', en: 'Privacy as a feature, not an afterthought' },
