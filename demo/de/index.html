@@ -29,7 +29,7 @@
   "@type": "SoftwareApplication",
   "name": "ARLing Asistent",
   "url": "https://arling.sk/asistent/de/",
-  "description": "KI-Einkaufsassistent für Online-Shops: richtet sich in 10 Minuten aus dem Produktfeed ein (Google Shopping XML, Shopify, WooCommerce, generisches XML), läuft auf Cloudflare Workers und speichert keine Gesprächsinhalte, nur Zähler.",
+  "description": "KI-Einkaufsassistent für Online-Shops: richtet sich in 10 Minuten aus dem Produktfeed ein (Heureka/Zboží.cz XML, Google Shopping XML, Shopify, WooCommerce, generisches XML), läuft auf Cloudflare Workers und speichert keine Gesprächsinhalte, nur Zähler.",
   "applicationCategory": "BusinessApplication",
   "operatingSystem": "Beliebig (Webbrowser, ein <script>-Tag)",
   "inLanguage": ["de", "sk", "en"],
@@ -61,7 +61,7 @@
     {
       "@type": "Question",
       "name": "Welche Feed-Formate werden unterstützt?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Google Shopping RSS/XML (auch das Heureka-Format mit g:-Tags), Shopify /products.json, WooCommerce REST/Store API JSON und ein einfacher XML-Feed mit den Tags item/name/price/url/description/image." }
+      "acceptedAnswer": { "@type": "Answer", "text": "Heureka/Zboží.cz XML (SHOP/SHOPITEM-Tags, exportiert zum Beispiel von Shoptet oder Upgates), Google Shopping RSS/XML (g:-Tags), Shopify /products.json, WooCommerce REST/Store API JSON und ein einfacher XML-Feed mit den Tags item/name/price/url/description/image." }
     },
     {
       "@type": "Question",
@@ -274,7 +274,7 @@
       <p class="lead">Sie geben die URL Ihres Produktfeeds und eine E-Mail-Adresse ein. Der Assistent beantwortet Kundenfragen aus Ihren echten Produkten, in der Sprache des Kunden, und verlinkt immer konkrete Artikel. Keine gespeicherten Gespräche, keine Cookies.</p>
       <a class="btn btn-solid" href="../?lang=en#playground" data-umami-event="trial_click" data-umami-event-place="hero">Kostenlos starten</a><a class="btn btn-line" href="https://github.com/AndryRoby/arling-asistent" target="_blank" rel="noopener">Quellcode auf GitHub</a>
       <ul class="facts">
-        <li><b>4</b> Feed-Formate</li>
+        <li><b>5</b> Feed-Formate</li>
         <li><b>0</b> gespeicherte Gespräche</li>
         <li><b>100</b> Gespräche/Monat kostenlos</li>
         <li>DE · EN · SK · CS</li>
@@ -291,7 +291,8 @@
       <ol class="rules">
         <li>
           <b>Sie geben Feed-URL und E-Mail ein.</b>
-          <p>Unterstützt werden Google Shopping RSS/XML (auch im Heureka-Format), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON und ein einfacher XML-Feed mit den Tags <code>item/name/price/url</code>.</p>
+          <!-- Feed formats: Heureka/Zboží.cz XML is the SHOP/SHOPITEM format (https://sluzby.heureka.sk/napoveda/xml-feed/). Shoptet exports it as a system feed (https://podpora.shoptet.sk/xml-feedy/) and Upgates generates it automatically (https://www.upgates.cz/a/export-produktu-na-heureku); both help pages read 2026-09-05. -->
+          <p>Unterstützt werden Heureka/Zboží.cz XML (der Feed, den Shoptet und Upgates exportieren), Google Shopping RSS/XML, Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON und ein einfacher XML-Feed mit den Tags <code>item/name/price/url</code>.</p>
         </li>
         <li>
           <b>Der Feed wird zu Embeddings verarbeitet.</b>
@@ -356,7 +357,7 @@
         </details>
         <details>
           <summary>Was, wenn mein Feed in keinem der unterstützten Formate vorliegt?</summary>
-          <p>Unterstützt werden Google Shopping RSS/XML (auch Heureka mit <code>g:</code>-Tags), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON und ein einfacher XML-Feed mit den Tags <code>item/name/price/url/description/image</code>. Probieren Sie ein anderes Format im Testformular aus; lehnt die Verarbeitung es ab, schreiben Sie an andrej@arling.sk mit einem Ausschnitt Ihres Feeds.</p>
+          <p>Unterstützt werden Heureka/Zboží.cz XML (<code>SHOP/SHOPITEM</code>-Tags, exportiert zum Beispiel von Shoptet oder Upgates), Google Shopping RSS/XML (<code>g:</code>-Tags), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON und ein einfacher XML-Feed mit den Tags <code>item/name/price/url/description/image</code>. Probieren Sie ein anderes Format im Testformular aus; lehnt die Verarbeitung es ab, schreiben Sie an andrej@arling.sk mit einem Ausschnitt Ihres Feeds.</p>
         </details>
       </div>
     </div>
@@ -415,7 +416,7 @@
       </details>
       <details>
         <summary>Welche Feed-Formate werden unterstützt?</summary>
-        <p>Google Shopping RSS/XML (auch das Heureka-Format mit <code>g:</code>-Tags), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON und ein einfacher XML-Feed mit den Tags <code>item/name/price/url/description/image</code>.</p>
+        <p>Heureka/Zboží.cz XML (<code>SHOP/SHOPITEM</code>-Tags, exportiert zum Beispiel von Shoptet oder Upgates), Google Shopping RSS/XML (<code>g:</code>-Tags), Shopify <code>/products.json</code>, WooCommerce REST/Store API JSON und ein einfacher XML-Feed mit den Tags <code>item/name/price/url/description/image</code>.</p>
       </details>
       <details>
         <summary>Speichern Sie die Gespräche der Kunden?</summary>

@@ -1,5 +1,5 @@
 // feed.test.mjs
-// Feed parsing (all 4 formats), normalisation, and text helpers. No network:
+// Feed parsing (all 5 formats), normalisation, and text helpers. No network:
 // fixtures are read straight from disk.
 
 import test from 'node:test';
@@ -15,6 +15,10 @@ import {
   parseFeed,
   parseGoogleShoppingXml,
   parseGenericXml,
+  parseHeurekaXml,
+  heurekaAvailability,
+  heurekaFeedCurrency,
+  HEUREKA_MAX_PARAMS,
   parseShopifyJson,
   parseWooCommerceJson,
   normaliseProduct,
@@ -33,7 +37,8 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixture = (name) => readFileSync(path.join(__dirname, 'fixtures', name), 'utf8');
 
-test('detectFeedType recognises all four formats', () => {
+test('detectFeedType recognises all five formats', () => {
+  assert.equal(detectFeedType(fixture('heureka-sk.xml')), FEED_TYPES.HEUREKA);
   assert.equal(detectFeedType(fixture('google-shopping.xml')), FEED_TYPES.GOOGLE_SHOPPING);
   assert.equal(detectFeedType(fixture('generic-feed.xml')), FEED_TYPES.GENERIC_XML);
   assert.equal(detectFeedType(fixture('shopify-products.json')), FEED_TYPES.SHOPIFY);
@@ -63,6 +68,152 @@ test('parseGenericXml extracts item/name/price/url/description/image', () => {
   assert.equal(items[0].price, '19.99');
   assert.equal(items[0].link, 'https://hracky.example.cz/vlacik');
   assert.equal(items[0].image, 'https://hracky.example.cz/img/vlacik.jpg');
+});
+
+// ---------------------------------------------------------------------------
+// Heureka / Zbozi.cz XML (root SHOP, SHOPITEM per offer), see the spec
+// references above parseHeurekaXml in worker/src/feed.js.
+// ---------------------------------------------------------------------------
+
+const HEUREKA_SK_URL = 'https://kavovary.example.sk/heureka.xml';
+const HEUREKA_CZ_URL = 'https://kavovary.example.cz/heureka.xml';
+
+test('detectFeedType recognises Heureka by root SHOP plus SHOPITEM, case-insensitively, not by either alone', () => {
+  assert.equal(detectFeedType(fixture('heureka-sk.xml')), FEED_TYPES.HEUREKA);
+  assert.equal(detectFeedType('<?xml version="1.0"?><SHOP><SHOPITEM><ITEM_ID>1</ITEM_ID></SHOPITEM></SHOP>'), FEED_TYPES.HEUREKA);
+  assert.equal(detectFeedType('<shop xmlns="http://www.zbozi.cz/ns/offer/1.0"><shopitem><ITEM_ID>1</ITEM_ID></shopitem></shop>'), FEED_TYPES.HEUREKA);
+  assert.equal(detectFeedType('<SHOP><item><id>1</id><name>x</name></item></SHOP>'), FEED_TYPES.GENERIC_XML);
+  assert.equal(detectFeedType('<SHOPITEM><ITEM_ID>1</ITEM_ID></SHOPITEM>'), FEED_TYPES.GENERIC_XML);
+  assert.equal(detectFeedType(fixture('google-shopping.xml')), FEED_TYPES.GOOGLE_SHOPPING);
+  assert.equal(detectFeedType(fixture('generic-feed.xml')), FEED_TYPES.GENERIC_XML);
+});
+
+test('parseHeurekaXml maps the Slovak fixture: CDATA, entities, comma price, DELIVERY_DATE, params, variant group', () => {
+  const items = parseHeurekaXml(fixture('heureka-sk.xml'), HEUREKA_SK_URL);
+  assert.equal(items.length, 3);
+
+  const [black, silver, grinder] = items;
+  assert.equal(black.id, 'KAV-100');
+  assert.equal(black.title, 'DeLonghi Magnifica S ECAM 22.110.B čierny'); // PRODUCTNAME preferred over PRODUCT
+  assert.equal(black.price, '329,90');
+  assert.equal(black.currency, ''); // .sk feed without CURRENCY: normaliseProduct's EUR default applies
+  assert.equal(black.link, 'https://kavovary.example.sk/delonghi-magnifica-s-ecam-22-110-b');
+  assert.equal(black.image, 'https://kavovary.example.sk/img/ecam-22-110-b.jpg');
+  assert.equal(black.availability, 'in_stock'); // DELIVERY_DATE 0
+  assert.equal(black.category, 'Dom a záhrada > Kuchyňa > Kávovary');
+  assert.equal(black.brand, 'DeLonghi');
+  assert.equal(black.gtin, '8004399329577');
+  assert.equal(black.group, 'ECAM-22-110');
+  assert.match(black.description, /<p>Automatický kávovar s mlynčekom & parnou tryskou\.<\/p>/); // CDATA unwrapped, &amp; decoded
+  assert.ok(black.description.endsWith('Farba: čierna\nTlak: 15 bar'), 'PARAM blocks folded as "Name: value" lines');
+  assert.ok(!black.description.includes('Výrobca'), 'a brand already in the title is not repeated');
+
+  assert.equal(silver.availability, 'available_in_3_days'); // DELIVERY_DATE 3
+  assert.equal(silver.price, '339.00');
+  assert.equal(silver.group, 'ECAM-22-110'); // same variant group as the black one
+
+  assert.equal(grinder.title, 'Mlynček na kávu Skerton Pro'); // PRODUCT when PRODUCTNAME is missing
+  assert.equal(grinder.availability, ''); // empty DELIVERY_DATE: unknown
+  assert.equal(grinder.image, 'https://kavovary.example.sk/img/skerton-alt.jpg'); // IMGURL_ALTERNATIVE fallback
+  assert.match(grinder.description, /Výrobca: Hario/); // MANUFACTURER missing from the title is folded in
+  assert.equal(grinder.gtin, '');
+  assert.equal(grinder.group, '');
+});
+
+test('heurekaAvailability: 0 in stock, N days orderable, date pre-order, empty or -1 unknown', () => {
+  assert.equal(heurekaAvailability('0'), 'in_stock');
+  assert.equal(heurekaAvailability(' 0 '), 'in_stock');
+  assert.equal(heurekaAvailability('3'), 'available_in_3_days');
+  assert.equal(heurekaAvailability('14'), 'available_in_14_days');
+  assert.equal(heurekaAvailability('2026-12-01'), 'available_from_2026-12-01');
+  assert.equal(heurekaAvailability(''), '');
+  assert.equal(heurekaAvailability('-1'), '');
+  assert.equal(heurekaAvailability('skladom'), '');
+  assert.equal(normaliseAvailability('available_in_3_days'), 'available_in_3_days');
+  assert.equal(normaliseAvailability('available_from_2026-12-01'), 'available_from_2026-12-01');
+  assert.equal(normaliseAvailability('available_in_x_days'), 'out_of_stock');
+});
+
+test('Heureka currency: EUR by default, CZK for a .cz feed URL or the Zbozi.cz namespace, CURRENCY tag wins', () => {
+  const xml = fixture('heureka-sk.xml');
+  assert.equal(heurekaFeedCurrency(xml, HEUREKA_SK_URL), '');
+  assert.equal(heurekaFeedCurrency(xml, HEUREKA_CZ_URL), 'CZK');
+  assert.equal(heurekaFeedCurrency(xml, 'https://eshop.example.com/heureka.xml'), '');
+  assert.equal(heurekaFeedCurrency(xml.replace('<SHOP>', '<SHOP xmlns="http://www.zbozi.cz/ns/offer/1.0">'), 'https://eshop.example.com/zbozi.xml'), 'CZK');
+  assert.equal(heurekaFeedCurrency(xml.replace('<SHOP>', '<SHOP><CURRENCY>eur</CURRENCY>'), HEUREKA_CZ_URL), 'EUR');
+
+  const sk = parseFeed(xml, HEUREKA_SK_URL);
+  assert.equal(sk.type, FEED_TYPES.HEUREKA);
+  assert.equal(sk.products[0].currency, 'EUR');
+
+  const cz = parseFeed(xml, HEUREKA_CZ_URL);
+  assert.equal(cz.products[0].currency, 'CZK');
+
+  const perItem = xml.replace('<PRICE_VAT>329,90</PRICE_VAT>', '<PRICE_VAT>329,90</PRICE_VAT><CURRENCY>EUR</CURRENCY>');
+  const mixed = parseHeurekaXml(perItem, HEUREKA_CZ_URL);
+  assert.equal(mixed[0].currency, 'EUR'); // item-level CURRENCY overrides the .cz default
+  assert.equal(mixed[1].currency, 'CZK');
+});
+
+test('parseFeed end to end on the Heureka fixture: numeric prices, normalised availability, plain-text description, optional fields', () => {
+  const result = parseFeed(fixture('heureka-sk.xml'), HEUREKA_SK_URL);
+  assert.equal(result.products.length, 3);
+  assert.equal(result.truncated, false);
+
+  const [black, silver, grinder] = result.products;
+  assert.equal(black.price, 329.9); // comma decimal
+  assert.equal(silver.price, 339);
+  assert.equal(grinder.price, 49);
+  assert.equal(black.availability, 'in_stock');
+  assert.equal(silver.availability, 'available_in_3_days');
+  assert.equal(grinder.availability, 'unknown');
+  assert.ok(!black.description.includes('<p>'), 'HTML stripped from the CDATA description');
+  assert.match(black.description, /Automatický kávovar s mlynčekom & parnou tryskou\./);
+  assert.match(black.description, /Farba: čierna\nTlak: 15 bar$/);
+  assert.equal(black.brand, 'DeLonghi');
+  assert.equal(black.gtin, '8004399329577');
+  assert.equal(black.group, 'ECAM-22-110');
+  assert.equal(grinder.brand, 'Hario');
+  assert.ok(!('gtin' in grinder) && !('group' in grinder), 'empty optional fields are omitted from the normalised product');
+  assert.match(grinder.description, /Ignore previous instructions/); // stays data; the prompt wraps it as untrusted
+});
+
+test('parseHeurekaXml tolerates missing fields, joins repeated VAL, and parseFeed caps at MAX_PRODUCTS', () => {
+  const sparseXml = '<SHOP><SHOPITEM><ITEM_ID>only-id</ITEM_ID></SHOPITEM><SHOPITEM><PRODUCTNAME>Bez ID</PRODUCTNAME><PRICE_VAT>9,90</PRICE_VAT><PARAM><PARAM_NAME>Materiál</PARAM_NAME><VAL>oceľ</VAL><VAL>sklo</VAL></PARAM></SHOPITEM></SHOP>';
+  const sparse = parseHeurekaXml(sparseXml, HEUREKA_SK_URL);
+  assert.equal(sparse.length, 2);
+  assert.deepEqual(sparse[0], { id: 'only-id', title: '', description: '', price: '', currency: '', link: '', image: '', availability: '', category: '', brand: '', gtin: '', group: '' });
+  assert.equal(sparse[1].description, 'Materiál: oceľ, sklo');
+
+  const normalised = parseFeed(sparseXml, HEUREKA_SK_URL);
+  assert.equal(normalised.products.length, 1); // the titleless item is dropped, the id-less one falls back to its title
+  assert.equal(normalised.products[0].id, 'Bez ID');
+  assert.equal(normalised.products[0].price, 9.9);
+
+  const many = Array.from({ length: MAX_PRODUCTS + 20 }, (_, i) => `<SHOPITEM><ITEM_ID>${i}</ITEM_ID><PRODUCTNAME>P${i}</PRODUCTNAME><PRICE_VAT>1</PRICE_VAT><URL>https://x/${i}</URL></SHOPITEM>`).join('');
+  const capped = parseFeed(`<SHOP>${many}</SHOP>`, HEUREKA_SK_URL);
+  assert.equal(capped.type, FEED_TYPES.HEUREKA);
+  assert.equal(capped.products.length, MAX_PRODUCTS);
+  assert.equal(capped.truncated, true);
+});
+
+test('Heureka params are folded only up to HEUREKA_MAX_PARAMS and the description cap', () => {
+  const params = Array.from({ length: HEUREKA_MAX_PARAMS + 10 }, (_, i) => `<PARAM><PARAM_NAME>Parameter ${i}</PARAM_NAME><VAL>hodnota ${i}</VAL></PARAM>`).join('');
+  const xml = `<SHOP><SHOPITEM><ITEM_ID>p</ITEM_ID><PRODUCTNAME>Produkt</PRODUCTNAME><PRICE_VAT>1</PRICE_VAT>${params}</SHOPITEM></SHOP>`;
+  const raw = parseHeurekaXml(xml, HEUREKA_SK_URL)[0];
+  assert.equal(raw.description.split('\n').length, HEUREKA_MAX_PARAMS);
+  const { products } = parseFeed(xml, HEUREKA_SK_URL);
+  assert.ok(products[0].description.length <= 601);
+  assert.ok(products[0].description.endsWith('…'));
+  assert.match(products[0].description, /^Parameter 0: hodnota 0\n/);
+});
+
+test('fetchFeed on a .cz Heureka feed yields CZK prices via the feed URL', async () => {
+  const fakeFetch = async () => ({ ok: true, status: 200, text: async () => fixture('heureka-sk.xml') });
+  const result = await fetchFeed(HEUREKA_CZ_URL, { fetchImpl: fakeFetch });
+  assert.equal(result.type, FEED_TYPES.HEUREKA);
+  assert.equal(result.products.length, 3);
+  assert.equal(result.products[0].currency, 'CZK');
 });
 
 test('parseShopifyJson maps products.json into raw items', () => {
@@ -142,7 +293,11 @@ test('truncate cuts long text on a word boundary and adds an ellipsis', () => {
   assert.equal(truncate('short', 20), 'short');
 });
 
-test('parseFeed end to end for all four fixtures, capped and filtered', () => {
+test('parseFeed end to end for all five fixtures, capped and filtered', () => {
+  const heureka = parseFeed(fixture('heureka-sk.xml'), 'https://kavovary.example.sk/heureka.xml');
+  assert.equal(heureka.type, FEED_TYPES.HEUREKA);
+  assert.equal(heureka.products.length, 3);
+
   const google = parseFeed(fixture('google-shopping.xml'), 'https://shop.example.sk/feed.xml');
   assert.equal(google.type, FEED_TYPES.GOOGLE_SHOPPING);
   assert.equal(google.products.length, 3);
