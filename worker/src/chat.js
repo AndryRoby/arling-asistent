@@ -33,6 +33,7 @@ import { embedTexts, EMBED_MODEL } from './embed.js';
 import { wrapUntrustedBlock, scanForInjection, detectInjection } from './security.js';
 import { checkAndRecordConversation } from './tenants.js';
 import { maybeNotifyQuota } from './notify.js';
+import { hasBudget, spend, isOurTest, NEURONS } from './budget.js';
 
 export const CHAT_MODEL_DEFAULT = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 export const TOP_K = 8;
@@ -620,8 +621,22 @@ export async function handleChatRoute(request, env, ctx, deps = {}) {
     }
   }
 
-  const result = await runChat(env, { tenant, messages, lang });
   const headers = origin ? securityMod.corsHeaders(origin, [tenant.domain, ...allowed]) : {};
+
+  // Nase vlastne testy nesmu mrhat dennou davkou neuronov: odpovedia bez
+  // volania modelu (viac v budget.js).
+  if (isOurTest(request, env)) {
+    return jsonResponse({ answer: 'test', products: [], meta: { test: true } }, 200, headers);
+  }
+  // Denny strop: radsej cestne "dnes uz nie" nez faktura, ktoru necakame.
+  const rozpocet = await hasBudget(env, NEURONS.chatTurn);
+  if (!rozpocet.ok) {
+    console.warn('[arling-asistent] denny strop neuronov vycerpany:', rozpocet);
+    return jsonResponse({ error: 'quota_exceeded' }, 503, headers);
+  }
+
+  const result = await runChat(env, { tenant, messages, lang });
+  await spend(env, NEURONS.chatTurn);
   return jsonResponse({ answer: result.answer, products: result.products, meta: { candidates: result.meta?.candidateCount ?? 0, parseError: !!result.meta?.parseError } }, 200, headers || {});
 }
 

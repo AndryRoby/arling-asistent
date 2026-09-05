@@ -46,6 +46,7 @@ import {
 } from './chat.js';
 import { checkAndRecordConversation } from './tenants.js';
 import { maybeNotifyQuota } from './notify.js';
+import { hasBudget, spend, isOurTest, NEURONS } from './budget.js';
 
 // Re-exported so existing callers (and tests) that import topCategoryNames
 // from gift.js keep working: the function itself now lives in chat.js,
@@ -408,8 +409,18 @@ export async function handleGiftRoute(request, env, ctx, deps = {}) {
     budgetMax: normaliseBudgetBound(budget_max),
     lang,
   });
+  await spend(env, NEURONS.giftTurn);
 
   const headers = origin ? securityMod.corsHeaders(origin, [tenant.domain, ...allowed]) : {};
+
+  if (isOurTest(request, env)) {
+    return jsonResponse({ picks: [], meta: { test: true } }, 200, headers);
+  }
+  const rozpocet = await hasBudget(env, NEURONS.giftTurn);
+  if (!rozpocet.ok) {
+    console.warn('[arling-asistent] denny strop neuronov vycerpany (gift):', rozpocet);
+    return jsonResponse({ error: 'quota_exceeded' }, 503, headers);
+  }
   return jsonResponse(
     {
       picks: result.picks,

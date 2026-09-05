@@ -478,3 +478,25 @@ test('looksDegenerate zachyti zacyklenu odpoved a nechyta normalny text', () => 
   assert.equal(looksDegenerate('Ja, wir haben mehrere Kaffeemaschinen bis 200 Euro im Angebot, zum Beispiel Orava Mini.'), false);
   assert.equal(looksDegenerate('Kratka odpoved'), false);
 });
+
+// Denny strop neuronov: poistka proti neocakavanej fakture (budget.js).
+test('denny strop: pod stropom pusti, nad stropom nie, a pri padajucom KV pusti', async () => {
+  const { hasBudget, budgetLimit, isOurTest, NEURONS } = await import('../worker/src/budget.js');
+  assert.equal(budgetLimit({}), 9500);
+  assert.equal(budgetLimit({ AI_DAILY_NEURON_BUDGET: '200' }), 200);
+
+  const kv = (hodnota) => ({ get: async () => hodnota, put: async () => {} });
+  const podStropom = await hasBudget({ ASISTENT_CACHE: kv('100'), AI_DAILY_NEURON_BUDGET: '1000' }, NEURONS.chatTurn);
+  assert.equal(podStropom.ok, true);
+  const nadStropom = await hasBudget({ ASISTENT_CACHE: kv('995'), AI_DAILY_NEURON_BUDGET: '1000' }, NEURONS.chatTurn);
+  assert.equal(nadStropom.ok, false);
+
+  const padajuceKv = { get: async () => { throw new Error('KV down'); }, put: async () => {} };
+  const priPade = await hasBudget({ ASISTENT_CACHE: padajuceKv, AI_DAILY_NEURON_BUDGET: '1000' }, NEURONS.chatTurn);
+  assert.equal(priPade.ok, true, 'vypadok KV nesmie umlcat Asistenta');
+
+  const req = (v) => ({ headers: { get: () => v } });
+  assert.equal(isOurTest(req('tajne'), { ADMIN_TOKEN: 'tajne' }), true);
+  assert.equal(isOurTest(req('ine'), { ADMIN_TOKEN: 'tajne' }), false);
+  assert.equal(isOurTest(req('tajne'), {}), false);
+});
