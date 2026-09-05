@@ -37,6 +37,7 @@ export const DICT = {
   'brand.sub': { sk: 'nástroj ARLing', en: 'an ARLing tool' },
   'nav.how': { sk: 'Ako to funguje', en: 'How it works' },
   'nav.try': { sk: 'Vyskúšať', en: 'Try it' },
+  'nav.demo': { sk: 'Ukážka', en: 'Demo shop' },
   'nav.pricing': { sk: 'Cenník', en: 'Pricing' },
   'nav.privacy': { sk: 'Súkromie', en: 'Privacy' },
   'nav.faq': { sk: 'Otázky', en: 'FAQ' },
@@ -201,8 +202,8 @@ export const DICT = {
   },
   'faq.platforms.q': { sk: 'Funguje to aj na Shoptete, WooCommerce alebo Shopify?', en: 'Does this work on Shoptet, WooCommerce or Shopify?' },
   'faq.platforms.a': {
-    sk: 'Skript funguje na akomkoľvek e-shope hneď, stačí vložiť jeden <code>&lt;script&gt;</code> tag do administrácie alebo šablóny. Samostatný <a href="woocommerce/">WooCommerce plugin</a> je odoslaný na wordpress.org a čaká na schválenie (dovtedy sa inštaluje zo ZIP súboru z GitHubu), <a href="shopify/">Shopify aplikácia</a> je v príprave.',
-    en: 'The script works on any e-shop right away, you just add one <code>&lt;script&gt;</code> tag to the admin or theme. The dedicated <a href="woocommerce/">WooCommerce plugin</a> has been submitted to wordpress.org and is awaiting review (until then it installs from a ZIP file from GitHub); the <a href="shopify/">Shopify app</a> is in preparation.',
+    sk: 'Skript funguje na akomkoľvek e-shope hneď, stačí vložiť jeden <code>&lt;script&gt;</code> tag do administrácie alebo šablóny. Samostatný <a href="woocommerce/">WooCommerce plugin</a> je odoslaný na wordpress.org a čaká na schválenie (dovtedy sa inštaluje zo ZIP súboru z GitHubu), <a href="shopify/">Shopify aplikácia</a> je v príprave. Pre Shoptet a Upgates je samostatný <a href="shoptet/">návod</a>: Heureka XML feed z administrácie a script tag cez HTML kód. Ako widget vyzerá na slovenskom e-shope, ukazuje <a href="ukazka/">ukážkový obchod Dobrá domácnosť</a>.',
+    en: 'The script works on any e-shop right away, you just add one <code>&lt;script&gt;</code> tag to the admin or theme. The dedicated <a href="woocommerce/">WooCommerce plugin</a> has been submitted to wordpress.org and is awaiting review (until then it installs from a ZIP file from GitHub); the <a href="shopify/">Shopify app</a> is in preparation. Shoptet and Upgates shops have a separate <a href="shoptet/">guide</a> (Heureka XML feed from the admin, script tag through the HTML code editor). The <a href="ukazka/">Slovak demo shop</a> shows the widget on a fictional Slovak store.',
   },
   'faq.free.q': { sk: 'Čo je zadarmo?', en: 'What is free?' },
   'faq.free.a': {
@@ -239,6 +240,8 @@ export const DICT = {
   'footer.sourceCode': { sk: 'Zdrojový kód (GitHub)', en: 'Source code (GitHub)' },
   'footer.dpa': { sk: 'DPA (GDPR čl. 28)', en: 'DPA (GDPR Art. 28)' },
   'footer.compare': { sk: 'Porovnanie (EN)', en: 'Compare' },
+  'footer.demoSk': { sk: 'Slovenská ukážka', en: 'Slovak demo shop' },
+  'footer.shoptet': { sk: 'Shoptet a Upgates', en: 'Shoptet and Upgates (Slovak, Czech)' },
   'footer.note': { sk: 'Návštevnosť meriame vlastným, cookie-free nástrojom Umami. Neukladá cookies ani odtlačok prehliadača.', en: 'We measure traffic with our own cookie-free tool, Umami. It stores no cookies and no browser fingerprint.' },
 
   // ── sticky mobile CTA bar ────────────────────────────────────────────

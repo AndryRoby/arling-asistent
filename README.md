@@ -134,6 +134,8 @@ Ten istý `ingestFeedForTenant()` beží aj v dennom crone (`worker/src/cron.js`
 - `data-title`: vlastný názov panelu (zobrazí sa v hlavičke aj ako accessible name dialógu, nahradí predvolený názov pre daný jazyk).
 - `data-endpoint`: voliteľná adresa Workera, ak sa líši od domény, z ktorej sa `widget.js` načítal.
 
+Po nabootovaní widget nastaví `window.ArlingAsistent = { open(), close(), ask(text) }`. `ask(text)` otvorí panel a pošle text presne tak, ako keby ho návštevník napísal (orezaný, najviac 2000 znakov); vráti `true`, ak sa otázka odoslala, `false`, ak bol text prázdny alebo ešte beží predchádzajúca odpoveď (vtedy len otvorí panel). Používa to napríklad slovenský ukážkový obchod (`demo/ukazka/`) na tlačidlá s navrhovanými otázkami; e-shop si takto môže spraviť vlastné tlačidlo "Opýtať sa asistenta".
+
 ## Plány
 
 `POST /v1/tenants` dnes vytvorí tenanta na pláne `free` bez platby.
@@ -232,6 +234,17 @@ Po tomto: zákazník klikne na tlačidlo s vlastným `tenant_id` v `client_refer
 | Workers KV | 100 000 čítaní/deň, 1 000 zápisov/deň, 1 GB úložisko | Len rate-limit počítadlá s krátkou expiráciou |
 
 Najtesnejší limit je 10 000 Workers AI neuronov/deň (embeddingy pri onboardingu/dennom obnovení feedu aj chatový model zdieľajú tento limit): pri viacerých aktívnych e-shopoch treba počítať s prechodom na platený Workers plán čoskoro po prvých platiacich zákazníkoch, presne ako predpokladá ADR-04.
+
+## Demo tenanti
+
+Tenanti vytvorené pre verejné ukážky (obe na pláne `pro`, kvóta 5 000 rozhovorov mesačne, aby demo nikdy nenarazilo na kvótu; nastavené cez `PATCH /v1/tenants/:id/plan`). Tenant id je verejné (je v embed skripte stránky).
+
+| Tenant id | Doména | Ukážka | Feed |
+|---|---|---|---|
+| `8d9a6783-7ef9-4790-a63b-c52752face6b` | `arling.sk` | https://arling.sk/asistent/ (skúšobný widget po vytvorení účtu, Allbirds, 294 produktov, EN) | Shopify `products.json` |
+| `ce535d37-f297-4b43-89dd-30aa7b6301dd` | `ukazka.arling.sk` | https://arling.sk/asistent/ukazka/ (Dobrá domácnosť, fiktívny slovenský obchod, 64 výrobkov v 6 kategóriách, widget `data-lang="sk"`) | https://arling.sk/asistent/ukazka/feed.xml (Heureka XML) |
+
+Doména `ukazka.arling.sk` neexistuje ako web: `domain` musí byť v D1 unikátna a `arling.sk` už má tenant Allbirds, a stránky na `https://arling.sk` smú volať chat pre ľubovoľného tenanta, lebo `arling.sk` je v `ALLOWED_ORIGINS` (`worker/wrangler.toml`, pozri `isOriginAllowed` v `worker/src/chat.js`). Feed ukážky generuje skript v ops scratch (`gen-ukazka.mjs`, katalóg je v ňom napevno); po zmene feedu stačí pushnúť hub a zavolať `POST /v1/tenants/ce535d37-f297-4b43-89dd-30aa7b6301dd/reingest` s `X-Admin-Token`.
 
 ## Čo ešte nie je hotové
 

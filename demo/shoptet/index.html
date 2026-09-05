@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://homelab.tailbf8f27.ts.net; connect-src 'self' https://homelab.tailbf8f27.ts.net; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<title>ARLing Asistent pre Shoptet a Upgates: AI predajný asistent</title>
+<meta name="description" content="AI predajný asistent pre e-shopy na Shoptete a Upgates. Odpovedá zákazníkom z vášho Heureka XML feedu, odkazuje na konkrétne produkty a neukladá rozhovory. Vložíte ho jedným skriptom cez HTML kód. Zadarmo do 100 rozhovorov mesačne, potom 19 alebo 39 EUR mesačne." />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="ARLing Asistent pre Shoptet a Upgates: AI predajný asistent" />
+<meta property="og:description" content="AI predajný asistent pre e-shopy na Shoptete a Upgates. Odpovedá zákazníkom z vášho Heureka XML feedu, odkazuje na konkrétne produkty a neukladá rozhovory. Vložíte ho jedným skriptom cez HTML kód. Zadarmo do 100 rozhovorov mesačne, potom 19 alebo 39 EUR mesačne." />
+<meta property="og:url" content="https://arling.sk/asistent/shoptet/" />
+<meta property="og:locale" content="sk_SK" />
+<meta property="og:locale:alternate" content="cs_CZ" />
+<link rel="canonical" href="https://arling.sk/asistent/shoptet/" />
+<link rel="alternate" hreflang="sk" href="https://arling.sk/asistent/shoptet/" />
+<link rel="alternate" hreflang="cs" href="https://arling.sk/asistent/shoptet/cs/" />
+<link rel="alternate" hreflang="x-default" href="https://arling.sk/asistent/shoptet/" />
+<meta property="og:image" content="https://arling.sk/asistent/icon-512.png" />
+<link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+<link rel="alternate icon" href="../favicon.ico" />
+<link rel="apple-touch-icon" href="../icon-192.png" />
+<link rel="manifest" href="../manifest.json" />
+
+<!--
+  Zdroje faktov o administrácii Shoptetu a Upgates. Všetky stránky boli prečítané 5. 9. 2026 (2026-09-05).
+  Shoptet
+  - HTML kódy (SK): https://podpora.shoptet.sk/html-kody/ : cesta "Vzhľad a Obsah → Editor → HTML kód"; sekcie Záhlavie
+    (pred koncom HEAD), Pätička (pred koncom BODY), Dokončená objednávka, robots.txt; do každej sekcie najviac 8192 znakov;
+    článok neuvádza podmienku tarify ani doplnok z marketplace, len to, že podpora Shoptetu vlastný kód nerieši.
+  - HTML kódy (CZ): https://podpora.shoptet.cz/html-kody/ : "Vzhled a Obsah → Editor → HTML kód"; sekcie Záhlaví, Zápatí
+    ("před koncovým tagem BODY, můžete vkládat některé JavaScripty"), Dokončená objednávka, Robots.txt; 8192 znakov.
+  - Heureka XML feedy (SK): https://podpora.shoptet.sk/heureka-xml-feedy/ : "URL adresa feedu je
+    http://www.domena-eshopu.sk/heureka/export/products.xml"; "Presnú URL adresu nájdete vo vašej administrácii
+    v Prepojenie → Heureka → XML feedy".
+  - Heureka XML feedy (CZ): https://podpora.shoptet.cz/heureka-xml-feedy/ : http://www.domena-eshopu.cz/heureka/export/products.xml;
+    "Propojení → Heureka → XML feedy"; zmeny v detaile produktu sa vo feede prejavia do 60 minút; systémový feed
+    generuje e-shop sám a nedá sa upravovať.
+  - Cenník: https://www.shoptet.cz/cenik/ : tarify Free 0 Kč, Basic 440 Kč, Business 1 490 Kč, Profi 2 490 Kč,
+    Enterprise 4 690 Kč, Premium od 12 000 Kč mesačne; "Heureka" a "XML export pro vyhledávače produktů" sú vo všetkých
+    tarifách vrátane Free; HTML kód ani JavaScript sa v cenníku nespomínajú.
+  Upgates
+  - Konverzní kódy: https://www.upgates.cz/a/princip-konverznich-kodu : modul "Doplňky / Vlastní konverzní kódy";
+    umiestnenie "Všechny stránky e-shopu" alebo "Pouze na stránce po dokončení objednávky"; kód sa vkladá medzi
+    <head> a </head>; "Téměř jakýkoli kus JavaScript kódu vložený do Vlastních konverzních kódů se na stránce vykoná"
+    (chaty, lišty, bannery, analytika); článok neuvádza podmienku tarify.
+  - Editor kódu: https://www.upgates.cz/a/editor-kodu : "Grafika / Editor kódu"; rozšírené možnosti (HTML, JavaScript)
+    vyžadujú vypnutie modulu Designer a vyplnené fakturačné údaje; pre jeden script tag nie je potrebný.
+  - Heureka: https://www.upgates.cz/a/export-produktu-na-heureku : modul "Doplňky / Heureka"; "XML feedy se generují 4x denně"
+    (približne o 4:00, 10:00, 16:00 a 22:00, generovanie trvá do hodiny).
+  - Srovnávače a agregátory: https://www.upgates.cz/a/propojeni-na-srovnavace-zbozi : feed sa vyberá v module
+    "Produkty / Export (pravidelný)", oddiel "Srovnávače a agregátory", konkrétne prepojenie, oddiel "Export produktů";
+    "Generovaná URL adresa XML feedu obsahuje unikátní token (např. ..../feed-heureka-385fe19o6d.xml)";
+    aktualizácia 4× denne o 4, 10, 16 a 22 h.
+  - Doplnok Heureka v marketplace: https://doplnky.upgates.cz/detail/heureka : aktivácia "Zdarma".
+  - Cenník: https://www.upgates.cz/cenik : tarify Bronze 450 Kč, Silver 1 150 Kč, Gold 1 750 Kč, Platinum 3 250 Kč,
+    Exclusive od 10 000 Kč mesačne; konverzné kódy ani Heureka nie sú viazané na tarifu (všetky tarify majú prístup
+    ku všetkým funkciám a doplnkom).
+  Neoverené (stránka preto odkazuje na nápovedu platformy): či je editor HTML kódu na Shoptete dostupný aj v tarife
+  Free (nápoveda ani cenník to neuvádzajú); či Upgates ponúka pri Vlastních konverzních kódech aj umiestnenie
+  do pätičky (nápoveda uvádza umiestnenie v <head>).
+-->
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "ARLing Asistent pre Shoptet a Upgates",
+  "url": "https://arling.sk/asistent/shoptet/",
+  "description": "AI predajný asistent pre e-shopy na platformách Shoptet a Upgates: prečíta Heureka XML feed, ktorý e-shop už generuje, a odpovedá zákazníkom na otázky o produktoch s odkazmi na konkrétny tovar. Vkladá sa jedným script tagom cez HTML kód e-shopu. Obsah rozhovorov sa neukladá, len denné počítadlá.",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Shoptet alebo Upgates (jeden script tag v HTML kóde e-shopu)",
+  "inLanguage": ["sk"],
+  "offers": [
+    { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/shoptet/#cennik" },
+    { "@type": "Offer", "name": "Starter", "price": "19", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/shoptet/#cennik" },
+    { "@type": "Offer", "name": "Pro", "price": "39", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/shoptet/#cennik" }
+  ],
+  "author": {
+    "@type": "Organization",
+    "name": "ARLing s. r. o.",
+    "url": "https://arling.sk/",
+    "email": "andrej@arling.sk",
+    "address": { "@type": "PostalAddress", "streetAddress": "Ivanská cesta 19112/32E", "addressLocality": "Bratislava", "postalCode": "821 04", "addressCountry": "SK" }
+  }
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "Ako pridať ARLing Asistenta do e-shopu na Shoptete alebo Upgates",
+  "inLanguage": "sk",
+  "totalTime": "PT10M",
+  "step": [
+    { "@type": "HowToStep", "name": "Nájdite URL Heureka feedu", "text": "Shoptet: v administrácii Prepojenie → Heureka → XML feedy, feed má tvar https://www.vasadomena.sk/heureka/export/products.xml. Upgates: zapnite bezplatný doplnok Doplňky / Heureka, URL feedu s tokenom nájdete v Produkty / Export (pravidelný) → Srovnávače a agregátory → Heureka → Export produktů." },
+    { "@type": "HowToStep", "name": "Vytvorte si skúšobný účet", "text": "Na stránke arling.sk/asistent/#playground vložte URL feedu a e-mail. Za pár minút uvidíte chat s vlastnými produktmi a dostanete hotový script tag s ID účtu." },
+    { "@type": "HowToStep", "name": "Vložte script tag do e-shopu", "text": "Shoptet: Vzhľad a Obsah → Editor → HTML kód, sekcia Pätička. Upgates: Doplňky / Vlastní konverzní kódy, umiestnenie Všechny stránky e-shopu. Uložte, chat sa zobrazí vpravo dole." }
+  ]
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Potrebujem na Shoptete doplnok z marketplace alebo platenú tarifu?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Nie doplnok. Skript sa vkladá cez štandardný editor HTML kódu (Vzhľad a Obsah → Editor → HTML kód, sekcia Pätička), ktorý nápoveda Shoptetu opisuje bez podmienky tarify alebo doplnku. Či ho máte aj v tarife Free, nápoveda ani cenník neuvádzajú; ak položku HTML kód v administrácii nevidíte, overte si to v nápovede Shoptetu." }
+    },
+    {
+      "@type": "Question",
+      "name": "Musím na Upgates vypnúť Designer alebo používať Editor kódu?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Nie. Skript vložíte v module Doplňky / Vlastní konverzní kódy s umiestnením Všechny stránky e-shopu. Nápoveda Upgates uvádza, že takto vložený JavaScript (chaty, lišty, analytika) sa vykoná na stránke. Editor kódu s rozšírenými možnosťami by vypol Designer, na jeden riadok skriptu ho netreba." }
+    },
+    {
+      "@type": "Question",
+      "name": "V akej mene a v akom jazyku asistent odpovedá?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Heureka feed neobsahuje menu, preto ju odvodíme z domény feedu: .sk ako EUR, .cz ako CZK. Jazyk odpovede sa prispôsobí návštevníkovi (slovenčina, čeština, angličtina, nemčina), alebo ho nastavíte pevne atribútom data-lang v script tagu." }
+    },
+    {
+      "@type": "Question",
+      "name": "Ako často sa načíta feed a kedy sa prejaví zmena produktu?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Asistent sťahuje feed automaticky raz denne. Shoptet prepíše zmenu produktu do svojho Heureka feedu do 60 minút, Upgates generuje feed 4-krát denne. Zmena v e-shope sa teda v asistentovi prejaví najneskôr na druhý deň." }
+    },
+    {
+      "@type": "Question",
+      "name": "Ukladáte rozhovory zákazníkov? Máte zmluvu podľa čl. 28 GDPR?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Obsah rozhovorov sa neukladá nikde, ani u nás, ani v žiadnej databáze. Uchovávame len denné počítadlá (počet rozhovorov a kliknutí na produkty) na mesačný limit plánu. ARLing s. r. o. je sprostredkovateľ pre správy návštevníkov vášho e-shopu; vzor zmluvy o spracúvaní osobných údajov (DPA) je na github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md." }
+    },
+    {
+      "@type": "Question",
+      "name": "Čo to stojí a ako asistenta odstránim?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Do 100 rozhovorov mesačne zadarmo, bez platobnej karty. Nad tento limit plán Starter za 19 EUR mesačne (do 1 000 rozhovorov) alebo Pro za 39 EUR mesačne (do 5 000), platba kartou cez Stripe, zrušiť kedykoľvek. Odstránenie: zmažte riadok so skriptom v HTML kóde (Shoptet) alebo vo Vlastních konverzních kódech (Upgates), chat okamžite zmizne." }
+    }
+  ]
+}
+</script>
+
+<style>
+  :root {
+    --paper:#f6f2ea; --paper-2:#fbf9f4; --ink:#1b1a17; --ink-2:#4a4741; --muted:#66625a; --line:#d9d2c4;
+    --accent:#b23a1d; --accent-soft:#f3e2dc; --ok:#2f6f3e; --warn:#9a6b00;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --sans:system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"Cascadia Code",Consolas,Menlo,monospace;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper:#151412; --paper-2:#1d1b18; --ink:#efe9de; --ink-2:#c9c2b5; --muted:#8f887b; --line:#2e2b26; --accent:#e0623f; --accent-soft:#3a1f17; --ok:#7fbf8e; --warn:#caa552; }
+  }
+  * { box-sizing:border-box; }
+  html { background:var(--paper); }
+  body { margin:0; color:var(--ink); background:var(--paper); font:16px/1.55 var(--sans); -webkit-font-smoothing:antialiased; }
+  a { color:inherit; text-decoration-color:var(--line); text-underline-offset:3px; }
+  a:hover { text-decoration-color:var(--accent); }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+  img { max-width:100%; height:auto; display:block; }
+  [hidden] { display:none !important; }
+  .skip { position:absolute; left:-999px; top:8px; background:var(--ink); color:var(--paper); padding:8px 12px; z-index:10; }
+  .skip:focus { left:8px; }
+  .wrap { max-width:1040px; margin:0 auto; padding:0 24px; min-width:0; }
+  code { font:13.5px/1.4 var(--mono); background:var(--paper-2); border:1px solid var(--line); border-radius:3px; padding:1px 5px; overflow-wrap:anywhere; }
+  pre { overflow-x:auto; white-space:pre-wrap; overflow-wrap:anywhere; background:var(--paper-2); border:1px solid var(--line); border-radius:4px; padding:14px 16px; margin:0; font:13.5px/1.5 var(--mono); }
+  pre code { border:0; padding:0; background:transparent; }
+
+  header.top { border-bottom:1px solid var(--line); }
+  header.top .wrap { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px 24px; padding:18px 24px; }
+  .brand { display:flex; align-items:baseline; flex-wrap:wrap; gap:2px 10px; min-width:0; }
+  .wordmark { font:600 21px/1.25 var(--serif); text-decoration:none; overflow-wrap:anywhere; }
+  .wordmark-sub { font:13px/1 var(--sans); color:var(--muted); letter-spacing:.02em; text-decoration:none; white-space:nowrap; }
+  .wordmark-sub:hover { color:var(--accent); }
+  nav.main { display:flex; flex-wrap:wrap; }
+  nav.main a { font-size:14px; margin-left:20px; text-decoration:none; color:var(--ink-2); white-space:nowrap; }
+  nav.main a:first-child { margin-left:0; }
+  nav.main a:hover { color:var(--accent); }
+  .lang-switch { display:flex; align-items:center; }
+  .lang-switch a { font:600 12px/1 var(--sans); padding:6px 9px; border:1px solid var(--line); background:var(--paper); color:var(--ink-2); text-decoration:none; }
+  .lang-switch a + a { margin-left:-1px; }
+  .lang-switch a:first-child { border-radius:4px 0 0 4px; }
+  .lang-switch a:last-child { border-radius:0 4px 4px 0; }
+  .lang-switch a:hover { border-color:var(--accent); color:var(--accent); position:relative; z-index:1; }
+  .lang-switch a[aria-current="page"] { background:var(--ink); border-color:var(--ink); color:var(--paper); position:relative; z-index:1; }
+
+  .hero { padding:64px 0 40px; border-bottom:1px solid var(--line); }
+  .hero h1 { font:400 clamp(30px,4.6vw,46px)/1.14 var(--serif); letter-spacing:-.01em; margin:0 0 18px; max-width:22ch; }
+  .hero p.lead { font-size:18px; color:var(--ink-2); max-width:60ch; margin:0 0 26px; }
+  .facts { list-style:none; margin:22px 0 0; padding:0; display:flex; flex-wrap:wrap; gap:8px 0; color:var(--muted); font-size:14px; }
+  .facts li + li::before { content:"·"; margin:0 10px; color:var(--line); }
+  .facts b { color:var(--ink); font-weight:600; }
+
+  .btn { display:inline-block; font:600 15px/1 var(--sans); padding:13px 18px; border-radius:4px; text-decoration:none; cursor:pointer; border:2px solid transparent; appearance:none; -webkit-appearance:none; }
+  .btn-solid { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .btn-solid:hover { background:var(--ink); border-color:var(--ink); color:var(--paper); }
+  .btn-line { border:2px solid var(--ink); color:var(--ink); background:transparent; }
+  .btn-line:hover { border-color:var(--accent); color:var(--accent); }
+  .btn + .btn { margin-left:10px; }
+  .btn:disabled { opacity:.6; cursor:default; }
+
+  section { padding:44px 0; border-bottom:1px solid var(--line); }
+  section[id], header.top { scroll-margin-top:14px; }
+  .kicker { font:400 14px/1 var(--serif); color:var(--accent); letter-spacing:.06em; text-transform:uppercase; margin:0 0 10px; }
+  h2 { font:400 28px/1.2 var(--serif); margin:0 0 8px; letter-spacing:-.005em; max-width:30ch; }
+  h3 { font:400 20px/1.3 var(--serif); margin:30px 0 10px; }
+  .sub { color:var(--ink-2); max-width:64ch; margin:0 0 24px; }
+
+  .rules { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:26px 32px; margin:0; padding:0; list-style:none; counter-reset:r; }
+  .rules li { padding-top:14px; border-top:1px solid var(--line); min-width:0; }
+  .rules li::before { counter-increment:r; content:counter(r,decimal-leading-zero); font:400 14px/1 var(--serif); color:var(--accent); display:block; margin-bottom:8px; }
+  .rules li > b { display:block; font-weight:600; margin-bottom:4px; }
+  .rules p b { font-weight:600; color:var(--ink); }
+  .rules p { margin:0 0 8px; color:var(--ink-2); font-size:15px; overflow-wrap:anywhere; }
+  .rules p:last-child { margin-bottom:0; }
+  .rules .plat { display:inline-block; font:600 12px/1 var(--sans); letter-spacing:.03em; text-transform:uppercase; color:var(--ink); margin-right:4px; }
+
+  .paths-table-wrap { overflow-x:auto; margin-top:8px; }
+  .paths-table { width:100%; border-collapse:collapse; }
+  .paths-table th, .paths-table td { text-align:left; padding:12px 10px; border-bottom:1px solid var(--line); vertical-align:top; font-size:15px; }
+  .paths-table th { font:600 12px/1 var(--sans); text-transform:uppercase; letter-spacing:.03em; color:var(--muted); }
+  .paths-table td:first-child { font-weight:600; white-space:nowrap; }
+  .paths-table td { color:var(--ink-2); overflow-wrap:anywhere; }
+  @media (max-width:660px) {
+    .paths-table thead { display:none; }
+    .paths-table tr { display:block; border-top:1px solid var(--line); padding:8px 0; }
+    .paths-table td { display:block; border:0; padding:4px 0; white-space:normal; }
+    .paths-table td:first-child { color:var(--ink); padding-top:6px; }
+    .paths-table td[data-label]::before { content:attr(data-label); display:block; font:600 11px/1.4 var(--sans); letter-spacing:.03em; text-transform:uppercase; color:var(--muted); }
+  }
+
+  .pricing-table { width:100%; border-collapse:collapse; }
+  .pricing-table th, .pricing-table td { text-align:left; padding:14px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .pricing-table th { font:600 12px/1 var(--sans); text-transform:uppercase; letter-spacing:.03em; color:var(--muted); }
+  .pricing-table td.plan { font:600 16px/1.3 var(--sans); }
+  .pricing-table td.price { font:400 26px/1 var(--serif); white-space:nowrap; }
+  .pricing-table td.price span { font:13px/1 var(--sans); color:var(--muted); }
+  .pricing-table-wrap { overflow-x:auto; }
+  .pricing-table .btn { white-space:nowrap; }
+  .pricing-table-cta { display:none; margin:16px 0 0; }
+  @media (max-width:480px) {
+    .pricing-table th, .pricing-table td { padding:12px 6px; }
+    .pricing-table td.price { font-size:21px; }
+    .pricing-table th:last-child, .pricing-table td:last-child { display:none; }
+    .pricing-table-cta { display:block; }
+  }
+  .pricing-note { color:var(--ink-2); font-size:14px; margin:16px 0 0; }
+
+  .privacy-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:14px; }
+  .privacy-list li { display:flex; gap:12px; align-items:flex-start; }
+  .privacy-list li::before { content:"\2022"; color:var(--accent); flex-shrink:0; font-family:var(--serif); }
+  .privacy-list p { margin:0; color:var(--ink-2); }
+  .privacy-list b { color:var(--ink); }
+
+  .pro-objections { margin-top:28px; }
+  .objections-label { margin:0 0 4px; font:600 13px/1 var(--sans); letter-spacing:.03em; text-transform:uppercase; color:var(--ink-2); }
+
+  .hp { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+  .subscribe-ask { border-top:1px solid var(--line); margin-top:20px; padding-top:20px; }
+  .subscribe-form { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  .subscribe-form input[type="email"] { height:44px; min-width:0; flex:1 1 240px; padding:0 14px; border:1px solid var(--line); border-radius:4px; background:var(--paper-2); color:var(--ink); font:15px/1 var(--sans); }
+  .subscribe-form .btn { flex:none; }
+  #subscribe-thanks { color:var(--ok); font-weight:600; }
+  #subscribe-error { color:var(--accent); font-weight:600; }
+  .subscribe-privacy { flex-basis:100%; margin:0; font-size:13px; color:var(--muted); }
+  @media (max-width:480px) { .subscribe-form input[type="email"], .subscribe-form button { width:100%; } }
+
+  details { border-top:1px solid var(--line); padding:14px 0; }
+  details:last-of-type { border-bottom:1px solid var(--line); }
+  summary { cursor:pointer; font:400 18px/1.3 var(--serif); list-style:none; display:flex; justify-content:space-between; gap:12px; }
+  summary::-webkit-details-marker { display:none; }
+  summary::after { content:"+"; color:var(--accent); flex:none; font-family:var(--sans); }
+  details[open] summary::after { content:"\2013"; }
+  details p { color:var(--ink-2); margin:10px 0 0; max-width:70ch; overflow-wrap:anywhere; }
+
+  footer { padding:32px 0 56px; color:var(--muted); font-size:14px; }
+  footer .cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:20px 32px; }
+  footer b { color:var(--ink); font-weight:600; }
+  footer a { color:var(--ink-2); }
+  .footer-note { margin-top:14px; font-size:12px; color:var(--muted); }
+
+  @media (max-width:480px) {
+    .hero { padding:44px 0 32px; }
+    nav.main a { margin-left:12px; }
+    .wordmark-sub { display:none; }
+    .btn + .btn { margin-left:0; margin-top:10px; }
+  }
+
+  .sticky-cta { position:fixed; left:0; right:0; bottom:0; z-index:30; background:var(--paper-2); border-top:1px solid var(--line); }
+  .sticky-cta-inner { display:flex; align-items:center; gap:10px; max-width:1040px; margin:0 auto; padding:10px 14px; }
+  .sticky-cta-text { flex:1 1 auto; min-width:0; font-size:12.5px; color:var(--ink-2); overflow-wrap:anywhere; }
+  .sticky-cta .btn { flex:none; padding:10px 14px; font-size:13.5px; margin:0; }
+  .sticky-cta-close { flex:none; width:30px; height:30px; border:1px solid var(--line); background:var(--paper); color:var(--ink-2); border-radius:4px; cursor:pointer; font:16px/1 var(--sans); padding:0; }
+  .sticky-cta-close:hover { border-color:var(--accent); color:var(--accent); }
+  @media (min-width:761px) { .sticky-cta { display:none !important; } }
+  @media print { .sticky-cta { display:none !important; } }
+</style>
+</head>
+<body>
+
+<a class="skip" href="#install">Skočiť na postup inštalácie</a>
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <a class="wordmark" href="../">ARLing Asistent</a>
+      <a class="wordmark-sub" href="https://arling.sk/">nástroj ARLing</a>
+    </div>
+    <nav class="main" aria-label="Stránka">
+      <a href="#install">Inštalácia</a>
+      <a href="#cennik">Cenník</a>
+      <a href="#limits">Čo vie</a>
+      <a href="#faq">Otázky</a>
+      <a href="../">Živé demo</a>
+    </nav>
+    <div class="lang-switch" role="group" aria-label="Jazyk stránky">
+      <a href="./" hreflang="sk" lang="sk" aria-current="page" aria-label="Slovenčina">SK</a>
+      <a href="cs/" hreflang="cs" lang="cs" aria-label="Čeština">CS</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <div class="wrap">
+      <h1>AI predajný asistent pre Shoptet a Upgates, vložíte ho za 10 minút cez HTML kód.</h1>
+      <p class="lead">Asistent si prečíta Heureka XML feed, ktorý váš e-shop už dnes generuje, a odpovedá zákazníkom na otázky o produktoch v ich jazyku, vždy s odkazmi na konkrétny tovar. Rozhovory sa neukladajú. Zadarmo do 100 rozhovorov mesačne, bez platobnej karty.</p>
+      <a class="btn btn-solid" href="../#playground" data-umami-event="trial_click" data-umami-event-place="hero">Začať zadarmo</a><a class="btn btn-line" href="#install">Pozrieť 3 kroky</a>
+      <ul class="facts">
+        <li><b>0</b> uložených rozhovorov</li>
+        <li><b>100</b> rozhovorov mesačne zadarmo</li>
+        <li>číta Heureka XML feed</li>
+        <li>SK · CS · EN · DE</li>
+        <li>beží na Cloudflare Workers</li>
+      </ul>
+    </div>
+  </div>
+
+  <section id="install">
+    <div class="wrap">
+      <p class="kicker">01</p>
+      <h2>Inštalácia v troch krokoch</h2>
+      <p class="sub">Bez doplnku z marketplace a bez zásahu do šablóny: potrebujete URL Heureka feedu a jeden riadok v HTML kóde e-shopu. Cesty v administrácii sú z nápovedy Shoptetu a Upgates z 5. septembra 2026; ak vaša administrácia vyzerá inak, hľadajte v nápovede platformy.</p>
+      <ol class="rules">
+        <li>
+          <b>Nájdite URL Heureka feedu.</b>
+          <p><span class="plat">Shoptet</span> V administrácii <b>Prepojenie → Heureka → XML feedy</b>. Feed má tvar <code>https://www.vasadomena.sk/heureka/export/products.xml</code>; Shoptet ho generuje sám a zmeny produktov doň prepíše do 60 minút.</p>
+          <p><span class="plat">Upgates</span> Zapnite bezplatný doplnok <b>Doplňky / Heureka</b>. URL feedu s unikátnym tokenom (tvar <code>.../feed-heureka-xxxxxxxxxx.xml</code>) nájdete v <b>Produkty / Export (pravidelný) → Srovnávače a agregátory → Heureka → Export produktů</b>. Feed sa generuje 4-krát denne.</p>
+        </li>
+        <li>
+          <b>Vytvorte si skúšobný účet.</b>
+          <p>Na <a href="../#playground" data-umami-event="trial_click" data-umami-event-place="step2">hlavnej stránke Asistenta</a> vložte do formulára URL feedu a e-mail. Doménu odvodíme z URL feedu. Za pár minút uvidíte na tej istej stránke chat s vlastnými produktmi a dostanete ID účtu spolu s hotovým script tagom (rovnaký ako nižšie).</p>
+        </li>
+        <li>
+          <b>Vložte script tag do e-shopu.</b>
+          <p><span class="plat">Shoptet</span> <b>Vzhľad a Obsah → Editor → HTML kód</b>, sekcia <b>Pätička</b> (kód pred koncom BODY). Sekcia má limit 8 192 znakov, náš skript má jeden riadok.</p>
+          <p><span class="plat">Upgates</span> <b>Doplňky / Vlastní konverzní kódy</b>, umiestnenie <b>Všechny stránky e-shopu</b>. Nápoveda Upgates uvádza, že takto vložený JavaScript (chaty, lišty, analytika) sa na stránke vykoná. Designer ostáva zapnutý.</p>
+          <p>Uložte. Chatová bublina sa zobrazí vpravo dole na každej stránke e-shopu.</p>
+        </li>
+      </ol>
+
+      <h3>Script tag, ktorý vkladáte</h3>
+      <p class="sub" style="margin-bottom:10px;">Namiesto <code>ID_UCTU</code> dosaďte ID z kroku 2 (formulár vám ukáže už hotový riadok). <code>data-lang="auto"</code> nastaví jazyk chatu podľa prehliadača návštevníka; pevne slovenský chat dosiahnete hodnotou <code>sk</code>.</p>
+      <pre><code>&lt;script src="https://arling-asistent.arling.workers.dev/widget.js"
+        data-tenant="ID_UCTU"
+        data-lang="auto"
+        defer&gt;&lt;/script&gt;</code></pre>
+
+      <h3>Kde čo nájdete</h3>
+      <div class="paths-table-wrap">
+        <table class="paths-table">
+          <thead>
+            <tr><th scope="col">Čo</th><th scope="col">Shoptet</th><th scope="col">Upgates</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Heureka feed</td>
+              <td data-label="Shoptet">Prepojenie → Heureka → XML feedy; <code>/heureka/export/products.xml</code></td>
+              <td data-label="Upgates">Doplňky / Heureka (zdarma); URL v Produkty / Export (pravidelný) → Srovnávače a agregátory → Heureka → Export produktů</td>
+            </tr>
+            <tr>
+              <td>Vloženie skriptu</td>
+              <td data-label="Shoptet">Vzhľad a Obsah → Editor → HTML kód → Pätička (do 8 192 znakov)</td>
+              <td data-label="Upgates">Doplňky / Vlastní konverzní kódy → Všechny stránky e-shopu</td>
+            </tr>
+            <tr>
+              <td>Obnova feedu</td>
+              <td data-label="Shoptet">zmeny produktu do 60 minút</td>
+              <td data-label="Upgates">4-krát denne (asi o 4, 10, 16 a 22 h)</td>
+            </tr>
+            <tr>
+              <td>Tarifa platformy</td>
+              <td data-label="Shoptet">nápoveda k HTML kódu neuvádza podmienku tarify ani doplnok; Heureka feed je vo všetkých tarifách vrátane Free</td>
+              <td data-label="Upgates">doplnok Heureka je zdarma; cenník neviaže konverzné kódy na tarifu</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="cennik">
+    <div class="wrap">
+      <p class="kicker">02</p>
+      <h2>Cenník</h2>
+      <p class="sub">Do 100 rozhovorov mesačne zadarmo, navždy, bez karty. Nad tento limit jednoduchá cena podľa počtu rozhovorov za mesiac, platba cez Stripe.</p>
+      <div class="pricing-table-wrap">
+        <table class="pricing-table">
+          <thead>
+            <tr><th>Plán</th><th>Cena</th><th>Rozhovory / mesiac</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="plan">Free</td>
+              <td class="price">0&nbsp;&euro;</td>
+              <td>do 100</td>
+              <td><a class="btn btn-line" href="../#playground" data-umami-event="trial_click" data-umami-event-place="pricing">Začať zadarmo</a></td>
+            </tr>
+            <tr>
+              <td class="plan">Starter</td>
+              <td class="price">19 &euro;<span> / mesiac</span></td>
+              <td>do 1 000</td>
+              <td><a class="btn btn-line" href="../#playground" data-umami-event="trial_click" data-umami-event-place="pricing-starter">Začať zadarmo</a></td>
+            </tr>
+            <tr>
+              <td class="plan">Pro</td>
+              <td class="price">39 &euro;<span> / mesiac</span></td>
+              <td>do 5 000</td>
+              <td><a class="btn btn-line" href="../#playground" data-umami-event="trial_click" data-umami-event-place="pricing-pro">Začať zadarmo</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="pricing-table-cta"><a class="btn btn-solid" href="../#playground" data-umami-event="trial_click" data-umami-event-place="pricing-mobile">Začať zadarmo</a></p>
+      <p class="pricing-note">Nič sa neúčtuje automaticky: asistent beží vo voľnom pláne, kým si sami nevyberiete platený plán zo stránky svojho účtu, ktorej odkaz dostanete hneď po vytvorení účtu. Platba kartou cez Stripe, faktúru pošle Stripe e-mailom, zrušiť kedykoľvek. Ročné predplatné zatiaľ nie je v ponuke.</p>
+
+      <div class="pro-objections">
+        <p class="objections-label">Skôr než to vložíte</p>
+        <details>
+          <summary>Ukladáte rozhovory zákazníkov?</summary>
+          <p>Nie. Obsah rozhovoru sa neukladá nikde, ani u nás, ani v žiadnej databáze. Uchovávame len denné počítadlá: koľko rozhovorov a kliknutí na produkty prebehlo, kvôli mesačnému limitu plánu.</p>
+        </details>
+        <details>
+          <summary>Máte zmluvu podľa čl. 28 GDPR?</summary>
+          <p>Áno. ARLing s. r. o. je sprostredkovateľ pre správy, ktoré návštevníci vášho e-shopu píšu asistentovi. Vzor zmluvy: <a href="https://github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md" target="_blank" rel="noopener">Zmluva o spracúvaní osobných údajov (DPA)</a>, v slovenčine. Pri objednaní služby si do nej doplníte údaje svojho e-shopu.</p>
+        </details>
+        <details>
+          <summary>Ako to zruším, ak sa neosvedčí?</summary>
+          <p>Zmažte riadok so skriptom v HTML kóde (Shoptet) alebo vo Vlastních konverzních kódech (Upgates); chat zmizne okamžite. Voľný plán nemá kartu ani záväzok. Platený plán nad limitom ide cez Stripe a dá sa zrušiť kedykoľvek.</p>
+        </details>
+        <details>
+          <summary>Čo ak asistent nevie odpovedať alebo feed neprejde?</summary>
+          <p>Ak sa vo feede nenájde nič k otázke, asistent to zákazníkovi povie a odkáže ho na e-mail obchodu, nič si nevymýšľa. Ak formulár váš feed odmietne (napríklad je väčší než 5 000 produktov alebo v inom formáte), napíšte na andrej@arling.sk s URL feedu.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section id="limits">
+    <div class="wrap">
+      <p class="kicker">03</p>
+      <h2>Čo vie, čo nevie a čo o vás vieme my</h2>
+      <p class="sub">Asistent je stavaný tak, aby o vašich zákazníkoch vedel čo najmenej a aby sľuboval len to, čo dokáže.</p>
+      <ul class="privacy-list">
+        <li><p><b>Odpovedá len z vášho feedu.</b> Zákazník sa pýta vlastnými slovami („máte nepremokavú bundu do 80 eur?“) a asistent odpovie z názvov, popisov, cien a kategórií vo vašom Heureka feede, s najviac tromi odkazmi na konkrétne produkty, v jazyku zákazníka (slovenčina, čeština, angličtina, nemčina).</p></li>
+        <li><p><b>Nesleduje objednávky.</b> Nevie stav objednávky ani zásielky, nerieši reklamácie, kupóny ani zákaznícke účty a nie je to živý chat s človekom. Na takéto otázky zákazníka odkáže na e-mail obchodu. Ak potrebujete práve toto, Asistent pre vás nie je.</p></li>
+        <li><p><b>Keď nevie, povie to.</b> Ak sa vo feede nenájde nič k otázke, asistent to povie rovno a odkáže na váš kontaktný e-mail, namiesto hádania.</p></li>
+        <li><p><b>Rozhovory sa neukladajú.</b> Uchovávame len denné počítadlá (rozhovory, kliknutia na produkty) kvôli mesačnému limitu plánu, nikdy obsah správ. Widget nenastavuje cookies.</p></li>
+        <li><p><b>Čo o vás vieme.</b> URL feedu, doménu e-shopu a e-mail, ktorý zadáte vo formulári. Feed je verejný súbor, ktorý váš e-shop už posiela Heureke; žiadne údaje o zákazníkoch ani objednávkach sa k nám nedostanú.</p></li>
+        <li><p><b>Zmluva podľa čl. 28 GDPR.</b> ARLing s. r. o. je sprostredkovateľ pre správy návštevníkov vášho e-shopu. Vzor: <a href="https://github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md" target="_blank" rel="noopener">Zmluva o spracúvaní osobných údajov (DPA)</a>.</p></li>
+        <li><p><b>Beží na sieti Cloudflare.</b> Cloudflare verejne negarantuje spracovanie Workers AI výlučne v EÚ; DPA sa opiera o štandardné zmluvné doložky (SCC) a certifikáciu Cloudflare podľa EU Cloud Code of Conduct.</p></li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap">
+      <p class="kicker">04</p>
+      <h2>Otázky</h2>
+
+      <details>
+        <summary>Potrebujem na Shoptete doplnok z marketplace alebo platenú tarifu?</summary>
+        <p>Nie doplnok. Skript sa vkladá cez štandardný editor HTML kódu (<b>Vzhľad a Obsah → Editor → HTML kód</b>, sekcia Pätička), ktorý nápoveda Shoptetu opisuje bez podmienky tarify alebo doplnku. Či ho máte aj v tarife Free, nápoveda ani cenník neuvádzajú; ak položku HTML kód v administrácii nevidíte, overte si to v <a href="https://podpora.shoptet.sk/html-kody/" target="_blank" rel="noopener">nápovede Shoptetu</a>.</p>
+      </details>
+      <details>
+        <summary>Musím na Upgates vypnúť Designer alebo používať Editor kódu?</summary>
+        <p>Nie. Skript vložíte v module <b>Doplňky / Vlastní konverzní kódy</b> s umiestnením Všechny stránky e-shopu. <a href="https://www.upgates.cz/a/princip-konverznich-kodu" target="_blank" rel="noopener">Nápoveda Upgates</a> uvádza, že takto vložený JavaScript (chaty, lišty, analytika) sa na stránke vykoná. Editor kódu s rozšírenými možnosťami by vypol Designer, na jeden riadok skriptu ho netreba.</p>
+      </details>
+      <details>
+        <summary>V akej mene a v akom jazyku asistent odpovedá?</summary>
+        <p>Heureka feed neobsahuje menu, preto ju odvodíme z domény feedu: <code>.sk</code> ako EUR, <code>.cz</code> ako CZK. Jazyk odpovede sa prispôsobí návštevníkovi (slovenčina, čeština, angličtina, nemčina), alebo ho nastavíte pevne atribútom <code>data-lang</code> v script tagu.</p>
+      </details>
+      <details>
+        <summary>Ako často sa načíta feed a kedy sa prejaví zmena produktu?</summary>
+        <p>Asistent sťahuje feed automaticky raz denne. Shoptet prepíše zmenu produktu do svojho Heureka feedu do 60 minút, Upgates generuje feed 4-krát denne. Zmena v e-shope sa teda v asistentovi prejaví najneskôr na druhý deň.</p>
+      </details>
+      <details>
+        <summary>Ukladáte rozhovory zákazníkov? Máte zmluvu podľa čl. 28 GDPR?</summary>
+        <p>Obsah rozhovorov sa neukladá nikde, ani u nás, ani v žiadnej databáze. Uchovávame len denné počítadlá (počet rozhovorov a kliknutí na produkty) na mesačný limit plánu. ARLing s. r. o. je sprostredkovateľ pre správy návštevníkov vášho e-shopu; vzor <a href="https://github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md" target="_blank" rel="noopener">zmluvy o spracúvaní osobných údajov (DPA)</a> je verejný.</p>
+      </details>
+      <details>
+        <summary>Čo to stojí a ako asistenta odstránim?</summary>
+        <p>Do 100 rozhovorov mesačne zadarmo, bez platobnej karty. Nad tento limit plán Starter za 19 € mesačne (do 1 000 rozhovorov) alebo Pro za 39 € mesačne (do 5 000), platba kartou cez Stripe, zrušiť kedykoľvek. Odstránenie: zmažte riadok so skriptom v HTML kóde (Shoptet) alebo vo Vlastních konverzních kódech (Upgates), chat okamžite zmizne.</p>
+      </details>
+
+      <div class="subscribe-ask">
+        <p class="sub" style="margin-bottom:14px">Ešte nie? Nechajte e-mail a napíšeme vám, keď v Asistentovi pribudne niečo nové.</p>
+        <form class="subscribe-form" data-subscribe data-source="asistent-shoptet" data-lang="sk" data-thanks="subscribe-thanks" data-error="subscribe-error">
+          <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off">
+          <input type="email" name="email" placeholder="vy@email.sk" required>
+          <button class="btn btn-solid" type="submit">Dajte mi vedieť</button>
+          <p class="subscribe-privacy">Len správy o ARLing Asistentovi. Odhlásenie jedným kliknutím, kedykoľvek.</p>
+        </form>
+        <p id="subscribe-thanks" hidden>Ďakujeme, ozveme sa.</p>
+        <p id="subscribe-error" hidden>Niečo sa pokazilo, skúste to znova alebo napíšte na andrej@arling.sk.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="closing-cta">
+    <div class="wrap" style="text-align:center;">
+      <p class="sub" style="margin:0 auto 18px;">URL Heureka feedu, e-mail, jeden riadok v HTML kóde. Zadarmo do 100 rozhovorov mesačne, bez platobnej karty.</p>
+      <a class="btn btn-solid" href="../#playground" data-umami-event="trial_click" data-umami-event-place="closing">Začať zadarmo</a>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <div class="cols">
+        <div>
+          <b>ARLing Asistent pre Shoptet a Upgates</b><br>
+          nástroj od <a href="https://arling.sk/">ARLing s. r. o.</a><br>
+          <a href="cs/" hreflang="cs" lang="cs">Česky</a>
+        </div>
+        <div>
+          IČO 56583486 · IČ DPH SK2122352100<br>
+          Ivanská cesta 19112/32E, 821 04 Bratislava<br>
+          <a href="mailto:andrej@arling.sk">andrej@arling.sk</a>
+        </div>
+        <div>
+          <a href="../">ARLing Asistent (hlavná stránka, živé demo)</a><br>
+          <a href="../woocommerce/" hreflang="en">WooCommerce</a> · <a href="../shopify/" hreflang="en">Shopify</a> (EN)<br>
+          <a href="https://github.com/AndryRoby/arling-asistent" target="_blank" rel="noopener">Zdrojový kód (GitHub)</a><br>
+          <a href="../llms.txt">llms.txt</a> · <a href="../sitemap.xml">sitemap.xml</a><br>
+          <a href="https://github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md" target="_blank" rel="noopener">DPA (čl. 28 GDPR)</a>
+        </div>
+      </div>
+      <p class="footer-note">Návštevnosť meriame vlastným nástrojom Umami bez cookies. Neukladá cookies ani odtlačok prehliadača.</p>
+    </div>
+  </footer>
+</main>
+
+<div class="sticky-cta" id="sticky-cta" hidden>
+  <div class="sticky-cta-inner">
+    <span class="sticky-cta-text">Zadarmo do 100 rozhovorov mesačne.</span>
+    <a class="btn btn-solid" href="../#playground" data-umami-event="trial_click" data-umami-event-place="sticky">Začať zadarmo</a>
+    <button type="button" class="sticky-cta-close" id="sticky-cta-close" aria-label="Zavrieť lištu">&times;</button>
+  </div>
+</div>
+
+<script defer src="https://homelab.tailbf8f27.ts.net/script.js" data-website-id="09cc54da-8172-43b3-8aa2-84e3ab5a17f1"></script>
+<script src="../subscribe.js" defer></script>
+<script src="../sell.js" defer></script>
+</body>
+</html>

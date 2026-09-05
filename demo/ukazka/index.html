@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://homelab.tailbf8f27.ts.net; connect-src 'self' https://homelab.tailbf8f27.ts.net https://arling-asistent.arling.workers.dev; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<title>Dobrá domácnosť: ukážkový obchod ARLing Asistenta</title>
+<meta name="description" content="Vymyslený slovenský e-shop so 64 výrobkami v 6 kategóriách (kuchyňa, kávovary a čaj, záhrada, upratovanie, deti, darčeky), na ktorom si vyskúšate ARLing Asistenta: opýtajte sa predavača na kávovar do 100 eur, hrniec na indukciu alebo darček pre babku. Nedá sa tu nakupovať." />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Dobrá domácnosť: ukážkový obchod ARLing Asistenta" />
+<meta property="og:description" content="Vymyslený slovenský e-shop so 64 výrobkami, na ktorom si vyskúšate AI predavača ARLing Asistent. Výrobky nie sú skutočné, nedá sa tu nakupovať." />
+<meta property="og:url" content="https://arling.sk/asistent/ukazka/" />
+<meta property="og:locale" content="sk_SK" />
+<meta property="og:image" content="https://arling.sk/asistent/icon-512.png" />
+<link rel="canonical" href="https://arling.sk/asistent/ukazka/" />
+<link rel="alternate" hreflang="sk" href="https://arling.sk/asistent/ukazka/" />
+<link rel="alternate" hreflang="x-default" href="https://arling.sk/asistent/ukazka/" />
+<link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+<link rel="alternate icon" href="../favicon.ico" />
+<link rel="apple-touch-icon" href="../icon-192.png" />
+<link rel="manifest" href="../manifest.json" />
+
+<!--
+  Dobrá domácnosť je VYMYSLENÝ obchod, ktorý slúži len ako ukážka ARLing Asistenta v slovenčine.
+  Výrobky, značky (Ferrum Hron, Lipová dielňa, Kávomlyn Orava, Čajovňa Liptov, Zelený dvor,
+  Čistá izba, Malý svet, Darka Tatry), ceny aj EAN kódy vo feed.xml sú fiktívne. Nič sa tu nedá kúpiť.
+  Zoznam výrobkov sa vykresľuje z feed.xml (Heureka XML) v prehliadači (ukazka.js); ten istý feed
+  spracoval worker pre demo tenanta, ktorého id je v data-tenant script tagu widgetu dole.
+-->
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "Dobrá domácnosť: ukážkový obchod ARLing Asistenta",
+  "url": "https://arling.sk/asistent/ukazka/",
+  "inLanguage": "sk",
+  "description": "Vymyslený slovenský e-shop so 64 výrobkami v 6 kategóriách, na ktorom si návštevník vyskúša AI predavača ARLing Asistent. Výrobky nie sú skutočné a nedá sa tu nakupovať.",
+  "isPartOf": { "@type": "WebSite", "name": "ARLing Asistent", "url": "https://arling.sk/asistent/" },
+  "about": {
+    "@type": "SoftwareApplication",
+    "name": "ARLing Asistent",
+    "url": "https://arling.sk/asistent/",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Any (web browser, jeden <script> tag)"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "ARLing s. r. o.",
+    "url": "https://arling.sk/",
+    "email": "andrej@arling.sk",
+    "address": { "@type": "PostalAddress", "streetAddress": "Ivanská cesta 19112/32E", "addressLocality": "Bratislava", "postalCode": "821 04", "addressCountry": "SK" }
+  }
+}
+</script>
+
+<style>
+  :root {
+    --paper:#f6f2ea; --paper-2:#fbf9f4; --ink:#1b1a17; --ink-2:#4a4741; --muted:#66625a; --line:#d9d2c4;
+    --accent:#b23a1d; --accent-soft:#f3e2dc; --ok:#2f6f3e; --warn:#9a6b00;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --sans:system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"Cascadia Code",Consolas,Menlo,monospace;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper:#151412; --paper-2:#1d1b18; --ink:#efe9de; --ink-2:#c9c2b5; --muted:#8f887b; --line:#2e2b26; --accent:#e0623f; --accent-soft:#3a1f17; --ok:#7fbf8e; --warn:#caa552; }
+  }
+  * { box-sizing:border-box; }
+  html { background:var(--paper); scroll-behavior:smooth; }
+  body { margin:0; color:var(--ink); background:var(--paper); font:16px/1.55 var(--sans); -webkit-font-smoothing:antialiased; }
+  a { color:inherit; text-decoration-color:var(--line); text-underline-offset:3px; }
+  a:hover { text-decoration-color:var(--accent); }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+  img { max-width:100%; height:auto; display:block; }
+  [hidden] { display:none !important; }
+  .skip { position:absolute; left:-999px; top:8px; background:var(--ink); color:var(--paper); padding:8px 12px; z-index:10; }
+  .skip:focus { left:8px; }
+  .wrap { max-width:1040px; margin:0 auto; padding:0 24px; min-width:0; }
+
+  header.top { border-bottom:1px solid var(--line); }
+  header.top .wrap { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px 24px; padding:18px 24px; }
+  .brand { display:flex; align-items:baseline; flex-wrap:wrap; gap:2px 10px; min-width:0; }
+  .wordmark { font:600 21px/1.25 var(--serif); text-decoration:none; overflow-wrap:anywhere; }
+  .wordmark-sub { font:13px/1 var(--sans); color:var(--muted); letter-spacing:.02em; white-space:nowrap; }
+  nav.main { display:flex; flex-wrap:wrap; }
+  nav.main a { font-size:14px; margin-left:20px; text-decoration:none; color:var(--ink-2); white-space:nowrap; }
+  nav.main a:first-child { margin-left:0; }
+  nav.main a:hover { color:var(--accent); }
+
+  .hero { padding:56px 0 36px; border-bottom:1px solid var(--line); }
+  h1 { font:400 44px/1.1 var(--serif); letter-spacing:-.01em; margin:0 0 18px; max-width:22ch; }
+  .hero p.lead { font-size:18px; color:var(--ink-2); max-width:60ch; margin:0 0 22px; }
+  .notice { max-width:64ch; margin:0 0 6px; padding:12px 16px; border:1px solid var(--accent); background:var(--accent-soft); border-radius:4px; font-size:15.5px; color:var(--ink); }
+  .facts { list-style:none; margin:22px 0 0; padding:0; display:flex; flex-wrap:wrap; gap:8px 0; color:var(--muted); font-size:14px; }
+  .facts li + li::before { content:"·"; margin:0 10px; color:var(--line); }
+  .facts b { color:var(--ink); font-weight:600; }
+
+  .btn { display:inline-block; font:600 15px/1 var(--sans); padding:13px 18px; border-radius:4px; text-decoration:none; cursor:pointer; border:2px solid transparent; appearance:none; -webkit-appearance:none; }
+  .btn-solid { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .btn-solid:hover { background:var(--ink); border-color:var(--ink); color:var(--paper); }
+  .btn-line { border:2px solid var(--ink); color:var(--ink); background:transparent; }
+  .btn-line:hover { border-color:var(--accent); color:var(--accent); }
+  .btn + .btn { margin-left:10px; }
+
+  section { padding:44px 0; border-bottom:1px solid var(--line); }
+  .kicker { font:400 14px/1 var(--serif); color:var(--accent); letter-spacing:.06em; text-transform:uppercase; margin:0 0 10px; }
+  h2 { font:400 28px/1.2 var(--serif); margin:0 0 8px; letter-spacing:-.005em; max-width:30ch; }
+  .sub { color:var(--ink-2); max-width:64ch; margin:0 0 24px; }
+
+  .questions { display:flex; flex-wrap:wrap; gap:10px; margin:0 0 18px; }
+  .q { font:500 15px/1.3 var(--sans); padding:11px 16px; border:2px solid var(--ink); border-radius:4px; background:transparent; color:var(--ink); cursor:pointer; text-align:left; appearance:none; -webkit-appearance:none; max-width:100%; }
+  .q::before { content:"?"; font:400 15px/1 var(--serif); color:var(--accent); margin-right:9px; }
+  .q:hover { border-color:var(--accent); color:var(--accent); }
+  .hint { color:var(--muted); font-size:14px; margin:0; }
+  .linkbtn { font:inherit; color:var(--ink-2); background:none; border:0; padding:0; cursor:pointer; text-decoration:underline; text-decoration-color:var(--line); text-underline-offset:3px; }
+  .linkbtn:hover { text-decoration-color:var(--accent); color:var(--accent); }
+
+  .cats { list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:8px 0; }
+  .cats li + li::before { content:"·"; margin:0 12px; color:var(--line); }
+  .cats a { font:400 18px/1.3 var(--serif); text-decoration:none; }
+  .cats a:hover { color:var(--accent); }
+  .cat-count { color:var(--muted); font:14px/1 var(--sans); margin-left:4px; }
+
+  .products { display:block; margin:0; padding:0; border-top:1px solid var(--line); }
+  .product { display:grid; grid-template-columns:96px minmax(0,1fr) auto; gap:6px 22px; padding:18px 0; border-bottom:1px solid var(--line); scroll-margin-top:24px; min-width:0; }
+  .product:target, .product.is-target { background:var(--accent-soft); box-shadow:0 0 0 12px var(--accent-soft); }
+  .product-img { width:96px; height:96px; border:1px solid var(--line); background:#f6f2ea; }
+  .product-name { font:400 20px/1.25 var(--serif); margin:0 0 4px; overflow-wrap:anywhere; }
+  .product-meta { margin:0 0 6px; color:var(--muted); font-size:13.5px; }
+  .product-id { font:12.5px/1 var(--mono); }
+  .product-desc { margin:0 0 6px; color:var(--ink-2); font-size:15px; max-width:70ch; overflow-wrap:anywhere; }
+  .product-params { margin:0; color:var(--muted); font-size:13.5px; overflow-wrap:anywhere; }
+  .product-side { display:flex; flex-direction:column; align-items:flex-end; gap:6px; text-align:right; white-space:nowrap; }
+  .product-price { font:600 20px/1.2 var(--sans); }
+  .product-avail { font-size:13.5px; padding:3px 8px; border-radius:3px; border:1px solid var(--line); }
+  .product-avail-ok { color:var(--ok); border-color:var(--ok); }
+  .product-avail-wait { color:var(--warn); border-color:var(--warn); }
+  .product-noshop { font-size:12px; color:var(--muted); }
+  .feed-error { color:var(--accent); padding:24px 0; }
+
+  .closing { background:var(--paper-2); }
+  footer { padding:32px 0 56px; color:var(--muted); font-size:14px; }
+  footer .cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:20px 32px; }
+  footer b { color:var(--ink); font-weight:600; }
+  footer a { color:var(--ink-2); }
+  .footer-note { margin-top:14px; font-size:12px; color:var(--muted); max-width:70ch; }
+
+  @media (max-width:640px) {
+    h1 { font-size:32px; }
+    .hero { padding:40px 0 28px; }
+    nav.main a { margin-left:12px; }
+    .product { grid-template-columns:64px minmax(0,1fr); gap:4px 14px; }
+    .product-img { width:64px; height:64px; }
+    .product-side { grid-column:2; flex-direction:row; flex-wrap:wrap; align-items:center; justify-content:flex-start; text-align:left; gap:8px 12px; margin-top:4px; }
+    .product-name { font-size:18px; }
+    .btn + .btn { margin-left:0; margin-top:10px; }
+    .q { width:100%; }
+    .cats { flex-direction:column; gap:6px; }
+    .cats li + li::before { content:none; margin:0; }
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#katalog">Skočiť na výrobky</a>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <a class="wordmark" href="./">Dobrá domácnosť</a>
+      <span class="wordmark-sub">ukážkový obchod</span>
+    </div>
+    <nav class="main" aria-label="Stránka">
+      <a href="#kategorie">Kategórie</a>
+      <a href="#opytat">Opýtať sa predavača</a>
+      <a href="../">ARLing Asistent</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <div class="wrap">
+      <h1>Dobrá domácnosť, ukážkový obchod</h1>
+      <p class="lead">Kuchyňa, kávovary a čaj, záhrada, upratovanie, deti a darčeky. <span id="product-total">64</span> výrobkov v šiestich kategóriách, každý s popisom, cenou a dostupnosťou, presne tak, ako ich číta asistent z feedu.</p>
+      <p class="notice" role="note">Toto je ukážkový obchod ARLing. Výrobky nie sú skutočné, nedá sa tu nakupovať. Skúste sa opýtať predavača vpravo dole.</p>
+      <ul class="facts">
+        <li><b>64</b> výrobkov</li>
+        <li><b>6</b> kategórií</li>
+        <li>zdroj: <a href="feed.xml">feed.xml</a> (Heureka XML)</li>
+        <li>predavač: <a href="../">ARLing Asistent</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <section id="opytat">
+    <div class="wrap">
+      <p class="kicker">Predavač</p>
+      <h2>Skúste sa opýtať</h2>
+      <p class="sub">Predavač odpovedá výhradne z feedu tohto obchodu a k odpovedi pridá odkazy na konkrétne výrobky nižšie. Kliknite na otázku, alebo napíšte vlastnú do chatu vpravo dole.</p>
+      <div class="questions">
+        <button type="button" class="q" data-q="Aký kávovar do 100 eur?" data-umami-event="demo_sk_question" data-umami-event-question="Aký kávovar do 100 eur?">Aký kávovar do 100 eur?</button>
+        <button type="button" class="q" data-q="Máte niečo na darček pre babku?" data-umami-event="demo_sk_question" data-umami-event-question="Máte niečo na darček pre babku?">Máte niečo na darček pre babku?</button>
+        <button type="button" class="q" data-q="Ktorý hrniec je vhodný na indukciu?" data-umami-event="demo_sk_question" data-umami-event-question="Ktorý hrniec je vhodný na indukciu?">Ktorý hrniec je vhodný na indukciu?</button>
+        <button type="button" class="q" data-q="Čo je skladom zo záhrady?" data-umami-event="demo_sk_question" data-umami-event-question="Čo je skladom zo záhrady?">Čo je skladom zo záhrady?</button>
+      </div>
+      <p class="hint">Rozhovor sa nikde neukladá, počíta sa len počet rozhovorov. <button type="button" class="linkbtn" id="open-widget" data-umami-event="demo_sk_open">Otvoriť chat bez otázky</button></p>
+    </div>
+  </section>
+
+  <section id="kategorie">
+    <div class="wrap">
+      <p class="kicker">Kategórie</p>
+      <h2>Čo tu nájdete</h2>
+      <ul class="cats" id="categories"><li>Načítavam feed výrobkov.</li></ul>
+    </div>
+  </section>
+
+  <div id="katalog">
+    <div id="catalogue" aria-live="polite"></div>
+  </div>
+
+  <section class="closing">
+    <div class="wrap">
+      <p class="kicker">Pre váš e-shop</p>
+      <h2>Rovnaký predavač na vašom e-shope za 10 minút</h2>
+      <p class="sub">ARLing Asistent sa nastaví z vášho produktového feedu (Heureka XML zo Shoptetu alebo Upgates, Google Shopping, Shopify, WooCommerce alebo bežný XML) a vloží sa jedným script tagom. Zadarmo do 100 rozhovorov mesačne, bez platobnej karty.</p>
+      <a class="btn btn-solid" href="../#playground" data-umami-event="trial_click" data-umami-event-place="ukazka">Vyskúšať s vlastným feedom</a><a class="btn btn-line" href="../shoptet/">Návod pre Shoptet a Upgates</a>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <div class="cols">
+        <div>
+          <b>Dobrá domácnosť</b><br>
+          vymyslený ukážkový obchod pre <a href="../">ARLing Asistenta</a>
+        </div>
+        <div>
+          <a href="https://arling.sk/">ARLing s. r. o.</a><br>
+          IČO 56583486 · IČ DPH SK2122352100<br>
+          Ivanská cesta 19112/32E, 821 04 Bratislava<br>
+          <a href="mailto:andrej@arling.sk">andrej@arling.sk</a>
+        </div>
+        <div>
+          <a href="feed.xml">feed.xml</a> · <a href="../llms.txt">llms.txt</a> · <a href="../sitemap.xml">sitemap.xml</a><br>
+          <a href="https://github.com/AndryRoby/arling-asistent" target="_blank" rel="noopener">Zdrojový kód (GitHub)</a><br>
+          <a href="../shoptet/">Shoptet a Upgates</a> · <a href="../woocommerce/" hreflang="en">WooCommerce</a> · <a href="../shopify/" hreflang="en">Shopify</a>
+        </div>
+      </div>
+      <p class="footer-note">Výrobky, značky, ceny aj EAN kódy vo feede sú vymyslené, obchod neexistuje a nič sa tu nedá kúpiť. Návštevnosť meriame vlastným, cookie-free nástrojom Umami. Neukladá cookies ani odtlačok prehliadača.</p>
+    </div>
+  </footer>
+</main>
+
+<script src="ukazka.js" defer></script>
+<script src="../widget.js" data-tenant="ce535d37-f297-4b43-89dd-30aa7b6301dd" data-lang="sk" data-color="auto" data-endpoint="https://arling-asistent.arling.workers.dev" data-title="Predavač Dobrej domácnosti" data-greeting="Dobrý deň, som predavač Dobrej domácnosti. Poradím vám s výberom z našich výrobkov. Na čo sa chcete opýtať?" defer></script>
+<script defer src="https://homelab.tailbf8f27.ts.net/script.js" data-website-id="09cc54da-8172-43b3-8aa2-84e3ab5a17f1"></script>
+</body>
+</html>
