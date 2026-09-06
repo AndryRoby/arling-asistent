@@ -479,7 +479,7 @@ class Arling_Asistent_Admin {
 		}
 		if ( $pro_link ) {
 			echo '<a class="button button-primary" href="' . esc_url( $pro_link ) . '" target="_blank" rel="noopener noreferrer">' .
-				esc_html__( 'Upgrade to Pro (39 EUR/month, up to 5,000 conversations)', 'arling-asistent' ) . '</a>';
+				esc_html__( 'Upgrade to Pro (39 EUR/month, up to 3,000 conversations)', 'arling-asistent' ) . '</a>';
 		} else {
 			echo '<span class="button disabled" aria-disabled="true">' . esc_html__( 'Pro: coming soon', 'arling-asistent' ) . '</span>';
 		}

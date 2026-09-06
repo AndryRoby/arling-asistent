@@ -19,13 +19,13 @@ import {
 const SHOP = 'my-shop.myshopify.com';
 const TOKEN = 'shpat_live_token';
 
-test('PLAN_DEFS matches the required pricing: Starter 19 USD/1000 conversations, Pro 39 USD/5000; free plan needs no charge', () => {
+test('PLAN_DEFS matches the required pricing: Starter 19 USD/1000 conversations, Pro 39 USD/3000; free plan needs no charge', () => {
   assert.equal(PLAN_DEFS.starter.amount, 19);
   assert.equal(PLAN_DEFS.starter.currencyCode, 'USD');
   assert.equal(PLAN_DEFS.starter.conversations, 1000);
   assert.equal(PLAN_DEFS.pro.amount, 39);
   assert.equal(PLAN_DEFS.pro.currencyCode, 'USD');
-  assert.equal(PLAN_DEFS.pro.conversations, 5000);
+  assert.equal(PLAN_DEFS.pro.conversations, 3000);
   assert.equal(FREE_PLAN.amount, 0);
   assert.equal(FREE_PLAN.conversations, 100);
 });
@@ -64,7 +64,7 @@ test('buildAppSubscriptionCreateVariables throws for an unknown plan key', () =>
 
 test('conversationsForPlan maps plan keys to the ARLing tenant quota (matching worker/src/tenants.js PLANS in the parent product)', () => {
   assert.equal(conversationsForPlan('starter'), 1000);
-  assert.equal(conversationsForPlan('pro'), 5000);
+  assert.equal(conversationsForPlan('pro'), 3000);
   assert.equal(conversationsForPlan('free'), 100);
   assert.equal(conversationsForPlan('anything-else'), 100);
 });

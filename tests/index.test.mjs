@@ -257,13 +257,13 @@ test('PATCH /v1/tenants/:id/plan is wired up end to end: unauthorized without th
   assert.equal(ok.status, 200);
   const body = await ok.json();
   assert.equal(body.plan, 'pro');
-  assert.equal(body.monthly_quota, 5000);
+  assert.equal(body.monthly_quota, 3000);
   assert.equal(body.billing_ref, 'sub_789');
 
   const statusRes = await worker.fetch(new Request(`https://asistent.arling.sk/v1/tenants/${tenant.id}/status`), env, {});
   const statusBody = await statusRes.json();
   assert.equal(statusBody.plan, 'pro');
-  assert.equal(statusBody.monthly_quota, 5000);
+  assert.equal(statusBody.monthly_quota, 3000);
   assert.equal(statusBody.valid_until, '2026-12-01');
 });
 

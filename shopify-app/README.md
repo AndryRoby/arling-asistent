@@ -167,7 +167,7 @@ does, deploying `shopify-worker/` and pushing `shopify.app.toml` is a normal
 |---|---|---|
 | Free | $0/month | Up to 100 conversations/month |
 | Starter | $19/month | Up to 1,000 conversations/month |
-| Pro | $39/month | Up to 5,000 conversations/month |
+| Pro | $39/month | Up to 3,000 conversations/month |
 
 *(All plans billed through Shopify. No card required for the Free plan.
 Upgrading or downgrading takes effect immediately from the app's own admin

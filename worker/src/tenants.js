@@ -36,7 +36,7 @@
 export const PLANS = {
   FREE: 'free', // default for new tenants, up to 100 conversations/month, no payment
   STARTER: 'starter', // 19 EUR/month, up to 1000 conversations
-  PRO: 'pro', // 39 EUR/month, up to 5000 conversations
+  PRO: 'pro', // 39 EUR/month, up to 3000 conversations
 };
 
 export const DEFAULT_FREE_QUOTA = 100;
@@ -50,7 +50,7 @@ export const TRIAL_DAYS = 14;
 export const DEFAULT_QUOTAS = {
   [PLANS.FREE]: DEFAULT_FREE_QUOTA,
   [PLANS.STARTER]: 1000,
-  [PLANS.PRO]: 5000,
+  [PLANS.PRO]: 3000,
 };
 
 /**
