@@ -1,9 +1,15 @@
 <!doctype html>
 <html lang="de">
 <head>
+<script src="/style/vzhlad.js"></script>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://homelab.tailbf8f27.ts.net 'sha256-SVdcrlZGwn6K+d0Q4tnapMiWuCqUculasQIm24OVUYo=' 'sha256-9vHO9jCaOn7O7T30q70jMPRRW6SYNSLzSoKdCZhgU/A='; connect-src 'self' https://homelab.tailbf8f27.ts.net; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta name="theme-color" content="#0a0908">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="48x48">
+<link rel="apple-touch-icon" href="../../icon-180.png">
 <title>KI-Einkaufsassistent für WooCommerce und Shopify: ARLing Asistent</title>
 <meta name="description" content="Einkaufsassistent für Ihren Online-Shop, in 10 Minuten aus dem Produktfeed eingerichtet. Läuft auf Cloudflare Workers, speichert keine Kundengespräche. Kostenlos bis 100 Gespräche im Monat, danach ab 19 EUR im Monat." />
 <meta name="robots" content="index, follow" />
@@ -18,9 +24,9 @@
 <link rel="alternate" hreflang="en" href="https://arling.sk/asistent/?lang=en" />
 <link rel="alternate" hreflang="de" href="https://arling.sk/asistent/de/" />
 <link rel="alternate" hreflang="x-default" href="https://arling.sk/asistent/" />
-<link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+
 <link rel="alternate icon" href="../favicon.ico" />
-<link rel="apple-touch-icon" href="../icon-192.png" />
+
 <link rel="manifest" href="../manifest.json" />
 
 <script type="application/ld+json">
@@ -243,27 +249,16 @@
   @media print { .sticky-cta { display:none !important; } }
 </style>
 </head>
-<body>
+<body class="noc">
 
 <a class="skip" href="#testen">Zum Ausprobieren springen</a>
-<header class="top">
-  <div class="wrap">
-    <div class="brand">
-      <a class="wordmark" href="../">ARLing Asistent</a>
-      <a class="wordmark-sub" href="https://arling.sk/">ein Tool von ARLing</a>
-    </div>
-    <nav class="main" aria-label="Seite">
-      <a href="#so-funktioniert-es">So funktioniert es</a>
-      <a href="#preise">Preise</a>
-      <a href="#testen">Ausprobieren</a>
-      <a href="#datenschutz">Datenschutz</a>
-      <a href="#fragen">Fragen</a>
-      <span class="lang-switch" role="group" aria-label="Sprache der Seite">
-        <a href="../?lang=sk" hreflang="sk" lang="sk" aria-label="Slovenčina">SK</a>
-        <a href="../?lang=en" hreflang="en" lang="en" aria-label="English">EN</a>
-        <a href="./" class="lang-active" aria-current="page" aria-label="Deutsch">DE</a>
-      </span>
-    </nav>
+<header>
+  <div class="wrap bar">
+    <a class="brand" href="https://arling.sk/">
+      <svg viewBox="0 0 488 215" width="38" height="15" aria-hidden="true" focusable="false"><path fill="#f4f4f7" fill-rule="evenodd" d="M0.00,213.00L74.00,214.00L181.00,85.00L285.00,214.00L360.00,214.00L206.00,21.00L185.00,4.00L164.00,10.00Z M221.00,0.00L263.00,50.00L395.00,50.00L409.00,55.00L419.00,76.00L401.00,96.00L313.00,98.00L411.00,214.00L487.00,214.00L422.00,139.00L457.00,123.00L482.00,88.00L482.00,48.00L463.00,19.00L417.00,0.00Z"/><path fill="#f2643c" d="M269.00,66.00L269.00,67.00L268.00,68.00L268.00,70.00L267.00,71.00L267.00,76.00L268.00,77.00L268.00,79.00L270.00,81.00L270.00,82.00L271.00,82.00L273.00,84.00L274.00,84.00L277.00,86.00L279.00,86.00L280.00,87.00L287.00,87.00L288.00,86.00L290.00,86.00L291.00,85.00L294.00,84.00L298.00,80.00L298.00,79.00L299.00,78.00L299.00,75.00L300.00,74.00L300.00,72.00L299.00,71.00L299.00,69.00L298.00,68.00L297.00,65.00L295.00,63.00L294.00,63.00L289.00,60.00L278.00,60.00L277.00,61.00L276.00,61.00L275.00,62.00L272.00,63.00Z"/></svg>
+      <b>ARLing</b>
+    </a>
+    <nav aria-label="Site"><a href="https://arling.sk/de/#tools">Werkzeuge</a><a href="https://arling.sk/notes/">Notes</a><a href="https://arling.sk/how-we-work/">Wie wir arbeiten</a><a href="mailto:andrej@arling.sk">Kontakt</a></nav>
   </div>
 </header>
 
@@ -469,27 +464,12 @@
   </section>
 
   <footer>
-    <div class="wrap">
-      <div class="cols">
-        <div>
-          <b>ARLing Asistent</b><br>
-          ein Tool von <a href="https://arling.sk/">ARLing s. r. o.</a>
-        </div>
-        <div>
-          Handelsregister-Nr. (IČO) 56583486 · USt-IdNr. (IČ DPH) SK2122352100<br>
-          Ivanská cesta 19112/32E, 821 04 Bratislava, Slowakei<br>
-          <a href="mailto:andrej@arling.sk">andrej@arling.sk</a>
-        </div>
-        <div>
-          <a href="../?lang=en" hreflang="en">English</a> · <a href="../?lang=sk" hreflang="sk">Slovensky</a><br>
-          Vergleiche (EN): <a href="../compare/tidio-alternative/" hreflang="en">Tidio</a> · <a href="../compare/gorgias-alternative/" hreflang="en">Gorgias</a> · <a href="../compare/smartsupp-alternative/" hreflang="en">Smartsupp</a><br>
-          <a href="https://github.com/AndryRoby/arling-asistent" target="_blank" rel="noopener">Quellcode (GitHub)</a> · <a href="../llms.txt">llms.txt</a> · <a href="../sitemap.xml">sitemap.xml</a><br>
-          <a href="https://github.com/AndryRoby/arling-asistent/blob/main/legal/dpa-sk.md" target="_blank" rel="noopener">AVV (DSGVO Art. 28)</a>
-        </div>
-      </div>
-      <p class="footer-note">Besuche messen wir mit unserem eigenen, cookiefreien Tool Umami. Es speichert weder Cookies noch einen Browser-Fingerabdruck.</p>
-    </div>
-  </footer>
+  <div class="wrap foot">
+    <div><b>ARLing s. r. o.</b><br>Ivanská cesta 32E<br>821 04 Bratislava, Slowakei</div>
+    <div>Handelsregister-Nr. 56583486<br>USt-IdNr. SK2122352100<br><a href="mailto:andrej@arling.sk">andrej@arling.sk</a></div>
+    <div><a href="https://arling.sk/privacy/">Datenschutz</a> · <a href="https://arling.sk/podmienky/">AGB</a> · <a href="https://arling.sk/gdpr/">DSGVO</a> · <a href="https://arling.sk/impressum/">Impressum</a> · <a href="https://arling.sk/llms.txt">llms.txt</a> · <a href="https://arling.sk/sitemap-index.xml">Sitemap</a><br>Die Werkzeuge werden ohne Gewähr bereitgestellt. Anonyme Besuchszählung über eigenes Umami.</div>
+  </div>
+</footer>
 </main>
 
 <div class="sticky-cta" id="sticky-cta" hidden>
@@ -503,5 +483,6 @@
 <script defer src="https://homelab.tailbf8f27.ts.net/script.js" data-website-id="09cc54da-8172-43b3-8aa2-84e3ab5a17f1"></script>
 <script src="../subscribe.js" defer></script>
 <script src="../sell.js" defer></script>
+<script src="/style/prepinac.js" defer></script>
 </body>
 </html>
