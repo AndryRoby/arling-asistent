@@ -403,12 +403,12 @@ test('handleSetPlanRoute sets plan and defaults monthly_quota from the plan when
   assert.equal(status.monthly_quota, 1000);
 });
 
-test('handleSetPlanRoute defaults pro to 5000 and free to 100', async () => {
+test('handleSetPlanRoute defaults pro to 3000 and free to 100', async () => {
   const env = makeEnv();
   const tenant = await createTenantFromRequest(env, { feedUrl: 'https://shop.sk/feed.xml', domain: 'plan5.sk', email: 'a@plan5.sk' });
   const proRes = await handleSetPlanRoute(planRequest({ plan: 'pro' }), env, tenant.id);
   const proBody = await proRes.json();
-  assert.equal(proBody.monthly_quota, 5000);
+  assert.equal(proBody.monthly_quota, 3000);
 
   const freeRes = await handleSetPlanRoute(planRequest({ plan: 'free' }), env, tenant.id);
   const freeBody = await freeRes.json();

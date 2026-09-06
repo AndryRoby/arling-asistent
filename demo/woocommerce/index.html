@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://homelab.tailbf8f27.ts.net; connect-src 'self' https://homelab.tailbf8f27.ts.net; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://homelab.tailbf8f27.ts.net 'sha256-GTS37D7zXQmpFuOGOdE+OY0xlnjTJpyt2+AUuFU9vaQ=' 'sha256-lWKQ5kNpAfwl47V0ZhND62pxQtljBnoZB2vK0vOPbRc='; connect-src 'self' https://homelab.tailbf8f27.ts.net; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
 <title>ARLing Asistent for WooCommerce: AI shopping assistant</title>
 <meta name="description" content="AI shopping assistant plugin for WooCommerce, connected from your store's settings screen in a few minutes. Runs on Cloudflare Workers, stores no customer conversations. Free up to 100 conversations a month, then from 19 EUR a month." />
 <meta property="og:type" content="website" />
@@ -66,7 +66,7 @@
     {
       "@type": "Question",
       "name": "What does it cost?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Free up to 100 conversations a month, no card needed. Above that, 19 EUR a month up to 1,000 conversations or 39 EUR a month up to 5,000, paid through Stripe. Nothing is charged automatically: the free tier keeps working within its limit until you choose a paid plan." }
+      "acceptedAnswer": { "@type": "Answer", "text": "Free up to 100 conversations a month, no card needed. Above that, 19 EUR a month up to 1,000 conversations or 39 EUR a month up to 3,000, paid through Stripe. Nothing is charged automatically: the free tier keeps working within its limit until you choose a paid plan." }
     },
     {
       "@type": "Question",
@@ -294,7 +294,7 @@
             <tr>
               <td class="plan">Growth</td>
               <td class="price">39 &euro;<span> / month</span></td>
-              <td>up to 5,000</td>
+              <td>up to 3,000</td>
               <td><a class="btn btn-line" href="#install" data-umami-event="trial_click" data-umami-event-place="pricing">Get the plugin</a></td>
             </tr>
           </tbody>
@@ -359,7 +359,7 @@
       </details>
       <details>
         <summary>What does it cost?</summary>
-        <p>Free up to 100 conversations a month, no card needed. Above that, 19 EUR a month up to 1,000 conversations or 39 EUR a month up to 5,000, paid through Stripe. Nothing is charged automatically: the free tier keeps working within its limit until you choose a paid plan.</p>
+        <p>Free up to 100 conversations a month, no card needed. Above that, 19 EUR a month up to 1,000 conversations or 39 EUR a month up to 3,000, paid through Stripe. Nothing is charged automatically: the free tier keeps working within its limit until you choose a paid plan.</p>
       </details>
       <details>
         <summary>How do I install it before the wordpress.org listing is approved?</summary>

@@ -77,7 +77,7 @@ No. This plugin reads your store's public WooCommerce Store API product feed, so
 
 = What does it cost? =
 
-Free up to 100 conversations a month, no card needed. Above that, 19 EUR a month up to 1,000 conversations or 39 EUR up to 5,000, paid through Stripe on arling.sk. Nothing is charged automatically: the free tier keeps working within its limit until you choose a paid plan.
+Free up to 100 conversations a month, no card needed. Above that, 19 EUR a month up to 1,000 conversations or 39 EUR up to 3,000, paid through Stripe on arling.sk. Nothing is charged automatically: the free tier keeps working within its limit until you choose a paid plan.
 
 = Which languages does the widget support? =
 

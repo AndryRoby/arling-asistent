@@ -98,10 +98,10 @@ export const DICT = {
   's2.th.conversations': { sk: 'Rozhovory / mesiac', en: 'Conversations / month' },
   'pricing.limit.free': { sk: 'do 100', en: 'up to 100' },
   'pricing.limit.starter': { sk: 'do 1 000', en: 'up to 1,000' },
-  'pricing.limit.growth': { sk: 'do 5 000', en: 'up to 5,000' },
+  'pricing.limit.growth': { sk: 'do 3 000', en: 'up to 3,000' },
   's2.note': {
-    sk: 'Do 100 rozhovorov mesačne zadarmo, navždy, bez platobnej karty. Nad tento limit prejde e-shop na plán Starter (19 € mesačne, do 1 000 rozhovorov) alebo Pro (39 € mesačne, do 5 000) zo stránky svojho účtu, ktorej odkaz dostane hneď po vytvorení účtu. Platba kartou cez Stripe, zrušiť kedykoľvek. Ročné predplatné zatiaľ nie je v ponuke.',
-    en: 'Free up to 100 conversations a month, forever, no payment card. Above that, the shop upgrades to Starter (19 EUR a month, up to 1,000 conversations) or Pro (39 EUR a month, up to 5,000) from its account page, linked right after the account is created. Card payment through Stripe, cancel any time. No annual plan yet.',
+    sk: 'Do 100 rozhovorov mesačne zadarmo, navždy, bez platobnej karty. Nad tento limit prejde e-shop na plán Starter (19 € mesačne, do 1 000 rozhovorov) alebo Pro (39 € mesačne, do 3 000) zo stránky svojho účtu, ktorej odkaz dostane hneď po vytvorení účtu. Platba kartou cez Stripe, zrušiť kedykoľvek. Ročné predplatné zatiaľ nie je v ponuke.',
+    en: 'Free up to 100 conversations a month, forever, no payment card. Above that, the shop upgrades to Starter (19 EUR a month, up to 1,000 conversations) or Pro (39 EUR a month, up to 3,000) from its account page, linked right after the account is created. Card payment through Stripe, cancel any time. No annual plan yet.',
   },
   's2.objections.label': { sk: 'Predtým, než začnete', en: 'Before you start' },
 
@@ -219,8 +219,8 @@ export const DICT = {
   },
   'faq.billing.q': { sk: 'Ako funguje platba a fakturácia?', en: 'How does payment and billing work?' },
   'faq.billing.a': {
-    sk: 'Do 100 rozhovorov mesačne je používanie úplne zadarmo, bez karty. Nad tento limit prejdete na plán Starter (19 € mesačne, do 1 000 rozhovorov) alebo Pro (39 € mesačne, do 5 000 rozhovorov) zo stránky svojho účtu (arling.sk/asistent/tenant/?t=id účtu), ktorej odkaz dostanete hneď po vytvorení účtu. Platíte kartou cez Stripe, potvrdenie a faktúru pošle Stripe e-mailom, zrušiť sa dá kedykoľvek.',
-    en: 'Up to 100 conversations a month, use is completely free, no card. Above that you upgrade to Starter (19 EUR a month, up to 1,000 conversations) or Pro (39 EUR a month, up to 5,000) from your account page (arling.sk/asistent/tenant/?t=your account id), linked right after the account is created. You pay by card through Stripe, Stripe e-mails the receipt and invoice, and you can cancel any time.',
+    sk: 'Do 100 rozhovorov mesačne je používanie úplne zadarmo, bez karty. Nad tento limit prejdete na plán Starter (19 € mesačne, do 1 000 rozhovorov) alebo Pro (39 € mesačne, do 3 000 rozhovorov) zo stránky svojho účtu (arling.sk/asistent/tenant/?t=id účtu), ktorej odkaz dostanete hneď po vytvorení účtu. Platíte kartou cez Stripe, potvrdenie a faktúru pošle Stripe e-mailom, zrušiť sa dá kedykoľvek.',
+    en: 'Up to 100 conversations a month, use is completely free, no card. Above that you upgrade to Starter (19 EUR a month, up to 1,000 conversations) or Pro (39 EUR a month, up to 3,000) from your account page (arling.sk/asistent/tenant/?t=your account id), linked right after the account is created. You pay by card through Stripe, Stripe e-mails the receipt and invoice, and you can cancel any time.',
   },
 
   'subscribe.ask': { sk: 'Chcete vedieť, keď WooCommerce plugin prejde schválením na wordpress.org alebo pribudne Shopify aplikácia?', en: 'Want to know when the WooCommerce plugin is approved on wordpress.org, or when the Shopify app goes live?' },

@@ -169,7 +169,7 @@ Tlačidlo na prechod na platený plán vedie na Stripe Payment Link (Starter `ht
 |---|---|---|
 | `free` | zadarmo | 100 rozhovorov |
 | `starter` | 19 EUR/mesiac | 1 000 rozhovorov |
-| `pro` | 39 EUR/mesiac | 5 000 rozhovorov |
+| `pro` | 39 EUR/mesiac | 3 000 rozhovorov |
 
 ### Zmena plánu (PATCH alebo POST `/v1/tenants/:id/plan`)
 
@@ -238,7 +238,7 @@ Najtesnejší limit je 10 000 Workers AI neuronov/deň (embeddingy pri onboardin
 
 ## Demo tenanti
 
-Tenanti vytvorené pre verejné ukážky (obe na pláne `pro`, kvóta 5 000 rozhovorov mesačne, aby demo nikdy nenarazilo na kvótu; nastavené cez `PATCH /v1/tenants/:id/plan`). Tenant id je verejné (je v embed skripte stránky).
+Tenanti vytvorené pre verejné ukážky (obe na pláne `pro`, kvóta 3 000 rozhovorov mesačne, aby demo nikdy nenarazilo na kvótu; nastavené cez `PATCH /v1/tenants/:id/plan`). Tenant id je verejné (je v embed skripte stránky).
 
 | Tenant id | Doména | Ukážka | Feed |
 |---|---|---|---|

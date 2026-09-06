@@ -9,7 +9,7 @@
  * billing-related to call for it.
  *
  * Plan <-> ARLing quota mapping matches the parent product's PLANS/quotas
- * exactly (worker/src/tenants.js): free=100, starter=1000, pro=5000
+ * exactly (worker/src/tenants.js): free=100, starter=1000, pro=3000
  * conversations/month. Pricing here (19 USD / 39 USD) is the Shopify listing
  * price; the parent product's own Stripe pricing (README: "19 EUR / 39 EUR")
  * is for direct arling.sk customers and is intentionally not reused here,
@@ -29,7 +29,7 @@
 
 export const PLAN_DEFS = {
   starter: { key: 'starter', name: 'ARLing Asistent Starter', amount: 19, currencyCode: 'USD', conversations: 1000 },
-  pro: { key: 'pro', name: 'ARLing Asistent Pro', amount: 39, currencyCode: 'USD', conversations: 5000 },
+  pro: { key: 'pro', name: 'ARLing Asistent Pro', amount: 39, currencyCode: 'USD', conversations: 3000 },
 };
 
 export const FREE_PLAN = { key: 'free', name: 'ARLing Asistent Free', amount: 0, currencyCode: 'USD', conversations: 100 };

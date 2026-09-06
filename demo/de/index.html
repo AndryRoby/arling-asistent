@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://homelab.tailbf8f27.ts.net; connect-src 'self' https://homelab.tailbf8f27.ts.net; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://homelab.tailbf8f27.ts.net 'sha256-SVdcrlZGwn6K+d0Q4tnapMiWuCqUculasQIm24OVUYo=' 'sha256-9vHO9jCaOn7O7T30q70jMPRRW6SYNSLzSoKdCZhgU/A='; connect-src 'self' https://homelab.tailbf8f27.ts.net; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
 <title>KI-Einkaufsassistent für WooCommerce und Shopify: ARLing Asistent</title>
 <meta name="description" content="Einkaufsassistent für Ihren Online-Shop, in 10 Minuten aus dem Produktfeed eingerichtet. Läuft auf Cloudflare Workers, speichert keine Kundengespräche. Kostenlos bis 100 Gespräche im Monat, danach ab 19 EUR im Monat." />
 <meta name="robots" content="index, follow" />
@@ -96,7 +96,7 @@
     {
       "@type": "Question",
       "name": "Wie funktionieren Zahlung und Abrechnung?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Bis 100 Gespräche im Monat ist die Nutzung vollständig kostenlos, ohne Karte. Darüber wechseln Sie von Ihrer Kontoseite aus (arling.sk/asistent/tenant/?t=Ihre Konto-ID), deren Link Sie direkt nach dem Anlegen des Kontos erhalten, zu Starter (19 EUR im Monat, bis 1.000 Gespräche) oder Pro (39 EUR im Monat, bis 5.000 Gespräche). Sie zahlen per Karte über Stripe, Stripe schickt Bestätigung und Rechnung per E-Mail, kündbar jederzeit." }
+      "acceptedAnswer": { "@type": "Answer", "text": "Bis 100 Gespräche im Monat ist die Nutzung vollständig kostenlos, ohne Karte. Darüber wechseln Sie von Ihrer Kontoseite aus (arling.sk/asistent/tenant/?t=Ihre Konto-ID), deren Link Sie direkt nach dem Anlegen des Kontos erhalten, zu Starter (19 EUR im Monat, bis 1.000 Gespräche) oder Pro (39 EUR im Monat, bis 3.000 Gespräche). Sie zahlen per Karte über Stripe, Stripe schickt Bestätigung und Rechnung per E-Mail, kündbar jederzeit." }
     }
   ]
 }
@@ -332,14 +332,14 @@
             <tr>
               <td class="plan">Pro</td>
               <td class="price">39 &euro;<span> / Monat</span></td>
-              <td>bis 5.000</td>
+              <td>bis 3.000</td>
               <td><a class="btn btn-line" href="../?lang=en#playground" data-umami-event="trial_click" data-umami-event-place="pricing-pro">Kostenlos starten</a></td>
             </tr>
           </tbody>
         </table>
       </div>
       <p class="pricing-table-cta"><a class="btn btn-line" href="../?lang=en#playground" data-umami-event="trial_click" data-umami-event-place="pricing">Kostenlos starten</a></p>
-      <p class="pricing-note">Bis 100 Gespräche im Monat kostenlos, dauerhaft, ohne Zahlungskarte. Darüber wechselt der Shop von seiner Kontoseite aus, deren Link er direkt nach dem Anlegen des Kontos erhält, zu Starter (19 EUR im Monat, bis 1.000 Gespräche) oder Pro (39 EUR im Monat, bis 5.000). Preise inkl. MwSt., Kartenzahlung über Stripe, jederzeit kündbar, die Rechnung schickt Stripe. Noch kein Jahresabo.</p>
+      <p class="pricing-note">Bis 100 Gespräche im Monat kostenlos, dauerhaft, ohne Zahlungskarte. Darüber wechselt der Shop von seiner Kontoseite aus, deren Link er direkt nach dem Anlegen des Kontos erhält, zu Starter (19 EUR im Monat, bis 1.000 Gespräche) oder Pro (39 EUR im Monat, bis 3.000). Preise inkl. MwSt., Kartenzahlung über Stripe, jederzeit kündbar, die Rechnung schickt Stripe. Noch kein Jahresabo.</p>
 
       <div class="pro-objections">
         <p class="objections-label">Bevor Sie starten</p>
@@ -444,7 +444,7 @@
       </details>
       <details>
         <summary>Wie funktionieren Zahlung und Abrechnung?</summary>
-        <p>Bis 100 Gespräche im Monat ist die Nutzung vollständig kostenlos, ohne Karte. Darüber wechseln Sie von Ihrer Kontoseite aus (arling.sk/asistent/tenant/?t=Ihre Konto-ID), deren Link Sie direkt nach dem Anlegen des Kontos erhalten, zu Starter (19 EUR im Monat, bis 1.000 Gespräche) oder Pro (39 EUR im Monat, bis 5.000 Gespräche). Sie zahlen per Karte über Stripe, Stripe schickt Bestätigung und Rechnung per E-Mail, kündbar jederzeit.</p>
+        <p>Bis 100 Gespräche im Monat ist die Nutzung vollständig kostenlos, ohne Karte. Darüber wechseln Sie von Ihrer Kontoseite aus (arling.sk/asistent/tenant/?t=Ihre Konto-ID), deren Link Sie direkt nach dem Anlegen des Kontos erhalten, zu Starter (19 EUR im Monat, bis 1.000 Gespräche) oder Pro (39 EUR im Monat, bis 3.000 Gespräche). Sie zahlen per Karte über Stripe, Stripe schickt Bestätigung und Rechnung per E-Mail, kündbar jederzeit.</p>
       </details>
 
       <div class="subscribe-ask">

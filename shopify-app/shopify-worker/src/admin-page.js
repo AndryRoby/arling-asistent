@@ -104,7 +104,7 @@ export function renderAdminPage({ apiKey, shop, host }) {
   var PLAN_LABELS = {
     free: { name: 'Free', price: '0 USD', desc: 'Up to 100 conversations/month' },
     starter: { name: 'Starter', price: '19 USD/month', desc: 'Up to 1,000 conversations/month' },
-    pro: { name: 'Pro', price: '39 USD/month', desc: 'Up to 5,000 conversations/month' },
+    pro: { name: 'Pro', price: '39 USD/month', desc: 'Up to 3,000 conversations/month' },
   };
 
   function renderStatus(data) {

@@ -37,7 +37,7 @@ export const STRIPE_LINKS = {
 };
 
 /** Same as DEFAULT_QUOTAS in worker/src/tenants.js. */
-export const PLAN_QUOTAS = { free: 100, starter: 1000, pro: 5000 };
+export const PLAN_QUOTAS = { free: 100, starter: 1000, pro: 3000 };
 
 /** Ordering used to decide which upgrade buttons make sense for a tenant. */
 const PLAN_RANK = { free: 0, trial: 0, starter: 1, pro: 2 };

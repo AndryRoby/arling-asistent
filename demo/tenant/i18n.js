@@ -101,7 +101,7 @@ export const DICT = {
   's3.th.conversations': { sk: 'Rozhovory / mesiac', en: 'Conversations / month' },
   'price.perMonth': { sk: '/ mesiac', en: '/ month' },
   'limit.starter': { sk: 'do 1 000', en: 'up to 1,000' },
-  'limit.pro': { sk: 'do 5 000', en: 'up to 5,000' },
+  'limit.pro': { sk: 'do 3 000', en: 'up to 3,000' },
   'cta.starter': { sk: 'Prejsť na Starter', en: 'Upgrade to Starter' },
   'cta.pro': { sk: 'Prejsť na Pro', en: 'Upgrade to Pro' },
   'plan.current': { sk: 'Váš aktuálny plán', en: 'Your current plan' },

@@ -206,7 +206,7 @@ test('demo texts: Stripe upgrade is live via the tenant page, plugin status is c
   assert.deepEqual(DEMO_I18N.findIncompleteEntries(), []);
   assert.equal(DEMO_I18N.t('s3.embed.tenantPage', 'en'), 'Usage and upgrade:');
   assert.match(DEMO_I18N.t('faq.billing.a', 'sk'), /Starter \(19 € mesačne, do 1 000 rozhovorov\)/);
-  assert.match(DEMO_I18N.t('s2.note', 'en'), /Starter \(19 EUR a month, up to 1,000 conversations\) or Pro \(39 EUR a month, up to 5,000\)/);
+  assert.match(DEMO_I18N.t('s2.note', 'en'), /Starter \(19 EUR a month, up to 1,000 conversations\) or Pro \(39 EUR a month, up to 3,000\)/);
   for (const [key, entry] of Object.entries(DEMO_I18N.DICT)) {
     assert.ok(!entry.sk.includes(EM_DASH) && !entry.en.includes(EM_DASH), `${key} contains an em-dash`);
   }

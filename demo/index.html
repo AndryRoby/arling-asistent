@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://homelab.tailbf8f27.ts.net; connect-src 'self' https://homelab.tailbf8f27.ts.net https://arling-asistent.arling.workers.dev; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://homelab.tailbf8f27.ts.net 'sha256-gy2Q+fVXJFFecCZJWLomDdTKt0EceKg4D4on6ssGc2c=' 'sha256-mOLxVb0781CiviL5dJLE1yxfg0xhkNhqkdoSOG12DBA='; connect-src 'self' https://homelab.tailbf8f27.ts.net https://arling-asistent.arling.workers.dev; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
 <title>ARLing Asistent: AI predajný asistent pre e-shopy</title>
 <meta name="description" content="Predajný asistent pre váš e-shop, nastavený za 10 minút z produktového feedu. Beží na Cloudflare Workers, neukladá rozhovory zákazníkov. Zadarmo do 100 rozhovorov mesačne, potom od 19 EUR mesačne." />
 <meta property="og:type" content="website" />
@@ -95,7 +95,7 @@
     {
       "@type": "Question",
       "name": "Ako funguje platba a fakturácia?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Do 100 rozhovorov mesačne je používanie úplne zadarmo, bez karty. Nad tento limit prejde e-shop na plán Starter (19 EUR mesačne, do 1 000 rozhovorov) alebo Pro (39 EUR mesačne, do 5 000 rozhovorov) zo stránky svojho účtu, ktorej odkaz dostane hneď po vytvorení účtu. Platí sa kartou cez Stripe, zrušiť sa dá kedykoľvek." }
+      "acceptedAnswer": { "@type": "Answer", "text": "Do 100 rozhovorov mesačne je používanie úplne zadarmo, bez karty. Nad tento limit prejde e-shop na plán Starter (19 EUR mesačne, do 1 000 rozhovorov) alebo Pro (39 EUR mesačne, do 3 000 rozhovorov) zo stránky svojho účtu, ktorej odkaz dostane hneď po vytvorení účtu. Platí sa kartou cez Stripe, zrušiť sa dá kedykoľvek." }
     }
   ]
 }
@@ -364,13 +364,13 @@
             <tr>
               <td class="plan">Pro</td>
               <td class="price">39 &euro;<span> / mesiac</span></td>
-              <td data-i18n="pricing.limit.growth">do 5&nbsp;000</td>
+              <td data-i18n="pricing.limit.growth">do 3&nbsp;000</td>
               <td><a class="btn btn-line" id="btn-plan-pro" href="#playground" data-umami-event="trial_click" data-umami-event-place="pricing-pro" data-i18n="cta.startFree">Začať zadarmo</a></td>
             </tr>
           </tbody>
         </table>
       </div>
-      <p class="pricing-note" data-i18n="s2.note">Do 100 rozhovorov mesačne zadarmo, navždy, bez platobnej karty. Nad tento limit prejde e-shop na plán Starter (19 € mesačne, do 1 000 rozhovorov) alebo Pro (39 € mesačne, do 5 000) zo stránky svojho účtu, ktorej odkaz dostane hneď po vytvorení účtu. Platba kartou cez Stripe, zrušiť kedykoľvek. Ročné predplatné zatiaľ nie je v ponuke.</p>
+      <p class="pricing-note" data-i18n="s2.note">Do 100 rozhovorov mesačne zadarmo, navždy, bez platobnej karty. Nad tento limit prejde e-shop na plán Starter (19 € mesačne, do 1 000 rozhovorov) alebo Pro (39 € mesačne, do 3 000) zo stránky svojho účtu, ktorej odkaz dostane hneď po vytvorení účtu. Platba kartou cez Stripe, zrušiť kedykoľvek. Ročné predplatné zatiaľ nie je v ponuke.</p>
 
       <div class="pro-objections">
         <p class="objections-label" data-i18n="s2.objections.label">Predtým, než začnete</p>
@@ -505,7 +505,7 @@
       </details>
       <details>
         <summary data-i18n="faq.billing.q">Ako funguje platba a fakturácia?</summary>
-        <p data-i18n="faq.billing.a">Do 100 rozhovorov mesačne je používanie úplne zadarmo, bez karty. Nad tento limit prejdete na plán Starter (19 € mesačne, do 1 000 rozhovorov) alebo Pro (39 € mesačne, do 5 000 rozhovorov) zo stránky svojho účtu (arling.sk/asistent/tenant/?t=id účtu), ktorej odkaz dostanete hneď po vytvorení účtu. Platíte kartou cez Stripe, potvrdenie a faktúru pošle Stripe e-mailom, zrušiť sa dá kedykoľvek.</p>
+        <p data-i18n="faq.billing.a">Do 100 rozhovorov mesačne je používanie úplne zadarmo, bez karty. Nad tento limit prejdete na plán Starter (19 € mesačne, do 1 000 rozhovorov) alebo Pro (39 € mesačne, do 3 000 rozhovorov) zo stránky svojho účtu (arling.sk/asistent/tenant/?t=id účtu), ktorej odkaz dostanete hneď po vytvorení účtu. Platíte kartou cez Stripe, potvrdenie a faktúru pošle Stripe e-mailom, zrušiť sa dá kedykoľvek.</p>
       </details>
 
       <div class="subscribe-ask">
