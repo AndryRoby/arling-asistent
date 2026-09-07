@@ -412,12 +412,63 @@ const PRICE_ONE_DECIMAL_RE = /(\d+)([.,])(\d)(?=\s?(?:EUR|CZK|€|Kč)(?!\p{L}))
  * en/de simply gets no slip correction (neither has a table yet), same as
  * before "auto" answers were polished at all.
  */
-export function polishAnswer(answer, lang) {
+/**
+ * Vnútorné označenie produktu (KUC-004, DAR-001) je v zadaní modelu zámerne:
+ * model ho vracia v štruktúrovanej odpovedi a podľa neho sa priraďujú karty.
+ * Do textu odpovede ale nepatrí. Videli sme to naživo, anglická odpoveď
+ * začínala „rniec and KUC-004 panvica": zákazník e-shopu dostal skladový kód,
+ * ktorý mu nič nehovorí.
+ *
+ * Instrukcia v zadaní sama nestačí, model ju raz z troch pokusov obišiel.
+ * Toto je preto deterministická poistka na jedinom mieste, ktorým prechádza
+ * každý text odpovede.
+ *
+ * Mažeme len to, čo skutočne vyzerá ako kód, nie každé číslo: inak by
+ * z „hrniec 20 cm, 3,5 l" zmizli rozmery. Podmienky sú, že označenie má aspoň
+ * štyri znaky a buď obsahuje spojovník či podtržník, alebo mieša písmená
+ * s číslicami; čisto číselné id musí mať aspoň šesť číslic. A nikdy nemažeme
+ * označenie, ktoré je zároveň súčasťou názvu produktu.
+ */
+const KOD_PRODUKTU_RE = /^[A-Za-z0-9][A-Za-z0-9._/-]*$/;
+
+export function looksLikeProductCode(id, title) {
+  const k = String(id == null ? '' : id).trim();
+  if (k.length < 4 || !KOD_PRODUKTU_RE.test(k)) return false;
+  if (title && String(title).toLowerCase().includes(k.toLowerCase())) return false;
+  if (/^[0-9]+$/.test(k)) return k.length >= 6;
+  return /[-_]/.test(k) || (/[A-Za-z]/.test(k) && /[0-9]/.test(k));
+}
+
+export function stripProductCodes(text, candidates) {
+  let out = String(text || '');
+  const kody = [];
+  for (const c of candidates || []) {
+    for (const id of [c && c.id, c && c.productId]) {
+      if (looksLikeProductCode(id, c && c.title)) kody.push(String(id).trim());
+    }
+  }
+  if (!kody.length) return out;
+  // Najdlhšie najprv, aby sa kratšie označenie nezmazalo z vnútra dlhšieho.
+  for (const k of [...new Set(kody)].sort((a, b) => b.length - a.length)) {
+    const esc = k.replace(/[.*+?^${}()|[\]\/-]/g, '\$&');
+    out = out.replace(new RegExp('(^|[^\p{L}\p{N}])' + esc + '(?![\p{L}\p{N}])', 'gu'), '$1');
+  }
+  // Po vymazaní ostávajú dvojité medzery, prázdne zátvorky a medzera pred
+  // interpunkciou. Text má vyzerať, akoby tam kód nikdy nebol.
+  return out
+    .replace(/\(\s*\)|\[\s*\]/g, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\s+([,.;:!?])/g, '$1')
+    .replace(/(^|\n)[ \t]+/g, '$1')
+    .trim();
+}
+
+export function polishAnswer(answer, lang, candidates) {
   let text = String(answer || '').replace(PRICE_ONE_DECIMAL_RE, '$1$2$30');
   const slipLang = isAutoLang(lang) ? detectLangFromText(text) : normaliseLang(lang);
   const slips = SLIPS_BY_LANG[slipLang];
   for (const [re, replacement] of slips || []) text = text.replace(re, replacement);
-  return text;
+  return stripProductCodes(text, candidates);
 }
 
 /**
@@ -524,7 +575,7 @@ export async function runChat(env, { tenant, messages, lang, model = CHAT_MODEL_
       return { ...noMatchFallback(lang, tenant.contact_email, question), meta: { candidateCount: candidates.length, flaggedInjection: flagged, parseError: true } };
     }
     const top = candidates.slice(0, 3).map((c) => ({ id: c.productId || c.id, title: c.title, url: c.url, price: c.price, currency: c.currency, image: c.image }));
-    return { answer: capWords(polishAnswer(prose, lang), MAX_ANSWER_WORDS), products: top, meta: { candidateCount: candidates.length, flaggedInjection: flagged, userMessageInjection, parseError: true } };
+    return { answer: capWords(polishAnswer(prose, lang, candidates), MAX_ANSWER_WORDS), products: top, meta: { candidateCount: candidates.length, flaggedInjection: flagged, userMessageInjection, parseError: true } };
   }
 
   // The prompt's "nothing relevant" protocol: an empty answer means the
@@ -542,7 +593,7 @@ export async function runChat(env, { tenant, messages, lang, model = CHAT_MODEL_
       meta: { candidateCount: candidates.length, flaggedInjection: flagged, degenerate: true },
     };
   }
-  const answer = capWords(polishAnswer(parsed.answer, lang), MAX_ANSWER_WORDS);
+  const answer = capWords(polishAnswer(parsed.answer, lang, candidates), MAX_ANSWER_WORDS);
   const products = reconcileProducts(parsed.products, candidates);
 
   return {
