@@ -28,6 +28,9 @@ import { extractModelText,
   SHOP_FACTS_CATEGORY_LIMIT,
   TOP_K,
   FALLBACK_TOP_K,
+  polishAnswer,
+  looksLikeProductCode,
+  stripProductCodes,
 } from '../worker/src/chat.js';
 import { createMockAI, createMockVectorize } from './helpers/mock-cf.mjs';
 
@@ -499,4 +502,47 @@ test('denny strop: pod stropom pusti, nad stropom nie, a pri padajucom KV pusti'
   assert.equal(isOurTest(req('tajne'), { ADMIN_TOKEN: 'tajne' }), true);
   assert.equal(isOurTest(req('ine'), { ADMIN_TOKEN: 'tajne' }), false);
   assert.equal(isOurTest(req('tajne'), {}), false);
+});
+
+// ── skladový kód nesmie uniknúť do textu odpovede ────────────────────────────
+// Naživo sa to stalo: anglická odpoveď začínala „rniec and KUC-004 panvica".
+// Model kód dostáva zámerne, priraďujú sa podľa neho karty, ale zákazníkovi
+// e-shopu nič nehovorí. Instrukcia v zadaní nestačila, model ju raz z troch
+// pokusov obišiel, takže je to poistka v kóde.
+
+test('looksLikeProductCode pozná skladové označenie a nechá na pokoji obyčajné čísla', () => {
+  for (const k of ['KUC-004', 'DAR-001', 'SKU_12', 'AB12', '123456']) {
+    assert.equal(looksLikeProductCode(k, 'Panvica 28 cm'), true, k);
+  }
+  // Rozmery, ceny a krátke čísla z názvov musia prežiť.
+  for (const k of ['20', '3,5', '28', 'cm', '', null, undefined, '2026', 'hrniec']) {
+    assert.equal(looksLikeProductCode(k, 'Hrniec 20 cm'), false, String(k));
+  }
+  // Označenie, ktoré je súčasťou názvu, sa nemaže: bol by z názvu diera.
+  assert.equal(looksLikeProductCode('AB12', 'Hrniec AB12 medený'), false);
+});
+
+test('stripProductCodes vymaže kód a nechá text čitateľný', () => {
+  const kandidati = [{ id: 'KUC-004', title: 'Panvica s keramickým povrchom 28 cm' },
+                     { id: 'KUC-001', title: 'Hrniec z nehrdzavejúcej ocele 20 cm, 3,5 l' }];
+  assert.equal(
+    stripProductCodes('The KUC-004 panvica and the KUC-001 hrniec work on induction.', kandidati),
+    'The panvica and the hrniec work on induction.');
+  // Rozmery a ceny sa nesmú dotknúť.
+  assert.equal(
+    stripProductCodes('Hrniec 20 cm, 3,5 l za 34.90 EUR.', kandidati),
+    'Hrniec 20 cm, 3,5 l za 34.90 EUR.');
+  // Bez kandidátov niet čo mazať.
+  assert.equal(stripProductCodes('KUC-004 ostáva, nikto ho nehlásil.', []),
+               'KUC-004 ostáva, nikto ho nehlásil.');
+  // Medzera pred interpunkciou po vymazaní.
+  assert.equal(stripProductCodes('Odporúčam panvicu KUC-004, je vhodná.', kandidati),
+               'Odporúčam panvicu, je vhodná.');
+});
+
+test('polishAnswer vymaže skladový kód spolu s ostatnou úpravou textu', () => {
+  const kandidati = [{ id: 'KUC-004', title: 'Panvica s keramickým povrchom 28 cm' }];
+  const out = polishAnswer('The KUC-004 panvica costs 32.9 EUR.', 'en', kandidati);
+  assert.ok(!out.includes('KUC-004'), out);
+  assert.ok(out.includes('32.90 EUR'), out); // cena sa stále dorovnáva na dve desatiny
 });
