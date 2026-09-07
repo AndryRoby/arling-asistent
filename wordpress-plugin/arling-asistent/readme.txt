@@ -1,10 +1,10 @@
-=== ARLing Asistent for WooCommerce ===
+=== ARLing Shopping Assistant for WooCommerce ===
 Contributors: arlingsk
 Tags: woocommerce, chatbot, ai assistant, shopping assistant, product finder
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.1.0
+Stable tag: 0.1.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -15,9 +15,9 @@ AI shopping assistant chat widget for WooCommerce that answers customer question
 Plugin page with setup guide and pricing: https://arling.sk/asistent/woocommerce/
 
 
-ARLing Asistent adds an AI-powered chat widget to your WooCommerce store. Shoppers ask questions in their own words ("do you have a waterproof jacket under 80 euros?") and the assistant answers using only your own product catalogue, with links to the matching products.
+ARLing Shopping Assistant adds an AI-powered chat widget to your WooCommerce store. Shoppers ask questions in their own words ("do you have a waterproof jacket under 80 euros?") and the assistant answers using only your own product catalogue, with links to the matching products.
 
-Setup takes a few minutes: connect your store from the WooCommerce menu, and ARLing Asistent reads your public WooCommerce Store API product feed to build the assistant's knowledge. No coding, no manual product upload, no theme changes.
+Setup takes a few minutes: connect your store from the WooCommerce menu, and ARLing Shopping Assistant reads your public WooCommerce Store API product feed to build the assistant's knowledge. No coding, no manual product upload, no theme changes.
 
 **What it does**
 
@@ -30,9 +30,9 @@ Setup takes a few minutes: connect your store from the WooCommerce menu, and ARL
 
 = External services =
 
-This plugin relies on the ARLing Asistent service to work. Provider: ARLing s. r. o., Bratislava, Slovakia (https://arling.sk).
+This plugin relies on the ARLing Shopping Assistant service to work. Provider: ARLing s. r. o., Bratislava, Slovakia (https://arling.sk).
 
-**When you click "Connect" on the settings page** (only after ticking the consent checkbox), this plugin sends to the ARLing Asistent API:
+**When you click "Connect" on the settings page** (only after ticking the consent checkbox), this plugin sends to the ARLing Shopping Assistant API:
 
 * Your store's public WooCommerce Store API product feed URL (`{your-site}/wp-json/wc/store/v1/products?per_page=100`), which is data your store already serves publicly to any visitor's browser.
 * Your site's domain name.
@@ -40,7 +40,7 @@ This plugin relies on the ARLing Asistent service to work. Provider: ARLing s. r
 
 No customer data and no order data is ever sent. Nothing is sent before you connect.
 
-**While connected**, the settings page periodically checks your assistant's setup status by calling the ARLing Asistent API (`GET /v1/tenants/{id}/status`), and the front-end widget script is loaded from ARLing's servers (`https://arling-asistent.arling.workers.dev/widget.js`, or a self-hosted URL if you use the `arling_asistent_widget_endpoint` filter) on the pages you configure. When a shopper uses the chat, their question and the assistant's answer are sent to and processed by this same service to generate a reply; the service does not store that conversation content, only daily aggregate counters used to enforce your plan's monthly quota.
+**While connected**, the settings page periodically checks your assistant's setup status by calling the ARLing Shopping Assistant API (`GET /v1/tenants/{id}/status`), and the front-end widget script is loaded from ARLing's servers (`https://arling-asistent.arling.workers.dev/widget.js`, or a self-hosted URL if you use the `arling_asistent_widget_endpoint` filter) on the pages you configure. When a shopper uses the chat, their question and the assistant's answer are sent to and processed by this same service to generate a reply; the service does not store that conversation content, only daily aggregate counters used to enforce your plan's monthly quota.
 
 **Upgrading**: the "Upgrade" buttons on the settings page link to Stripe Checkout (a payment page hosted by Stripe, https://stripe.com), with your tenant id attached so your plan updates automatically after a successful payment. No payment details ever pass through this plugin or through ARLing's own servers.
 
@@ -54,9 +54,9 @@ You can disconnect at any time from the settings page, which immediately stops t
 
 == Installation ==
 
-1. Upload the plugin to `/wp-content/plugins/arling-asistent`, or install it from the Plugins screen in wp-admin ("Add New Plugin", search for "ARLing Asistent").
+1. Upload the plugin to `/wp-content/plugins/arling-asistent`, or install it from the Plugins screen in wp-admin ("Add New Plugin", search for "ARLing Shopping Assistant").
 2. Activate the plugin through the "Plugins" screen in WordPress. WooCommerce must already be active.
-3. Go to **WooCommerce > ARLing Asistent**.
+3. Go to **WooCommerce > ARLing Shopping Assistant**.
 4. Enter a contact e-mail, read what will be sent, tick the consent checkbox, and click **Connect**.
 5. Wait for the status to change to "Ready" (usually a few minutes; the page refreshes itself while processing).
 6. Choose a language, colour mode, position and where the widget should appear, and click **Save settings**.
@@ -65,7 +65,7 @@ You can disconnect at any time from the settings page, which immediately stops t
 
 = Does this plugin store my customers' conversations? =
 
-No. The ARLing Asistent service does not keep a record of what was asked or answered. It only keeps daily aggregate counters (how many conversations, how many product-link clicks) per store, used solely to enforce the monthly plan quota.
+No. The ARLing Shopping Assistant service does not keep a record of what was asked or answered. It only keeps daily aggregate counters (how many conversations, how many product-link clicks) per store, used solely to enforce the monthly plan quota.
 
 = What data leaves my site, and when? =
 
@@ -89,16 +89,24 @@ Click "Disconnect" on the settings page to immediately stop the widget from appe
 
 == Screenshots ==
 
-1. The "Connect your store" screen under WooCommerce > ARLing Asistent, showing exactly what data will be sent and the required consent checkbox.
+1. The "Connect your store" screen under WooCommerce > ARLing Shopping Assistant, showing exactly what data will be sent and the required consent checkbox.
 2. The connected status view, showing ingestion status, plan and monthly conversation usage, with a manual refresh option.
 3. The chat widget open on a storefront product page, answering a shopping question with linked product suggestions.
 
 == Changelog ==
 
+= 0.1.1 =
+* Renamed to ARLing Shopping Assistant: the previous name read as a misspelling of "assistant" in English.
+* Chat interface now falls back to English, not Slovak, when the shop's language is not one of the four supported ones.
+* Fixed the CORS preflight so the chat works on any shop domain, not only on arling.sk.
+
 = 0.1.0 =
 * Initial release: connect flow, status polling, language/colour/position/display-scope settings, front-end widget loader.
 
 == Upgrade Notice ==
+
+= 0.1.1 =
+Fixes the chat on your own domain and defaults to English instead of Slovak for unsupported languages. Recommended for every install.
 
 = 0.1.0 =
 Initial release.

@@ -69,8 +69,35 @@ function isAiCapacityError(err) {
   return /daily free allocation/i.test(message) && /neurons/i.test(message);
 }
 
+// Cesty, ktore vola widget na e-shope zakaznika. Ich preflight nemoze
+// zavisiet od ALLOWED_ORIGINS: prehliadac posiela OPTIONS bez tela, takze sa
+// z nej neda zistit, ktoremu zakaznikovi patri, a domena zakaznika v tom
+// zozname nikdy nebude. Kym to platilo, kazdy chat na cudzom e-shope zomrel
+// na preflighte a plugin vyzeral pokazeny.
+//
+// Bezpecnost tym netrpi. Preflight nie je hranica opravnenia, len otazka
+// "smiem to poslat". Skutocna kontrola ostava na samotnom POST-e, ktory v
+// chat.js a gift.js overuje Origin proti [tenant.domain, ...ALLOWED_ORIGINS]
+// a bez znameho zakaznika vrati 403. Ziadne cookies sa neposielaju, takze
+// hviezdicka je tu spravna odpoved.
+const VEREJNE_CESTY = new Set(['/v1/chat', '/v1/gift']);
+
 function handleOptions(request, env) {
   const origin = request.headers.get('Origin') || '';
+  const cesta = new URL(request.url).pathname;
+
+  if (VEREJNE_CESTY.has(cesta)) {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'content-type',
+        'Access-Control-Max-Age': '86400',
+      },
+    });
+  }
+
   const allowed = parseAllowedOrigins(env.ALLOWED_ORIGINS);
   const headers = corsHeaders(origin, allowed);
   return new Response(null, { status: headers ? 204 : 403, headers: headers || {} });

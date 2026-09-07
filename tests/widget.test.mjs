@@ -217,7 +217,7 @@ test('widget.js UI chrome follows navigator.language when data-lang is absent (t
   assert.equal(messages.children[0].children[0].textContent, 'Hallo, wie kann ich Ihnen bei der Auswahl helfen?');
 });
 
-test('widget.js UI chrome falls back to Slovak when data-lang is absent and navigator.language is missing or unsupported', () => {
+test('widget.js UI chrome falls back to English when data-lang is absent and navigator.language is missing or unsupported', () => {
   const { windowStub, documentStub, body } = makeFakeWindowAndDocument({ dataLang: null }); // no navigatorLanguage given
   runWidget(documentStub, windowStub);
   const host = body.children[0];
@@ -226,7 +226,9 @@ test('widget.js UI chrome falls back to Slovak when data-lang is absent and navi
   const toggle = root.getElementById('toggle');
   toggle._listeners.click[0]();
   const messages = root.getElementById('messages');
-  assert.equal(messages.children[0].children[0].textContent, 'Dobrý deň, ako vám môžem pomôcť s výberom?');
+  // Anglictina, nie slovencina: plugin je vo svetovom adresari WordPressu a
+  // neznamy locale (fr, pl, it) nesmie dostat slovensky chat.
+  assert.equal(messages.children[0].children[0].textContent, 'Hello, how can I help you choose?');
 });
 
 test('widget.js sends lang: "auto" to the server by default, but a fixed data-lang value unchanged', async () => {
@@ -355,11 +357,11 @@ test('widget.js shows the rate-limited message (not the quota one) on a 429 with
   assert.equal(texts.includes(QUOTA_MESSAGES.en), false);
 });
 
-test('widget.js keeps the "Powered by ARLing Asistent" footer link and tags it with utm_source=widget&utm_medium=referral', () => {
+test('widget.js keeps the "Powered by ARLing Shopping Assistant" footer link and tags it with utm_source=widget&utm_medium=referral', () => {
   const { windowStub, documentStub, body } = makeFakeWindowAndDocument({ dataLang: 'en' });
   runWidget(documentStub, windowStub);
   const html = body.children[0].shadowRoot.innerHTML;
-  assert.match(html, /<div class="footer"><a href="https:\/\/arling\.sk\/asistent\/\?utm_source=widget&utm_medium=referral" target="_blank" rel="noopener">Powered by ARLing Asistent<\/a><\/div>/);
+  assert.match(html, /<div class="footer"><a href="https:\/\/arling\.sk\/asistent\/\?utm_source=widget&utm_medium=referral" target="_blank" rel="noopener">Powered by ARLing Shopping Assistant<\/a><\/div>/);
 });
 
 test('widget.js sets no cookies and never touches localStorage (only sessionStorage for the session id)', () => {

@@ -84,13 +84,28 @@ test('GET /widget.js serves the widget source with a JS content-type, a cache he
   assert.match(body, /data-arling-asistent/);
 });
 
-test('OPTIONS preflight returns CORS headers for an allowed origin and 403 for a disallowed one', async () => {
+test('OPTIONS preflight on the widget routes is open to any origin, because the tenant is unknown at preflight time', async () => {
   const env = makeEnv();
-  const allowed = await worker.fetch(new Request('https://asistent.arling.sk/v1/chat', { method: 'OPTIONS', headers: { Origin: 'https://arling.sk' } }), env, {});
+  // Prehliadac posiela preflight bez tela, takze sa z neho neda zistit, ktoremu
+  // zakaznikovi patri, a domena zakaznikoveho e-shopu nie je v ALLOWED_ORIGINS.
+  // Kym tu bol prisny zoznam, chat na kazdom cudzom e-shope zomrel prave tu.
+  for (const cesta of ['/v1/chat', '/v1/gift']) {
+    for (const origin of ['https://arling.sk', 'https://irgendein-shop.de']) {
+      const res = await worker.fetch(new Request('https://asistent.arling.sk' + cesta, { method: 'OPTIONS', headers: { Origin: origin } }), env, {});
+      assert.equal(res.status, 204, cesta + ' ' + origin);
+      assert.equal(res.headers.get('Access-Control-Allow-Origin'), '*');
+      assert.match(res.headers.get('Access-Control-Allow-Methods') || '', /POST/);
+    }
+  }
+});
+
+test('OPTIONS preflight on the admin routes keeps the strict allowlist', async () => {
+  const env = makeEnv();
+  const allowed = await worker.fetch(new Request('https://asistent.arling.sk/v1/tenants', { method: 'OPTIONS', headers: { Origin: 'https://arling.sk' } }), env, {});
   assert.equal(allowed.status, 204);
   assert.equal(allowed.headers.get('Access-Control-Allow-Origin'), 'https://arling.sk');
 
-  const blocked = await worker.fetch(new Request('https://asistent.arling.sk/v1/chat', { method: 'OPTIONS', headers: { Origin: 'https://attacker.com' } }), env, {});
+  const blocked = await worker.fetch(new Request('https://asistent.arling.sk/v1/tenants', { method: 'OPTIONS', headers: { Origin: 'https://attacker.com' } }), env, {});
   assert.equal(blocked.status, 403);
 });
 

@@ -1,6 +1,6 @@
 <?php
 /**
- * Front-end: enqueues the ARLing Asistent widget script, and only that
+ * Front-end: enqueues the ARLing Shopping Assistant widget script, and only that
  * script. Nothing is loaded from ARLing's servers anywhere on the site
  * until a store owner has connected on the settings page; this class is
  * the only place in the plugin that touches the public front end.

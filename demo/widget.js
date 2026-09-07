@@ -173,7 +173,7 @@
       networkError: 'Could not load a reply. Please try again.',
       rateLimited: 'Too many messages at once. Please try again shortly.',
       quotaExceeded: 'The assistant is resting today. Please use the shop\'s contact page.',
-      poweredBy: 'Powered by ARLing Asistent',
+      poweredBy: 'Powered by ARLing Shopping Assistant',
       relatedProducts: 'Related products',
       giftButton: 'Find a gift',
       giftOpenLabel: 'Open gift finder',
@@ -206,7 +206,7 @@
       networkError: 'Antwort konnte nicht geladen werden. Bitte erneut versuchen.',
       rateLimited: 'Zu viele Nachrichten auf einmal. Bitte in Kürze erneut versuchen.',
       quotaExceeded: 'Der Assistent macht heute Pause. Bitte nutzen Sie die Kontaktseite des Shops.',
-      poweredBy: 'Bereitgestellt von ARLing Asistent',
+      poweredBy: 'Bereitgestellt von ARLing Shopping Assistant',
       relatedProducts: 'Passende Produkte',
       giftButton: 'Geschenk finden',
       giftOpenLabel: 'Geschenkfinder öffnen',
@@ -232,10 +232,13 @@
 
   function normaliseLang(lang) {
     var l = String(lang || '').toLowerCase().slice(0, 2);
-    return STRINGS[l] ? l : 'sk';
+    // Zaloha je anglictina, nie slovencina. Plugin je vo svetovom adresari
+    // WordPressu: francuzsky, polsky ci italsky e-shop poslal locale, ktore
+    // nepozname, a dostal slovensky chat. Anglictine rozumie aspon niekto.
+    return STRINGS[l] ? l : 'en';
   }
 
-  /** Resolve the widget's own UI language for data-lang="auto" (also the default): the visitor's browser language, falling back to Slovak when it is missing or not one of the four supported languages. */
+  /** Resolve the widget's own UI language for data-lang="auto" (also the default): the visitor's browser language, falling back to English when it is missing or not one of the four supported languages. */
   function resolveAutoLang() {
     var nav = window.navigator || {};
     var navLang = nav.language || (nav.languages && nav.languages[0]) || '';
