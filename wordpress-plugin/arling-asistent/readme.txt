@@ -1,6 +1,6 @@
 === ARLing Asistent for WooCommerce ===
 Contributors: arlingsk
-Tags: woocommerce, chatbot, ai assistant, customer support, product search
+Tags: woocommerce, chatbot, ai assistant, shopping assistant, product finder
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
