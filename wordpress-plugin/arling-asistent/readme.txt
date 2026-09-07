@@ -4,7 +4,7 @@ Tags: woocommerce, chatbot, ai assistant, shopping assistant, product finder
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.1.1
+Stable tag: 0.1.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -89,11 +89,14 @@ Click "Disconnect" on the settings page to immediately stop the widget from appe
 
 == Screenshots ==
 
-1. The "Connect your store" screen under WooCommerce > ARLing Shopping Assistant, showing exactly what data will be sent and the required consent checkbox.
-2. The connected status view, showing ingestion status, plan and monthly conversation usage, with a manual refresh option.
-3. The chat widget open on a storefront product page, answering a shopping question with linked product suggestions.
+1. The "Connect your store" screen under WooCommerce > ARLing Shopping Assistant: the contact e-mail field, the full list of what will be sent, and the consent checkbox that has to be ticked before anything leaves your site.
+2. The chat widget answering an English question with two product suggestions, each with a real price, taken from our demo shop's own product feed.
+3. The same widget answering a German question. The interface language follows the Language setting on the plugin's settings screen.
 
 == Changelog ==
+
+= 0.1.2 =
+* Added screenshots to the plugin directory listing and corrected the screenshot descriptions to match them.
 
 = 0.1.1 =
 * Renamed to ARLing Shopping Assistant: the previous name read as a misspelling of "assistant" in English.
@@ -104,6 +107,9 @@ Click "Disconnect" on the settings page to immediately stop the widget from appe
 * Initial release: connect flow, status polling, language/colour/position/display-scope settings, front-end widget loader.
 
 == Upgrade Notice ==
+
+= 0.1.2 =
+Listing only: screenshots added. No code changes, no need to hurry.
 
 = 0.1.1 =
 Fixes the chat on your own domain and defaults to English instead of Slovak for unsupported languages. Recommended for every install.
