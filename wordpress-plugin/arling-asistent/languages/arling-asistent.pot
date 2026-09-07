@@ -2,7 +2,7 @@
 # This file is distributed under the GPLv2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: ARLing Asistent for WooCommerce 0.1.0\n"
+"Project-Id-Version: ARLing Shopping Assistant for WooCommerce 0.1.0\n"
 "Report-Msgid-Bugs-To: https://arling.sk/asistent/\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -12,13 +12,13 @@ msgstr ""
 
 
 #: arling-asistent.php:123
-msgid "ARLing Asistent for WooCommerce requires WooCommerce to be installed and active."
+msgid "ARLing Shopping Assistant for WooCommerce requires WooCommerce to be installed and active."
 msgstr ""
 
 #: includes/class-arling-asistent-admin.php:43
 #: includes/class-arling-asistent-admin.php:44
 #: includes/class-arling-asistent-admin.php:260
-msgid "ARLing Asistent"
+msgid "ARLing Shopping Assistant"
 msgstr ""
 
 #: includes/class-arling-asistent-admin.php:91
@@ -37,9 +37,9 @@ msgstr ""
 msgid "Could not determine this site's domain."
 msgstr ""
 
-#. translators: %s: error detail returned by the ARLing Asistent API.
+#. translators: %s: error detail returned by the ARLing Shopping Assistant API.
 #: includes/class-arling-asistent-admin.php:127
-msgid "Could not connect to ARLing Asistent: %s"
+msgid "Could not connect to ARLing Shopping Assistant: %s"
 msgstr ""
 
 #: includes/class-arling-asistent-admin.php:128
@@ -47,7 +47,7 @@ msgid "unknown error"
 msgstr ""
 
 #: includes/class-arling-asistent-admin.php:135
-msgid "ARLing Asistent did not return a tenant id. Please try again."
+msgid "ARLing Shopping Assistant did not return a tenant id. Please try again."
 msgstr ""
 
 #: includes/class-arling-asistent-admin.php:159
@@ -71,7 +71,7 @@ msgid "Connect your store"
 msgstr ""
 
 #: includes/class-arling-asistent-admin.php:299
-msgid "ARLing Asistent adds an AI chat widget to your store that answers shopper questions using your own product catalogue."
+msgid "ARLing Shopping Assistant adds an AI chat widget to your store that answers shopper questions using your own product catalogue."
 msgstr ""
 
 #: includes/class-arling-asistent-admin.php:307
@@ -123,7 +123,7 @@ msgid "Status"
 msgstr ""
 
 #: includes/class-arling-asistent-admin.php:378
-msgid "Could not reach ARLing Asistent right now. Your connection is saved; please try refreshing in a moment."
+msgid "Could not reach ARLing Shopping Assistant right now. Your connection is saved; please try refreshing in a moment."
 msgstr ""
 
 #: includes/class-arling-asistent-admin.php:379
@@ -257,7 +257,7 @@ msgid "Removes the widget from your site immediately. This does not delete your 
 msgstr ""
 
 #: includes/class-arling-asistent-admin.php:518
-msgid "Disconnect ARLing Asistent from this store?"
+msgid "Disconnect ARLing Shopping Assistant from this store?"
 msgstr ""
 
 #: includes/class-arling-asistent-admin.php:529

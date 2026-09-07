@@ -1,9 +1,9 @@
 <?php
 /**
- * Plugin Name:       ARLing Asistent for WooCommerce
+ * Plugin Name:       ARLing Shopping Assistant for WooCommerce
  * Plugin URI:        https://arling.sk/asistent/
  * Description:       AI shopping assistant chat widget that answers customer questions from your own WooCommerce product feed. No conversation content is stored.
- * Version:           0.1.0
+ * Version:           0.1.1
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Requires Plugins:  woocommerce
@@ -16,8 +16,8 @@
  * Text Domain:       arling-asistent
  * Domain Path:       /languages
  *
- * ARLing Asistent for WooCommerce, a plugin to connect a WooCommerce store
- * to the ARLing Asistent chat widget service.
+ * ARLing Shopping Assistant for WooCommerce, a plugin to connect a WooCommerce store
+ * to the ARLing Shopping Assistant chat widget service.
  * Copyright (C) 2026  ARLing s. r. o.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -44,8 +44,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * External service disclosure (see also readme.txt "External services").
  * -----------------------------------------------------------------------
  * This plugin, when an administrator explicitly clicks "Connect" on the
- * ARLing Asistent settings page after ticking the consent checkbox, sends
- * three pieces of data to the ARLing Asistent API (operated by ARLing
+ * ARLing Shopping Assistant settings page after ticking the consent checkbox, sends
+ * three pieces of data to the ARLing Shopping Assistant API (operated by ARLing
  * s. r. o., Bratislava, Slovakia, https://arling.sk):
  *
  *   1. The store's public WooCommerce Store API product feed URL
@@ -72,7 +72,7 @@ define( 'ARLING_ASISTENT_DIR', plugin_dir_path( __FILE__ ) );
 define( 'ARLING_ASISTENT_URL', plugin_dir_url( __FILE__ ) );
 
 /**
- * Default base URL of the ARLing Asistent API and widget script. Both the
+ * Default base URL of the ARLing Shopping Assistant API and widget script. Both the
  * onboarding API calls and the front-end widget src share this default;
  * site owners (or ARLing, for a future deployment on a different domain)
  * can override either independently with the filters exposed below.
@@ -133,7 +133,7 @@ function arling_asistent_woocommerce_missing_notice() {
 		return;
 	}
 	echo '<div class="notice notice-error"><p>' .
-		esc_html__( 'ARLing Asistent for WooCommerce requires WooCommerce to be installed and active.', 'arling-asistent' ) .
+		esc_html__( 'ARLing Shopping Assistant for WooCommerce requires WooCommerce to be installed and active.', 'arling-asistent' ) .
 		'</p></div>';
 }
 

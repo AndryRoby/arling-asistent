@@ -1,6 +1,6 @@
 <?php
 /**
- * Settings page under WooCommerce > ARLing Asistent: connect/disconnect the
+ * Settings page under WooCommerce > ARLing Shopping Assistant: connect/disconnect the
  * store, choose language/colour/position/display scope, and show the
  * tenant's ingestion status. Every state-changing action here goes through
  * admin-post.php with a nonce and a current_user_can( 'manage_woocommerce' )
@@ -40,8 +40,8 @@ class Arling_Asistent_Admin {
 	public function register_menu() {
 		add_submenu_page(
 			'woocommerce',
-			__( 'ARLing Asistent', 'arling-asistent' ),
-			__( 'ARLing Asistent', 'arling-asistent' ),
+			__( 'ARLing Shopping Assistant', 'arling-asistent' ),
+			__( 'ARLing Shopping Assistant', 'arling-asistent' ),
 			'manage_woocommerce',
 			'arling-asistent',
 			array( $this, 'render_page' )
@@ -125,8 +125,8 @@ class Arling_Asistent_Admin {
 			$this->redirect_with_notice(
 				'error',
 				sprintf(
-					/* translators: %s: error detail returned by the ARLing Asistent API. */
-					__( 'Could not connect to ARLing Asistent: %s', 'arling-asistent' ),
+					/* translators: %s: error detail returned by the ARLing Shopping Assistant API. */
+					__( 'Could not connect to ARLing Shopping Assistant: %s', 'arling-asistent' ),
 					isset( $result['message'] ) && $result['message'] ? $result['message'] : ( isset( $result['error'] ) ? $result['error'] : __( 'unknown error', 'arling-asistent' ) )
 				)
 			);
@@ -134,7 +134,7 @@ class Arling_Asistent_Admin {
 
 		$data = $result['data'];
 		if ( empty( $data['id'] ) ) {
-			$this->redirect_with_notice( 'error', __( 'ARLing Asistent did not return a tenant id. Please try again.', 'arling-asistent' ) );
+			$this->redirect_with_notice( 'error', __( 'ARLing Shopping Assistant did not return a tenant id. Please try again.', 'arling-asistent' ) );
 		}
 
 		update_option( 'arling_asistent_tenant_id', sanitize_text_field( $data['id'] ) );
@@ -228,7 +228,7 @@ class Arling_Asistent_Admin {
 	/**
 	 * Fetch tenant status, cached in a transient for STATUS_CACHE_TTL
 	 * seconds so simply loading (or auto-refreshing) the settings page does
-	 * not hammer the ARLing Asistent API on every page view.
+	 * not hammer the ARLing Shopping Assistant API on every page view.
 	 *
 	 * @param string $tenant_id
 	 * @return array|null Status data array, or null if the request failed
@@ -263,7 +263,7 @@ class Arling_Asistent_Admin {
 		$status    = $tenant_id ? $this->fetch_status( $tenant_id ) : null;
 
 		echo '<div class="wrap arling-asistent-settings">';
-		echo '<h1>' . esc_html__( 'ARLing Asistent', 'arling-asistent' ) . '</h1>';
+		echo '<h1>' . esc_html__( 'ARLing Shopping Assistant', 'arling-asistent' ) . '</h1>';
 
 		$this->render_notice();
 
@@ -304,7 +304,7 @@ class Arling_Asistent_Admin {
 		<div class="card" style="max-width:700px;padding:1.5em;">
 			<h2><?php esc_html_e( 'Connect your store', 'arling-asistent' ); ?></h2>
 			<p>
-				<?php esc_html_e( 'ARLing Asistent adds an AI chat widget to your store that answers shopper questions using your own product catalogue.', 'arling-asistent' ); ?>
+				<?php esc_html_e( 'ARLing Shopping Assistant adds an AI chat widget to your store that answers shopper questions using your own product catalogue.', 'arling-asistent' ); ?>
 			</p>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<input type="hidden" name="action" value="arling_asistent_connect" />
@@ -383,7 +383,7 @@ class Arling_Asistent_Admin {
 		echo '<h2>' . esc_html__( 'Status', 'arling-asistent' ) . '</h2>';
 
 		if ( null === $status ) {
-			echo '<p>' . esc_html__( 'Could not reach ARLing Asistent right now. Your connection is saved; please try refreshing in a moment.', 'arling-asistent' ) . '</p>';
+			echo '<p>' . esc_html__( 'Could not reach ARLing Shopping Assistant right now. Your connection is saved; please try refreshing in a moment.', 'arling-asistent' ) . '</p>';
 			echo '<p><a class="button" href="' . esc_url( $refresh_url ) . '">' . esc_html__( 'Refresh status', 'arling-asistent' ) . '</a></p>';
 			return;
 		}
@@ -580,7 +580,7 @@ class Arling_Asistent_Admin {
 		?>
 		<h2><?php esc_html_e( 'Disconnect', 'arling-asistent' ); ?></h2>
 		<p><?php esc_html_e( 'Removes the widget from your site immediately. This does not delete your data on ARLing\'s servers; contact andrej@arling.sk or see the Data Processing Agreement to request deletion.', 'arling-asistent' ); ?></p>
-		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( 'Disconnect ARLing Asistent from this store?', 'arling-asistent' ) ); ?>');">
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( 'Disconnect ARLing Shopping Assistant from this store?', 'arling-asistent' ) ); ?>');">
 			<input type="hidden" name="action" value="arling_asistent_disconnect" />
 			<?php wp_nonce_field( 'arling_asistent_disconnect', 'arling_asistent_disconnect_nonce' ); ?>
 			<?php submit_button( __( 'Disconnect', 'arling-asistent' ), 'delete' ); ?>

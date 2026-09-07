@@ -1,6 +1,6 @@
 <?php
 /**
- * Thin wrapper around the ARLing Asistent HTTP API, using wp_remote_post()
+ * Thin wrapper around the ARLing Shopping Assistant HTTP API, using wp_remote_post()
  * and wp_remote_get() (never curl/file_get_contents directly, so WordPress
  * proxy/SSL/user-agent settings are respected).
  *
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Arling_Asistent_Api {
 
 	/**
-	 * Base URL of the ARLing Asistent API (no trailing slash), filterable
+	 * Base URL of the ARLing Shopping Assistant API (no trailing slash), filterable
 	 * so a store can be pointed at a different deployment if ARLing ever
 	 * moves off the default Cloudflare Workers subdomain.
 	 *
