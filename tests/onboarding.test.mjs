@@ -6,7 +6,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createTenantFromRequest, ingestFeedForTenant, tenantStatusResponse, handleCreateTenantRoute, handleTenantStatusRoute, handleReingestRoute, handleSetPlanRoute, TENANT_STATUS } from '../worker/src/onboarding.js';
+import { createTenantFromRequest, ingestFeedForTenant, tenantStatusResponse, handleCreateTenantRoute, handleTenantStatusRoute, handleReingestRoute, handleSetPlanRoute, TENANT_STATUS, waitForQueryableIndex 
+} from '../worker/src/onboarding.js';
 import { getTenantById, listTenants, SQL } from '../worker/src/tenants.js';
 import { createMockD1 } from './helpers/mock-d1.mjs';
 import { createMockAI, createMockVectorize } from './helpers/mock-cf.mjs';
@@ -541,4 +542,58 @@ test('handleTenantStatusRoute (public GET) never returns billing_ref even after 
   assert.equal(body.plan, 'starter');
   assert.equal(body.valid_until, '2026-12-01');
   assert.equal(typeof body.usage_percent, 'number');
+});
+
+// ── ready sa nesmie prepnut skor, nez index odpoveda ────────────────────────
+// Naozivo: stav ready, hned polozena otazka vratila „neviem", o par desiatok
+// sekund tá ista otazka odpovedala spravne. Vectorize je po zapise chvilu
+// nekonzistentny a novy zakaznik tak dostal pokazeny prvy dojem.
+
+function fakeEnv({ prazdnychKrat = 0, hodChybu = false } = {}) {
+  let volani = 0;
+  return {
+    AI: { run: async () => ({ data: [[0.1, 0.2, 0.3]] }) },
+    VECTORIZE: {
+      query: async () => {
+        if (hodChybu) throw new Error('vectorize nedostupny');
+        volani++;
+        // Kazdy pokus sa pyta dvakrat (filtrovane a siroko), takze na jeden
+        // pokus pripadaju dve volania.
+        if (volani <= prazdnychKrat * 2) return { matches: [] };
+        return { matches: [{ id: 't1::p1::0', score: 0.9 }] };
+      },
+    },
+  };
+}
+const PRODUKTY = [{ title: 'Bavlnene tricko' }];
+
+test('waitForQueryableIndex pocka, kym index zacne odpovedat', async () => {
+  let spanie = 0;
+  const r = await waitForQueryableIndex(fakeEnv({ prazdnychKrat: 2 }), 't1', PRODUKTY,
+    { waitMs: 0, sleep: async () => { spanie++; } });
+  assert.equal(r.queryable, true);
+  assert.equal(r.attempts, 3, 'ma to trvat tri pokusy');
+  assert.equal(spanie, 2, 'medzi pokusmi sa ma cakat');
+});
+
+test('waitForQueryableIndex sa vzda po vycerpani pokusov a nezasekne zakaznika', async () => {
+  const r = await waitForQueryableIndex(fakeEnv({ prazdnychKrat: 99 }), 't1', PRODUKTY,
+    { attempts: 3, waitMs: 0, sleep: async () => {} });
+  assert.equal(r.queryable, false);
+  assert.equal(r.attempts, 3);
+});
+
+test('waitForQueryableIndex nezhodi nacitanie, ked dopyt zlyha alebo VECTORIZE chyba', async () => {
+  const chyba = await waitForQueryableIndex(fakeEnv({ hodChybu: true }), 't1', PRODUKTY,
+    { waitMs: 0, sleep: async () => {} });
+  assert.equal(chyba.queryable, null);
+  assert.ok(chyba.probeError);
+
+  for (const env of [{}, { VECTORIZE: {} }, { AI: {} }]) {
+    const bez = await waitForQueryableIndex(env, 't1', PRODUKTY, { waitMs: 0, sleep: async () => {} });
+    assert.equal(bez.probed, false);
+  }
+  // Bez produktov nie je na co sa spytat.
+  const bezProduktov = await waitForQueryableIndex(fakeEnv(), 't1', [], { waitMs: 0, sleep: async () => {} });
+  assert.equal(bezProduktov.probed, false);
 });

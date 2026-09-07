@@ -28,7 +28,7 @@ import {
   publicPlanName,
 } from './tenants.js';
 import { fetchFeed } from './feed.js';
-import { embedAndUpsertProducts } from './embed.js';
+import { embedAndUpsertProducts, embedTexts } from './embed.js';
 import { parseAllowedOrigins, corsHeaders } from './security.js';
 
 export const TENANT_STATUS = {
@@ -53,14 +53,81 @@ function isIngestionStale(tenant, now) {
   return now.getTime() - new Date(tenant.last_ingested_at).getTime() > REINGEST_IF_STALE_MS;
 }
 
+/**
+ * Počká, kým je katalóg naozaj dopytovateľný, nie len zapísaný.
+ *
+ * Naživo overené 7. 9. 2026: stav sa prepol na ready, hneď položená otázka
+ * vrátila „nemám k tomu z produktov tohto obchodu istú odpoveď" a tá istá
+ * otázka o pár desiatok sekúnd odpovedala správne. Vectorize je totiž po
+ * zápise chvíľu nekonzistentný. Nový zákazník teda v administrácii videl
+ * Ready, otvoril widget a asistent tvrdil, že o jeho obchode nič nevie. To je
+ * prvý dojem, po ktorom sa človek druhýkrát nevráti.
+ *
+ * Preto sa po zápise raz spýtame do indexu na názov prvého produktu a na
+ * ready čakáme, kým niečo vráti. Ak sa to do vyčerpania pokusov nestane,
+ * stav sa aj tak prepne: nechať zákazníka navždy v stave „načítava sa" by
+ * bolo horšie než jedna nepodarená prvá otázka.
+ *
+ * Chyba samotného dopytu nesmie zhodiť načítanie, preto try/catch: v testoch
+ * ani nemusí byť VECTORIZE k dispozícii.
+ */
+// POZOR na dlzku okna. Prvy pokus mal 20 x 3 s, teda az minutu, a Cloudflare
+// tu ulohu vo waitUntil ukoncil skor, nez sa stav prepol: zakaznik ostal
+// navzdy v stave pending, hoci produkty uz mal nacitane. Preto je okno
+// kratke a hlavne sa stav prepina PRED dopytom, nikdy po nom.
+export const PROBE_ATTEMPTS = 5;
+export const PROBE_WAIT_MS = 2000;
+
+export async function waitForQueryableIndex(env, tenantId, products, opts = {}) {
+  const attempts = opts.attempts != null ? opts.attempts : PROBE_ATTEMPTS;
+  const waitMs = opts.waitMs != null ? opts.waitMs : PROBE_WAIT_MS;
+  const sleep = opts.sleep || ((ms) => new Promise((r) => setTimeout(r, ms)));
+  const prvy = (products && products[0]) || null;
+  const text = (prvy && (prvy.title || prvy.name)) || '';
+  if (!env || !env.VECTORIZE || !env.AI || !text) return { probed: false, queryable: null, attempts: 0 };
+
+  // Vektor sa pocita raz. Pri dvadsiatich pokusoch by dvadsat volani modelu
+  // bolo cistym plytvanim, otazka je stale ta ista.
+  let vector;
+  try {
+    [vector] = await embedTexts(env.AI, [text]);
+  } catch (e) {
+    return { probed: false, queryable: null, attempts: 0, probeError: String((e && e.message) || e) };
+  }
+
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      const filtered = await env.VECTORIZE.query(vector, { topK: 1, filter: { tenant: tenantId } });
+      let matches = (filtered && filtered.matches) || [];
+      if (matches.length === 0) {
+        // Ten istý ústupok ako v chat.js: filter na vlastnosti bez
+        // metadátového indexu nechybuje, len nič nenájde.
+        const wide = await env.VECTORIZE.query(vector, { topK: 5 });
+        matches = ((wide && wide.matches) || []).filter((m) => String(m.id || '').startsWith(tenantId + '::'));
+      }
+      if (matches.length > 0) return { probed: true, queryable: true, attempts: i };
+    } catch (e) {
+      return { probed: false, queryable: null, attempts: i, probeError: String((e && e.message) || e) };
+    }
+    if (i < attempts) await sleep(waitMs);
+  }
+  return { probed: true, queryable: false, attempts };
+}
+
 /** Download the tenant's feed, embed every product, and flip status to ready/error. Safe to call again (re-ingestion on cron). */
 export async function ingestFeedForTenant(env, tenant) {
   try {
     const { products, type, truncated } = await fetchFeed(tenant.feed_url, { fetchImpl: env.fetchImpl || fetch });
     const summary = await embedAndUpsertProducts(env, tenant.id, products);
     await setProductCount(env.DB, tenant.id, summary.productCount);
+    // Stav sa prepina ako prvy a bez podmienok. Zakaznik, ktory ma produkty
+    // nacitane, nesmie ostat visiet na pending len preto, ze nam nieco
+    // spadlo alebo trvalo prilis dlho.
     await setTenantStatus(env.DB, tenant.id, TENANT_STATUS.READY);
-    return { ok: true, feedType: type, truncated, ...summary };
+    // Dopyt je uz len zistenie, ako dlho index potrebuje, nez zacne
+    // odpovedat. Nic neblokuje a jeho vysledok ide do summary.
+    const probe = await waitForQueryableIndex(env, tenant.id, products);
+    return { ok: true, feedType: type, truncated, ...summary, indexProbe: probe };
   } catch (err) {
     await setTenantStatus(env.DB, tenant.id, TENANT_STATUS.ERROR);
     return { ok: false, error: String((err && err.message) || err) };
