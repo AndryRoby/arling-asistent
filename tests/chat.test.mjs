@@ -21,6 +21,9 @@ import { extractModelText,
   reconcileProducts,
   retrieveCandidates,
   noMatchFallback,
+  indexWarmingReply,
+  isIndexWarming,
+  INDEX_WARMUP_MS,
   runChat,
   topCategoryNames,
   MAX_ANSWER_WORDS,
@@ -545,4 +548,99 @@ test('polishAnswer vymaže skladový kód spolu s ostatnou úpravou textu', () =
   const out = polishAnswer('The KUC-004 panvica costs 32.9 EUR.', 'en', kandidati);
   assert.ok(!out.includes('KUC-004'), out);
   assert.ok(out.includes('32.90 EUR'), out); // cena sa stále dorovnáva na dve desatiny
+});
+
+// ---------------------------------------------------------------------------
+// Warm-up okno po nacitani katalogu (Vectorize je po zapise chvilu nekonzistentny)
+// ---------------------------------------------------------------------------
+
+/** Cerstvo nacitany zakaznik: stamp o `secondsAgo` sekund v minulosti. */
+function tenantIngestedSecondsAgo(secondsAgo, extra = {}) {
+  return {
+    id: 'tenant-fresh',
+    contact_email: 'obchod@shop.sk',
+    last_ingested_at: new Date(Date.now() - secondsAgo * 1000).toISOString(),
+    ...extra,
+  };
+}
+
+test('isIndexWarming je true len v okne INDEX_WARMUP_MS po poslednom nacitani', () => {
+  assert.equal(INDEX_WARMUP_MS, 3 * 60 * 1000);
+  assert.equal(isIndexWarming(tenantIngestedSecondsAgo(30)), true);
+  assert.equal(isIndexWarming(tenantIngestedSecondsAgo(600)), false);
+  // Chybajuci alebo nezmyselny stamp nesmie tvrdit, ze sa katalog nacitava.
+  assert.equal(isIndexWarming({ id: 't' }), false);
+  assert.equal(isIndexWarming({ id: 't', last_ingested_at: null }), false);
+  assert.equal(isIndexWarming({ id: 't', last_ingested_at: 'neplatny datum' }), false);
+  assert.equal(isIndexWarming(undefined), false);
+});
+
+test('runChat: novy zakaznik bez kandidatov dostane spravu o nacitavani katalogu, nie priznanie neznalosti', async () => {
+  const ai = createMockAI({ embedDim: 4, chatResponse: 'model sa nesmie zavolat' });
+  const env = { AI: ai, VECTORIZE: createMockVectorize() };
+  const tenant = tenantIngestedSecondsAgo(30);
+
+  const result = await runChat(env, { tenant, messages: [{ role: 'user', content: 'Mate hrniec na indukciu?' }], lang: 'sk' });
+
+  assert.equal(result.answer, indexWarmingReply('sk').answer);
+  assert.match(result.answer, /nač[íi]tava/);
+  assert.ok(!result.answer.includes('obchod@shop.sk'), result.answer); // ziadny kontakt, chyba nie je na zakaznikovi
+  assert.equal(result.meta.indexWarming, true);
+  assert.equal(result.products.length, 0);
+  assert.equal(ai.calls.length, 1); // len embedding, chat model sa nezavolal
+});
+
+test('runChat: sprava o nacitavani ide v jazyku odpovede, aj pod lang "auto"', async () => {
+  const env = () => ({ AI: createMockAI({ embedDim: 4 }), VECTORIZE: createMockVectorize() });
+  const tenant = tenantIngestedSecondsAgo(30);
+
+  for (const lang of ['sk', 'cs', 'en', 'de']) {
+    const result = await runChat(env(), { tenant, messages: [{ role: 'user', content: 'otazka' }], lang });
+    assert.equal(result.answer, indexWarmingReply(lang).answer, lang);
+    assert.equal(result.meta.indexWarming, true, lang);
+  }
+
+  // lang "auto" pouzije rovnaku heuristiku ako noMatchFallback (nemecke prehlasky).
+  const auto = await runChat(env(), { tenant, messages: [{ role: 'user', content: 'Haben Sie das in Größe M?' }], lang: 'auto' });
+  assert.equal(auto.answer, indexWarmingReply('de').answer);
+});
+
+test('runChat: starsie nacitanie nez okno nechava povodny fallback s kontaktom na obchod', async () => {
+  const ai = createMockAI({ embedDim: 4, chatResponse: 'model sa nesmie zavolat' });
+  const env = { AI: ai, VECTORIZE: createMockVectorize() };
+  const tenant = tenantIngestedSecondsAgo(600); // 10 minut
+
+  const result = await runChat(env, { tenant, messages: [{ role: 'user', content: 'Mate nieco?' }], lang: 'sk' });
+
+  assert.equal(result.answer, noMatchFallback('sk', 'obchod@shop.sk').answer);
+  assert.match(result.answer, /obchod@shop\.sk/);
+  assert.equal(result.meta.indexWarming, undefined);
+  assert.deepEqual(result.products, []);
+});
+
+test('runChat: prazdna odpoved modelu v okne po nacitani tiez povie, ze sa katalog nacitava', async () => {
+  const vectorize = createMockVectorize();
+  await vectorize.upsert([{ id: 'tenant-fresh::sku1::0', values: [1, 0, 0, 0], metadata: { tenant: 'tenant-fresh', productId: 'sku1', title: 'Hrniec', url: 'https://shop.sk/p/sku1', availability: 'in_stock' } }]);
+  const ai = createMockAI({ embedDim: 4, chatResponse: JSON.stringify({ answer: '', products: [] }) });
+  const tenant = tenantIngestedSecondsAgo(30);
+
+  const result = await runChat({ AI: ai, VECTORIZE: vectorize }, { tenant, messages: [{ role: 'user', content: 'Mate hrniec?' }], lang: 'sk' });
+
+  assert.equal(result.answer, indexWarmingReply('sk').answer);
+  assert.equal(result.meta.indexWarming, true);
+  assert.equal(result.meta.noAnswer, true);
+  assert.equal(result.products.length, 0); // ziadne produktove karty pri "este neviem"
+});
+
+test('indexWarmingReply ma text vo vsetkych styroch jazykoch, bez produktov a bez em-dash', () => {
+  for (const lang of ['sk', 'cs', 'en', 'de']) {
+    const { answer, products } = indexWarmingReply(lang);
+    assert.equal(typeof answer, 'string', lang);
+    assert.ok(answer.length > 20, `${lang}: ${answer}`);
+    assert.deepEqual(products, [], lang);
+    assert.ok(!/[\u2014\u2013]/.test(answer), `${lang} obsahuje em-dash: ${answer}`);
+    assert.notEqual(answer, noMatchFallback(lang, 'obchod@shop.sk').answer, lang);
+  }
+  // Neznamy jazyk padne na anglictinu, rovnako ako normaliseLang.
+  assert.equal(indexWarmingReply('fr').answer, indexWarmingReply('en').answer);
 });

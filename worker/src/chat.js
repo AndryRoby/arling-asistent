@@ -21,7 +21,10 @@
  * instead of trusting the model to phrase a refusal (observed live: Czech
  * "Neznám" and stray foreign words in Slovak refusals). Answers that do come
  * from the model pass through polishAnswer (price formatting and a short
- * table of known Slovak/Czech slips).
+ * table of known Slovak/Czech slips). In the first few minutes after an
+ * ingestion that same empty result gets different wording ("the catalogue is
+ * still loading"), because Vectorize has not caught up yet and denying an
+ * answer there would be untrue (see INDEX_WARMUP_MS).
  *
  * No conversation is ever written to storage here: the only side effects on
  * success are tenants.checkAndRecordConversation (a quota counter plus a
@@ -522,6 +525,58 @@ export function noMatchFallback(lang, contactEmail, userMessage) {
 }
 
 // ---------------------------------------------------------------------------
+// Index warm-up ("the catalogue is still loading")
+// ---------------------------------------------------------------------------
+
+/**
+ * How long after an ingestion an empty retrieval is treated as "the index is
+ * still warming up" rather than "we do not know".
+ *
+ * Observed live on 7. 9. 2026: right after a new shop is created its status
+ * flips to 'ready', the very first question returns zero candidates from
+ * Vectorize, and tens of seconds later the same question answers correctly.
+ * Vectorize is eventually consistent after a write, and waiting inside the
+ * request is not an option (a first attempt that held a 60 s window in
+ * waitUntil got the task killed by Cloudflare and left the shop pending
+ * forever). So the request is never blocked; only the wording changes, and
+ * only while the ingestion is recent enough for that wording to be true.
+ */
+export const INDEX_WARMUP_MS = 3 * 60 * 1000;
+
+const INDEX_WARMING_BY_LANG = {
+  sk: 'Katalóg obchodu sa ešte načítava. Skúste prosím tú istú otázku o minútu.',
+  cs: 'Katalog obchodu se ještě načítá. Zkuste prosím stejnou otázku za minutu.',
+  en: "The shop's catalogue is still loading. Please try the same question in a minute.",
+  de: 'Der Produktkatalog des Shops wird noch geladen. Bitte stellen Sie die gleiche Frage in einer Minute erneut.',
+};
+
+/**
+ * True while `tenant.last_ingested_at` is younger than INDEX_WARMUP_MS.
+ *
+ * A missing or unparsable stamp means no (the tenant row comes from
+ * tenants.js via SELECT *, so an older row without the column, or one that
+ * never finished an ingestion, keeps the plain "I do not know" wording).
+ * A stamp in the future counts as warming: that is clock skew on a shop
+ * whose ingestion just ran.
+ */
+export function isIndexWarming(tenant, now = new Date()) {
+  const stamp = tenant && tenant.last_ingested_at;
+  if (!stamp) return false;
+  const ingestedAt = new Date(stamp).getTime();
+  if (!Number.isFinite(ingestedAt)) return false;
+  return now.getTime() - ingestedAt < INDEX_WARMUP_MS;
+}
+
+/**
+ * Honest reply for the warm-up window: no product cards, and no claim that
+ * the shop's catalogue has no answer. `userMessage` is consulted only under
+ * lang "auto", exactly like noMatchFallback.
+ */
+export function indexWarmingReply(lang, userMessage) {
+  return { answer: INDEX_WARMING_BY_LANG[resolveLangForFallback(lang, userMessage)], products: [] };
+}
+
+// ---------------------------------------------------------------------------
 // Orchestration
 // ---------------------------------------------------------------------------
 
@@ -539,11 +594,20 @@ export async function runChat(env, { tenant, messages, lang, model = CHAT_MODEL_
     return { ...noMatchFallback(lang, tenant.contact_email, question), meta: { candidateCount: 0, flaggedInjection: false } };
   }
 
+  // Nothing to say, either because nothing was retrieved or because the
+  // model produced no answer. Right after an ingestion that is not the same
+  // statement as "the shop's products do not cover this": Vectorize is still
+  // catching up (see INDEX_WARMUP_MS), so say that instead of denying an
+  // answer the catalogue may well contain a minute later.
+  const emptyAnswerReply = (meta) => (isIndexWarming(tenant)
+    ? { ...indexWarmingReply(lang, question), meta: { ...meta, indexWarming: true } }
+    : { ...noMatchFallback(lang, tenant.contact_email, question), meta });
+
   const [queryVector] = await embedTexts(env.AI, [question]);
   const candidates = await retrieveCandidates(env, tenant.id, queryVector, { topK: TOP_K });
 
   if (candidates.length === 0) {
-    return { ...noMatchFallback(lang, tenant.contact_email, question), meta: { candidateCount: 0, flaggedInjection: false } };
+    return emptyAnswerReply({ candidateCount: 0, flaggedInjection: false });
   }
 
   const { flagged } = scanForInjection(candidates);
@@ -572,7 +636,7 @@ export async function runChat(env, { tenant, messages, lang, model = CHAT_MODEL_
     // best candidates as product links. Only an empty reply falls back.
     const prose = String(rawText || '').replace(/^```(json)?/i, '').replace(/```$/, '').trim();
     if (!prose) {
-      return { ...noMatchFallback(lang, tenant.contact_email, question), meta: { candidateCount: candidates.length, flaggedInjection: flagged, parseError: true } };
+      return emptyAnswerReply({ candidateCount: candidates.length, flaggedInjection: flagged, parseError: true });
     }
     const top = candidates.slice(0, 3).map((c) => ({ id: c.productId || c.id, title: c.title, url: c.url, price: c.price, currency: c.currency, image: c.image }));
     return { answer: capWords(polishAnswer(prose, lang, candidates), MAX_ANSWER_WORDS), products: top, meta: { candidateCount: candidates.length, flaggedInjection: flagged, userMessageInjection, parseError: true } };
@@ -583,7 +647,7 @@ export async function runChat(env, { tenant, messages, lang, model = CHAT_MODEL_
   // message (correct in each supported language) is shown instead of a
   // model-written refusal. No product cards next to a "do not know".
   if (!parsed.answer.trim()) {
-    return { ...noMatchFallback(lang, tenant.contact_email, question), meta: { candidateCount: candidates.length, flaggedInjection: flagged, userMessageInjection, noAnswer: true } };
+    return emptyAnswerReply({ candidateCount: candidates.length, flaggedInjection: flagged, userMessageInjection, noAnswer: true });
   }
 
   if (looksDegenerate(parsed.answer)) {
