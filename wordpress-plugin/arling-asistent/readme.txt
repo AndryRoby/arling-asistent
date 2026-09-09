@@ -4,7 +4,7 @@ Tags: woocommerce, chatbot, ai assistant, shopping assistant, gift finder
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.2.0
+Stable tag: 0.2.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -101,6 +101,9 @@ Click "Disconnect" on the settings page to immediately stop the widget from appe
 
 == Changelog ==
 
+= 0.2.1 =
+* The Plan section only offers plans that are a step up. A store already on Pro was shown "Upgrade to Starter" and "Upgrade to Pro" at the same time.
+
 = 0.2.0 =
 * Added an optional gift finder: a "Find a gift" button in the chat asks for whom, what budget and what interests, then suggests up to five products from your catalogue, each with one short reason. Switched off by default, tick "Gift finder" on the settings page to enable it.
 * The widget position setting (bottom right or bottom left) now actually takes effect. Earlier versions saved it but the widget ignored it.
@@ -117,6 +120,9 @@ Click "Disconnect" on the settings page to immediately stop the widget from appe
 * Initial release: connect flow, status polling, language/colour/position/display-scope settings, front-end widget loader.
 
 == Upgrade Notice ==
+
+= 0.2.1 =
+Small fix to the settings screen. No change on your storefront.
 
 = 0.2.0 =
 Adds the optional gift finder. Nothing changes on your storefront until you tick "Gift finder" on the settings page.
