@@ -1,10 +1,10 @@
 === ARLing Shopping Assistant for WooCommerce ===
 Contributors: arlingsk
-Tags: woocommerce, chatbot, ai assistant, shopping assistant, product finder
+Tags: woocommerce, chatbot, ai assistant, shopping assistant, gift finder
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.1.2
+Stable tag: 0.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -25,6 +25,7 @@ Setup takes a few minutes: connect your store from the WooCommerce menu, and ARL
 * Understands Slovak, Czech, English and German.
 * Refreshes its product knowledge automatically once a day.
 * Shows up to three matching products, with price and a link, alongside each answer.
+* Optional gift finder: a second button in the chat asks three questions (for whom, what budget, what interests) and suggests up to five gifts from your own catalogue, each with one short reason. Off until you switch it on.
 * Does not store conversation content: only anonymous daily counters (number of conversations, number of product clicks) are kept, to enforce the monthly plan quota.
 * Nothing loads on your storefront until you explicitly connect your store from the settings page.
 
@@ -59,7 +60,7 @@ You can disconnect at any time from the settings page, which immediately stops t
 3. Go to **WooCommerce > ARLing Shopping Assistant**.
 4. Enter a contact e-mail, read what will be sent, tick the consent checkbox, and click **Connect**.
 5. Wait for the status to change to "Ready" (usually a few minutes; the page refreshes itself while processing).
-6. Choose a language, colour mode, position and where the widget should appear, and click **Save settings**.
+6. Choose a language, colour mode, position, where the widget should appear, and whether to show the gift finder button, then click **Save settings**.
 
 == Frequently Asked Questions ==
 
@@ -83,6 +84,10 @@ Free up to 100 conversations a month, no card needed. Above that, 19 EUR a month
 
 Slovak, Czech, English and German. You can set one explicitly, or leave it on "Automatic" to follow your site's language.
 
+= Does it have a gift finder? =
+
+Yes, as an option you switch on. Tick "Gift finder" on the settings page and the chat widget gets a second button next to the chat bubble. It asks who the gift is for, what the budget is and what the person likes, then suggests up to five products from your own catalogue, each with one short reason. It is switched off by default and adds nothing at all to your storefront until you turn it on.
+
 = How do I remove the widget or the plugin entirely? =
 
 Click "Disconnect" on the settings page to immediately stop the widget from appearing on your site, without uninstalling the plugin. Deleting the plugin from the Plugins screen also removes all of its local settings from your database (see uninstall.php); it does not, by itself, delete your tenant data on ARLing's servers, see the Data Processing Agreement for how to request that.
@@ -94,6 +99,10 @@ Click "Disconnect" on the settings page to immediately stop the widget from appe
 3. The same widget answering a German question. The interface language follows the Language setting on the plugin's settings screen.
 
 == Changelog ==
+
+= 0.2.0 =
+* Added an optional gift finder: a "Find a gift" button in the chat asks for whom, what budget and what interests, then suggests up to five products from your catalogue, each with one short reason. Switched off by default, tick "Gift finder" on the settings page to enable it.
+* The widget position setting (bottom right or bottom left) now actually takes effect. Earlier versions saved it but the widget ignored it.
 
 = 0.1.2 =
 * Added screenshots to the plugin directory listing and corrected the screenshot descriptions to match them.
@@ -107,6 +116,9 @@ Click "Disconnect" on the settings page to immediately stop the widget from appe
 * Initial release: connect flow, status polling, language/colour/position/display-scope settings, front-end widget loader.
 
 == Upgrade Notice ==
+
+= 0.2.0 =
+Adds the optional gift finder. Nothing changes on your storefront until you tick "Gift finder" on the settings page.
 
 = 0.1.2 =
 Listing only: screenshots added. No code changes, no need to hurry.

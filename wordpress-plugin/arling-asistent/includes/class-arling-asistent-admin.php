@@ -157,6 +157,11 @@ class Arling_Asistent_Admin {
 		if ( false === get_option( 'arling_asistent_display_scope', false ) ) {
 			update_option( 'arling_asistent_display_scope', 'shop' );
 		}
+		// Gift finder is off by default: turning it on changes what shoppers
+		// see on the storefront, so it has to be an explicit merchant choice.
+		if ( false === get_option( 'arling_asistent_gift', false ) ) {
+			update_option( 'arling_asistent_gift', '0' );
+		}
 
 		$this->redirect_with_notice( 'success', __( 'Connected. Your product feed is now being processed, this can take a few minutes.', 'arling-asistent' ) );
 	}
@@ -204,10 +209,16 @@ class Arling_Asistent_Admin {
 			$scope = 'shop';
 		}
 
+		// An unticked checkbox is not posted at all, so a missing key means
+		// "off" here rather than "keep the previous value".
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce and capability already verified by require_capability_and_nonce() above.
+		$gift = ( isset( $_POST['arling_asistent_gift'] ) && '1' === sanitize_text_field( wp_unslash( $_POST['arling_asistent_gift'] ) ) ) ? '1' : '0';
+
 		update_option( 'arling_asistent_lang', $lang );
 		update_option( 'arling_asistent_color', $color );
 		update_option( 'arling_asistent_position', $position );
 		update_option( 'arling_asistent_display_scope', $scope );
+		update_option( 'arling_asistent_gift', $gift );
 
 		$this->redirect_with_notice( 'success', __( 'Settings saved.', 'arling-asistent' ) );
 	}
@@ -492,6 +503,7 @@ class Arling_Asistent_Admin {
 		$color    = get_option( 'arling_asistent_color', 'auto' );
 		$position = get_option( 'arling_asistent_position', 'bottom-right' );
 		$scope    = get_option( 'arling_asistent_display_scope', 'shop' );
+		$gift     = get_option( 'arling_asistent_gift', '0' );
 		?>
 		<h2><?php esc_html_e( 'Widget settings', 'arling-asistent' ); ?></h2>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
@@ -549,7 +561,7 @@ class Arling_Asistent_Admin {
 							}
 							?>
 						</select>
-						<p class="description"><?php esc_html_e( 'The current widget version always opens in the bottom-right corner; this setting will take effect once positioning support ships in the widget.', 'arling-asistent' ); ?></p>
+						<p class="description"><?php esc_html_e( 'Which bottom corner of your storefront the chat bubble sits in.', 'arling-asistent' ); ?></p>
 					</td>
 				</tr>
 				<tr>
@@ -567,6 +579,13 @@ class Arling_Asistent_Admin {
 							}
 							?>
 						</select>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="arling_asistent_gift"><?php esc_html_e( 'Gift finder', 'arling-asistent' ); ?></label></th>
+					<td>
+						<input type="checkbox" id="arling_asistent_gift" name="arling_asistent_gift" value="1" <?php checked( '1', $gift ); ?> />
+						<p class="description"><?php esc_html_e( 'Adds a Find a gift button to the chat: three questions (for whom, budget, interests) and up to five products from your catalogue.', 'arling-asistent' ); ?></p>
 					</td>
 				</tr>
 			</table>

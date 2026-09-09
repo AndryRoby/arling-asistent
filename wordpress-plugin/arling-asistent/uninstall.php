@@ -31,6 +31,7 @@ $arling_asistent_options = array(
 	'arling_asistent_color',
 	'arling_asistent_position',
 	'arling_asistent_display_scope',
+	'arling_asistent_gift',
 );
 
 foreach ( $arling_asistent_options as $arling_asistent_option ) {

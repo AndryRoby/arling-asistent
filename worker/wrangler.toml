@@ -54,6 +54,17 @@ database_id = "5db06a2c-7053-46a4-a70f-c35b03f1dc79"
 binding = "ASISTENT_CACHE"
 id = "848dd3f27004468c9003db53bbc48b94"
 
+# Uploaded files of the paid SEPA file check, POST /v1/kontrola/upload
+# (see src/upload.js), one prefix per Stripe Checkout Session:
+# kontrola/{session_id}/{ISO}.xml plus a .meta.json next to it.
+# Nahrane subory platenej kontroly. KV, nie R2: R2 nie je na ucte zapnute a
+# KV ma vstavane mazanie po lehote (expirationTtl v upload.js), takze sa
+# 30-dnova retencia nespolieha na pravidlo, ktore by niekto musel vytvorit.
+# Namespace vytvorit: npx wrangler kv namespace create KONTROLA
+[[kv_namespaces]]
+binding = "KONTROLA"
+id = "230a9baa3bd1444a99788fa0024106d6"
+
 # Daily feed refresh, 03:00 UTC.
 [triggers]
 crons = ["0 3 * * *"]
@@ -65,3 +76,9 @@ crons = ["0 3 * * *"]
 # which calls the /plan route after a Stripe payment (see that project's
 # README "ARLing Asistent billing"). Set with:
 #   wrangler secret put ADMIN_TOKEN
+
+# Secret (not a [vars] entry, never committed): the Stripe restricted/secret
+# key used by src/upload.js to read one Checkout Session and confirm it was
+# paid before accepting a file. Read access to Checkout Sessions is enough.
+# Without it every upload is refused with 503 (fail closed). Set with:
+#   wrangler secret put STRIPE_SECRET_KEY

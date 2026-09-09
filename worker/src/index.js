@@ -9,6 +9,10 @@
  *   POST /v1/chat                    -> chat.js
  *   POST /v1/gift                    -> gift.js (Gift Finder, a second mode
  *                                        of the same widget/quota/engine)
+ *   POST /v1/kontrola/upload         -> upload.js (the paid SEPA file
+ *                                        check: raw XML body, only for a
+ *                                        paid Stripe Checkout Session)
+ *   GET  /v1/kontrola/status         -> upload.js
  *   POST /v1/tenants                 -> onboarding.js
  *   GET  /v1/tenants/:id/status      -> onboarding.js
  *   POST /v1/tenants/:id/reingest    -> onboarding.js (admin only, X-Admin-Token)
@@ -35,6 +39,7 @@
 import { handleChatRoute } from './chat.js';
 import { handleGiftRoute } from './gift.js';
 import { handleCreateTenantRoute, handleTenantStatusRoute, handleReingestRoute, handleSetPlanRoute } from './onboarding.js';
+import { handleKontrolaUploadRoute, handleKontrolaStatusRoute } from './upload.js';
 import { parseAllowedOrigins, corsHeaders, InputTooLargeError } from './security.js';
 import { ValidationError } from './tenants.js';
 import widgetSource from './widget-src.js';
@@ -80,6 +85,13 @@ function isAiCapacityError(err) {
 // chat.js a gift.js overuje Origin proti [tenant.domain, ...ALLOWED_ORIGINS]
 // a bez znameho zakaznika vrati 403. Ziadne cookies sa neposielaju, takze
 // hviezdicka je tu spravna odpoved.
+//
+// /v1/kontrola/* is deliberately NOT in this set. Those two routes are
+// called from exactly one page, https://arling.sk/kontrola-suboru/nahrat/,
+// and arling.sk is already in ALLOWED_ORIGINS, so the ordinary
+// corsHeaders() preflight below answers them correctly. A wildcard exists
+// for the widget only because a customer's e-shop domain can never be in
+// that list in advance; here it would widen the surface for nothing.
 const VEREJNE_CESTY = new Set(['/v1/chat', '/v1/gift']);
 
 function handleOptions(request, env) {
@@ -141,6 +153,14 @@ export default {
 
       if (url.pathname === '/v1/gift' && request.method === 'POST') {
         return await handleGiftRoute(request, env, ctx);
+      }
+
+      if (url.pathname === '/v1/kontrola/upload' && request.method === 'POST') {
+        return await handleKontrolaUploadRoute(request, env, ctx);
+      }
+
+      if (url.pathname === '/v1/kontrola/status' && request.method === 'GET') {
+        return await handleKontrolaStatusRoute(request, env);
       }
 
       if (url.pathname === '/v1/tenants' && request.method === 'POST') {

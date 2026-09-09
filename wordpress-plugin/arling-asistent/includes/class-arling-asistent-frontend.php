@@ -136,9 +136,9 @@ class Arling_Asistent_Frontend {
 	}
 
 	/**
-	 * Add data-tenant / data-lang / data-color / data-endpoint (and a
-	 * forward-compatible data-position) attributes to our own script tag
-	 * only. wp_enqueue_script() has no built-in way to add arbitrary data
+	 * Add data-tenant / data-lang / data-color / data-endpoint (a
+	 * forward-compatible data-position, and data-gift when the gift finder
+	 * is switched on) attributes to our own script tag only. wp_enqueue_script() has no built-in way to add arbitrary data
 	 * attributes, so this is the documented WordPress way to do it.
 	 *
 	 * @param string $tag    The <script> tag HTML.
@@ -158,6 +158,12 @@ class Arling_Asistent_Frontend {
 
 		$color    = get_option( 'arling_asistent_color', 'auto' );
 		$position = get_option( 'arling_asistent_position', 'bottom-right' );
+		$gift     = get_option( 'arling_asistent_gift', '0' );
+
+		// The settings screen stores 'bottom-right' / 'bottom-left', the widget
+		// reads data-position as 'right' / 'left' (see widget.js). Without this
+		// mapping the setting was saved but never took effect.
+		$position = ( 'bottom-left' === $position ) ? 'left' : 'right';
 		$endpoint = apply_filters( 'arling_asistent_widget_endpoint', Arling_Asistent_Api::base_url() );
 
 		$attributes = sprintf(
@@ -168,6 +174,16 @@ class Arling_Asistent_Frontend {
 			esc_attr( $position ),
 			esc_url( untrailingslashit( $endpoint ) )
 		);
+
+		/*
+		 * data-gift is added only when the merchant switched the gift finder
+		 * on: the widget treats the attribute's absence as "no gift button and
+		 * no gift markup at all", so a store that left the setting off gets
+		 * exactly the same page it got before this option existed.
+		 */
+		if ( '1' === $gift ) {
+			$attributes .= sprintf( ' data-gift="%s"', esc_attr( $gift ) );
+		}
 
 		return str_replace( ' src=', $attributes . ' src=', $tag );
 	}

@@ -52,6 +52,47 @@ export function buildQuotaPingUrl(baseUrl, { event, tenantId, percent }) {
 }
 
 /**
+ * The same ping shape without a percentage, for one-off events that are not
+ * about a quota. Used by the paid SEPA file check (src/upload.js): when a
+ * customer uploads their file, Andrej has 24 hours of promised work waiting,
+ * so he needs to know immediately rather than by checking the bucket.
+ */
+export function buildEventPingUrl(baseUrl, { event, tenantId }) {
+  const url = new URL(baseUrl);
+  url.searchParams.set('e', event);
+  url.searchParams.set('t', tenantId);
+  return url.toString();
+}
+
+// Underscore like every other event name subscribe-service knows.
+export const KONTROLA_UPLOAD_EVENT = 'kontrola_upload';
+
+/**
+ * Ping the owner that a paid file check has arrived, with the Stripe
+ * Checkout Session id as the tenant field (that id is what identifies the
+ * order everywhere else: the R2 prefix, the Stripe dashboard, the e-mail).
+ *
+ * Resolves to true only if the ping actually went out; never rejects, so
+ * upload.js can fire it without a try/catch and the upload cannot fail
+ * because of a notification.
+ */
+export async function notifyKontrolaUpload(env, { sessionId } = {}) {
+  try {
+    const baseUrl = env && env.QUOTA_PING_URL !== undefined ? env.QUOTA_PING_URL : DEFAULT_QUOTA_PING_URL;
+    if (!baseUrl || !sessionId) return false;
+    const fetchImpl = (env && env.fetchImpl) || fetch;
+    const res = await fetchImpl(buildEventPingUrl(baseUrl, { event: KONTROLA_UPLOAD_EVENT, tenantId: sessionId }), { method: 'GET' });
+    if (res && res.ok === false) {
+      console.warn(`[arling-asistent] kontrola_upload ping for ${sessionId} returned HTTP ${res.status}`);
+    }
+    return true;
+  } catch (err) {
+    console.warn('[arling-asistent] kontrola_upload ping failed:', (err && err.message) || err);
+    return false;
+  }
+}
+
+/**
  * Fire the quota_80 / quota_100 pings that `usedBefore` -> `usedAfter` just
  * crossed, once per tenant per month. Resolves to the list of events that
  * were actually sent (for logging and tests); never rejects.
