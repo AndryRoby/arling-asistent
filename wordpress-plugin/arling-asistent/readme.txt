@@ -97,6 +97,7 @@ Click "Disconnect" on the settings page to immediately stop the widget from appe
 1. The "Connect your store" screen under WooCommerce > ARLing Shopping Assistant: the contact e-mail field, the full list of what will be sent, and the consent checkbox that has to be ticked before anything leaves your site.
 2. The chat widget answering an English question with two product suggestions, each with a real price, taken from our demo shop's own product feed.
 3. The same widget answering a German question. The interface language follows the Language setting on the plugin's settings screen.
+4. The settings screen once the store is connected: status, plan, conversations used this month, products indexed, and the widget settings below.
 
 == Changelog ==
 
