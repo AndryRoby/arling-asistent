@@ -3,7 +3,7 @@
  * Plugin Name:       ARLing Shopping Assistant for WooCommerce
  * Plugin URI:        https://arling.sk/asistent/
  * Description:       AI shopping assistant chat widget that answers customer questions from your own WooCommerce product feed. No conversation content is stored.
- * Version:           0.2.0
+ * Version:           0.2.1
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Requires Plugins:  woocommerce
@@ -66,7 +66,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * exists (see Arling_Asistent_Frontend::maybe_enqueue_widget()).
  */
 
-define( 'ARLING_ASISTENT_VERSION', '0.2.0' );
+define( 'ARLING_ASISTENT_VERSION', '0.2.1' );
 define( 'ARLING_ASISTENT_FILE', __FILE__ );
 define( 'ARLING_ASISTENT_DIR', plugin_dir_path( __FILE__ ) );
 define( 'ARLING_ASISTENT_URL', plugin_dir_url( __FILE__ ) );

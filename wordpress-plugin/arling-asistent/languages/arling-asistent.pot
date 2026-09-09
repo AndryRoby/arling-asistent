@@ -2,7 +2,7 @@
 # This file is distributed under the GPLv2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: ARLing Shopping Assistant for WooCommerce 0.2.0\n"
+"Project-Id-Version: ARLing Shopping Assistant for WooCommerce 0.2.1\n"
 "Report-Msgid-Bugs-To: https://arling.sk/asistent/\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -278,4 +278,8 @@ msgstr ""
 
 #: includes/class-arling-asistent-admin.php:533
 msgid "Privacy Policy"
+msgstr ""
+
+#: includes/class-arling-asistent-admin.php
+msgid "You are on the highest plan. Need a larger monthly limit? Write to andrej@arling.sk and we will set it up for you."
 msgstr ""

@@ -479,14 +479,28 @@ class Arling_Asistent_Admin {
 		$starter_link  = $this->build_upgrade_url( Arling_Asistent_Api::stripe_link_starter(), $tenant_id );
 		$pro_link      = $this->build_upgrade_url( Arling_Asistent_Api::stripe_link_pro(), $tenant_id );
 
-		echo '<h2>' . esc_html__( 'Upgrade', 'arling-asistent' ) . '</h2>';
+		// Only show plans that are actually a step up. A shop on Pro was offered
+		// "Upgrade to Starter" and "Upgrade to Pro" at the same time, which
+		// reads as a bug and undermines trust in the status table above it.
+		$rank         = array( 'free' => 0, 'starter' => 1, 'pro' => 2 );
+		$current_rank = isset( $rank[ $plan ] ) ? $rank[ $plan ] : 0;
+
+		echo '<h2>' . esc_html__( 'Plan', 'arling-asistent' ) . '</h2>';
 		echo '<p>' . esc_html__( 'Current plan', 'arling-asistent' ) . ': <b>' . esc_html( ucfirst( $plan ) ) . '</b></p>';
+
+		if ( $current_rank >= $rank['pro'] ) {
+			echo '<p class="description">' . esc_html__( 'You are on the highest plan. Need a larger monthly limit? Write to andrej@arling.sk and we will set it up for you.', 'arling-asistent' ) . '</p>';
+			return;
+		}
+
 		echo '<p>';
-		if ( $starter_link ) {
-			echo '<a class="button button-primary" href="' . esc_url( $starter_link ) . '" target="_blank" rel="noopener noreferrer">' .
-				esc_html__( 'Upgrade to Starter (19 EUR/month, up to 1,000 conversations)', 'arling-asistent' ) . '</a> ';
-		} else {
-			echo '<span class="button disabled" aria-disabled="true">' . esc_html__( 'Starter: coming soon', 'arling-asistent' ) . '</span> ';
+		if ( $current_rank < $rank['starter'] ) {
+			if ( $starter_link ) {
+				echo '<a class="button button-primary" href="' . esc_url( $starter_link ) . '" target="_blank" rel="noopener noreferrer">' .
+					esc_html__( 'Upgrade to Starter (19 EUR/month, up to 1,000 conversations)', 'arling-asistent' ) . '</a> ';
+			} else {
+				echo '<span class="button disabled" aria-disabled="true">' . esc_html__( 'Starter: coming soon', 'arling-asistent' ) . '</span> ';
+			}
 		}
 		if ( $pro_link ) {
 			echo '<a class="button button-primary" href="' . esc_url( $pro_link ) . '" target="_blank" rel="noopener noreferrer">' .
