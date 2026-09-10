@@ -43,8 +43,8 @@ import { fetchCheckoutSession, isAdmin, SESSION_ID_PATTERN } from './upload.js';
 
 export const KOD_TTL_SECONDS = 900; // 15 minut, ako v e-maile
 export const MAX_POKUSOV = 5;
-export const LIMIT_EMAIL_ZA_HODINU = 3;
-export const LIMIT_IP_ZA_HODINU = 10;
+export const LIMIT_EMAIL_ZA_HODINU = 5;
+export const LIMIT_IP_ZA_HODINU = 20;
 export const LIMIT_OKNO_SECONDS = 3600;
 export const TOKEN_TTL_SECONDS = 90 * 24 * 60 * 60; // 90 dni
 export const HRA_MAX_BYTES = 64 * 1024;
