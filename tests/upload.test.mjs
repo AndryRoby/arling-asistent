@@ -21,10 +21,16 @@ import {
   SESSION_ID_PATTERN,
 } from '../worker/src/upload.js';
 import { KONTROLA_UPLOAD_EVENT } from '../worker/src/notify.js';
-import { RETENTION_SECONDS, MAX_UPLOADS_PER_SESSION, CONSENT_HEADER, readConsent } from '../worker/src/upload.js';
+import {
+  RETENTION_SECONDS, MAX_UPLOADS_PER_SESSION, CONSENT_HEADER, readConsent,
+  deliveryKeys, isUploadKey, DELIVERY_BASENAMES,
+} from '../worker/src/upload.js';
 
 const SESSION = 'cs_test_a1b2c3d4e5f6g7h8i9j0';
+const SESSION_2 = 'cs_test_z9y8x7w6v5u4t3s2r1q0';
 const ORIGIN = 'https://arling.sk';
+const ADMIN = 'admin-token-for-tests';
+const API = 'https://arling-asistent.arling.workers.dev';
 const XML = '<?xml version="1.0" encoding="UTF-8"?><Document><CstmrCdtTrfInitn/></Document>';
 
 /**
@@ -69,13 +75,14 @@ function createCounterKv() {
  *   'paid' | 'unpaid' | 403 | 500 | 404 | 'throw'
  * Every outgoing call is recorded in env.outbound.
  */
-function makeEnv({ stripe = 'paid', bucket = createMockKv(), stripeKey = 'sk_test_x', counter = createCounterKv() } = {}) {
+function makeEnv({ stripe = 'paid', bucket = createMockKv(), stripeKey = 'sk_test_x', counter = createCounterKv(), adminToken = ADMIN } = {}) {
   const outbound = [];
   const env = {
     KONTROLA: bucket,
     ASISTENT_CACHE: counter,
     ALLOWED_ORIGINS: 'arling.sk',
     STRIPE_SECRET_KEY: stripeKey,
+    ADMIN_TOKEN: adminToken,
     outbound,
     fetchImpl: async (url, opts) => {
       const href = String(url);
@@ -88,11 +95,12 @@ function makeEnv({ stripe = 'paid', bucket = createMockKv(), stripeKey = 'sk_tes
       if (typeof stripe === 'number') {
         return { ok: false, status: stripe, json: async () => ({ error: { message: 'nope' } }) };
       }
+      const asked = (href.match(/checkout\/sessions\/([^/?]+)/) || [])[1] || SESSION;
       return {
         ok: true,
         status: 200,
         json: async () => ({
-          id: SESSION,
+          id: asked,
           object: 'checkout.session',
           payment_status: stripe === 'paid' ? 'paid' : 'unpaid',
           amount_total: 14900,
@@ -325,12 +333,12 @@ test('a missing or malformed session_id is 400 and costs no Stripe call', async 
 test('status says paid but not uploaded before the file arrives, and uploaded after it', async () => {
   const env = makeEnv();
   const before = await (await worker.fetch(statusRequest(), env, makeCtx())).json();
-  assert.deepEqual(before, { paid: true, uploaded: false, email_masked: 'z***@firma.sk' });
+  assert.deepEqual(before, { paid: true, uploaded: false, email_masked: 'z***@firma.sk', delivered: false, delivered_at: null });
 
   await worker.fetch(uploadRequest(XML), env, makeCtx());
 
   const after = await (await worker.fetch(statusRequest(), env, makeCtx())).json();
-  assert.deepEqual(after, { paid: true, uploaded: true, email_masked: 'z***@firma.sk' });
+  assert.deepEqual(after, { paid: true, uploaded: true, email_masked: 'z***@firma.sk', delivered: false, delivered_at: null });
 });
 
 test('status on an unpaid session reports paid false and does not claim an upload', async () => {
@@ -510,7 +518,7 @@ test('consent never appears in the upload or status response body: it is a recor
   const up = await (await worker.fetch(uploadRequest(XML, { consent: '1' }), env, makeCtx())).json();
   assert.equal('consent' in up, false);
   const st = await (await worker.fetch(statusRequest(), env, makeCtx())).json();
-  assert.deepEqual(Object.keys(st).sort(), ['email_masked', 'paid', 'uploaded']);
+  assert.deepEqual(Object.keys(st).sort(), ['delivered', 'delivered_at', 'email_masked', 'paid', 'uploaded']);
 });
 
 test('status and upload share the per-IP rate limit used by chat, so nobody can burn our Stripe quota', async () => {
@@ -527,4 +535,412 @@ test('status and upload share the per-IP rate limit used by chat, so nobody can 
   assert.equal(up.status, 429);
   // Neither call reached Stripe.
   assert.equal(env.outbound.filter((c) => c.url.startsWith('https://api.stripe.com/')).length, 0);
+});
+
+// ---------------------------------------------------------------------------
+// Delivery: admin routes, /status delivered fields, /download
+// ---------------------------------------------------------------------------
+
+const REPORT_MD = '# Správa z kontroly\n\nO prijatí súboru rozhoduje banka.\n';
+const FIXED_XML = '<?xml version="1.0" encoding="UTF-8"?><Document><CstmrCdtTrfInitn><GrpHdr><NbOfTxs>1</NbOfTxs></GrpHdr></CstmrCdtTrfInitn></Document>';
+
+function adminHeaders(token = ADMIN) {
+  return token === null ? {} : { 'X-Admin-Token': token };
+}
+
+function listRequest({ token = ADMIN } = {}) {
+  return new Request(`${API}/v1/kontrola/admin/uploads`, { method: 'GET', headers: adminHeaders(token) });
+}
+
+function adminGetRequest(key, { token = ADMIN } = {}) {
+  return new Request(`${API}/v1/kontrola/admin/upload?key=${encodeURIComponent(key)}`, { method: 'GET', headers: adminHeaders(token) });
+}
+
+function deliverRequest(body, { session = SESSION, token = ADMIN, raw = false } = {}) {
+  return new Request(`${API}/v1/kontrola/admin/deliver${session ? `?session_id=${session}` : ''}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...adminHeaders(token) },
+    body: raw ? body : JSON.stringify(body),
+  });
+}
+
+function downloadRequest({ session = SESSION, what = 'xml', origin = ORIGIN, ip } = {}) {
+  const headers = origin ? { Origin: origin } : {};
+  if (ip) headers['CF-Connecting-IP'] = ip;
+  const q = [session ? `session_id=${session}` : '', what ? `what=${what}` : ''].filter(Boolean).join('&');
+  return new Request(`${API}/v1/kontrola/download${q ? `?${q}` : ''}`, { method: 'GET', headers });
+}
+
+/** A full delivery on env for `session`; returns the deliver response body. */
+async function deliver(env, session = SESSION, lang = 'sk') {
+  const res = await worker.fetch(deliverRequest({ xml: FIXED_XML, report_md: REPORT_MD, lang }, { session }), env, makeCtx());
+  const text = await res.text();
+  assert.equal(res.status, 200, text);
+  return JSON.parse(text);
+}
+
+test('deliveryKeys and isUploadKey: the delivered files share the prefix but are never counted as uploads', () => {
+  const k = deliveryKeys(SESSION);
+  assert.equal(k.xml, `kontrola/${SESSION}/dodanie.xml`);
+  assert.equal(k.md, `kontrola/${SESSION}/dodanie.md`);
+  assert.equal(k.meta, `kontrola/${SESSION}/dodanie.meta.json`);
+  assert.equal(DELIVERY_BASENAMES.xml, 'dodanie.xml');
+  assert.equal(isUploadKey(`kontrola/${SESSION}/2026-09-10T08:00:00.000Z-abcd1234.xml`), true);
+  assert.equal(isUploadKey(k.xml), false);
+  assert.equal(isUploadKey(k.md), false);
+  assert.equal(isUploadKey(`kontrola/${SESSION}/2026-09-10T08:00:00.000Z-abcd1234.meta.json`), false);
+  assert.equal(isUploadKey(`other/${SESSION}/x.xml`), false);
+  assert.equal(isUploadKey(''), false);
+});
+
+test('every admin route answers 401 without the token, with a wrong token, and when no ADMIN_TOKEN is configured', async () => {
+  const cases = [
+    { name: 'no header', env: makeEnv(), token: null },
+    { name: 'wrong token', env: makeEnv(), token: 'nope' },
+    { name: 'no secret configured', env: makeEnv({ adminToken: '' }), token: ADMIN },
+    { name: 'no secret, empty header', env: makeEnv({ adminToken: '' }), token: '' },
+  ];
+  for (const c of cases) {
+    const list = await worker.fetch(listRequest({ token: c.token }), c.env, makeCtx());
+    assert.equal(list.status, 401, `list: ${c.name}`);
+    assert.equal((await list.json()).error, 'unauthorized');
+    const get = await worker.fetch(adminGetRequest(`kontrola/${SESSION}/x.xml`, { token: c.token }), c.env, makeCtx());
+    assert.equal(get.status, 401, `get: ${c.name}`);
+    const put = await worker.fetch(deliverRequest({ xml: FIXED_XML, report_md: REPORT_MD, lang: 'sk' }, { token: c.token }), c.env, makeCtx());
+    assert.equal(put.status, 401, `deliver: ${c.name}`);
+    assert.equal(c.env.KONTROLA._store.size, 0, `deliver wrote nothing: ${c.name}`);
+    // Admin routes never touch Stripe, authorised or not.
+    assert.equal(c.env.outbound.filter((x) => x.url.startsWith('https://api.stripe.com/')).length, 0, c.name);
+  }
+});
+
+test('admin list shows every upload newest first with the list metadata, and no Stripe call', async () => {
+  const env = makeEnv();
+  assert.equal((await worker.fetch(uploadRequest(XML, { session: SESSION, consent: '1' }), env, makeCtx())).status, 200);
+  // A later upload from a second session, without consent.
+  await new Promise((r) => setTimeout(r, 5));
+  const second = await (await worker.fetch(uploadRequest(`${XML}<!-- 2 -->`, { session: SESSION_2, consent: null }), env, makeCtx())).json();
+  env.outbound.length = 0;
+
+  const res = await worker.fetch(listRequest(), env, makeCtx());
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('cache-control'), 'no-store');
+  const body = await res.json();
+  assert.equal(body.uploads.length, 2);
+  assert.deepEqual(Object.keys(body.uploads[0]).sort(), ['consent', 'email_masked', 'key', 'session_id', 'size', 'uploaded_at']);
+
+  const [newest, oldest] = body.uploads;
+  assert.equal(newest.session_id, SESSION_2);
+  assert.equal(newest.uploaded_at, second.uploaded_at);
+  assert.ok(newest.key.startsWith(`kontrola/${SESSION_2}/`) && newest.key.endsWith('.xml'));
+  assert.equal(newest.size, new TextEncoder().encode(`${XML}<!-- 2 -->`).length);
+  assert.equal(newest.consent, false);
+  assert.equal(newest.email_masked, 'z***@firma.sk');
+
+  assert.equal(oldest.session_id, SESSION);
+  assert.equal(oldest.consent, true);
+  assert.equal(oldest.size, new TextEncoder().encode(XML).length);
+  assert.ok(oldest.uploaded_at < newest.uploaded_at);
+
+  assert.equal(env.outbound.length, 0, 'the list is built from KV metadata alone');
+  assert.equal(JSON.stringify(body).includes('zakaznik@firma.sk'), false);
+});
+
+test('admin list is empty on a fresh namespace and does not include delivered files as uploads', async () => {
+  const env = makeEnv();
+  assert.deepEqual(await (await worker.fetch(listRequest(), env, makeCtx())).json(), { uploads: [] });
+  await worker.fetch(uploadRequest(XML), env, makeCtx());
+  await deliver(env);
+  const body = await (await worker.fetch(listRequest(), env, makeCtx())).json();
+  assert.equal(body.uploads.length, 1);
+  assert.ok(!body.uploads[0].key.endsWith('dodanie.xml'));
+});
+
+test('admin list follows the KV cursor when the namespace is paged', async () => {
+  const env = makeEnv();
+  await worker.fetch(uploadRequest(XML, { session: SESSION }), env, makeCtx());
+  await worker.fetch(uploadRequest(XML, { session: SESSION_2 }), env, makeCtx());
+  const all = [...env.KONTROLA._store.values()].map((o) => ({ name: o.name, metadata: o.options.metadata }));
+  const calls = [];
+  env.KONTROLA.list = async (opts) => {
+    calls.push(opts);
+    if (!opts.cursor) return { keys: all.slice(0, 2), list_complete: false, cursor: 'c1' };
+    return { keys: all.slice(2), list_complete: true };
+  };
+  const body = await (await worker.fetch(listRequest(), env, makeCtx())).json();
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].cursor, 'c1');
+  assert.equal(body.uploads.length, 2);
+});
+
+test('admin list answers 503 when KV cannot be listed, rather than an empty list that looks like "no work"', async () => {
+  const env = makeEnv();
+  env.KONTROLA.list = async () => { throw new Error('kv down'); };
+  const res = await worker.fetch(listRequest(), env, makeCtx());
+  assert.equal(res.status, 503);
+  assert.equal((await res.json()).error, 'storage_unavailable');
+});
+
+test('admin upload GET returns the raw XML as application/xml, 404 when missing, 400 for a key outside kontrola/', async () => {
+  const env = makeEnv();
+  await worker.fetch(uploadRequest(XML), env, makeCtx());
+  const key = [...env.KONTROLA._store.keys()].find((k) => k.endsWith('.xml'));
+
+  const ok = await worker.fetch(adminGetRequest(key), env, makeCtx());
+  assert.equal(ok.status, 200);
+  assert.equal(ok.headers.get('content-type'), 'application/xml');
+  assert.equal(ok.headers.get('cache-control'), 'no-store');
+  assert.equal(await ok.text(), XML);
+
+  const missing = await worker.fetch(adminGetRequest(`kontrola/${SESSION}/2026-01-01T00:00:00.000Z-00000000.xml`), env, makeCtx());
+  assert.equal(missing.status, 404);
+  assert.equal((await missing.json()).error, 'not_found');
+
+  for (const bad of ['', 'tenants/x', `kontrola/../${SESSION}/x.xml`, 'kontrola/notasession/x.xml', `kontrola/${SESSION}/a/b.xml`, `kontrola/${SESSION}/x y.xml`]) {
+    const res = await worker.fetch(adminGetRequest(bad), env, makeCtx());
+    assert.equal(res.status, 400, JSON.stringify(bad));
+    assert.equal((await res.json()).error, 'bad_key');
+  }
+
+  // The meta record can be read too, as JSON.
+  const metaKey = [...env.KONTROLA._store.keys()].find((k) => k.endsWith('.meta.json'));
+  const meta = await worker.fetch(adminGetRequest(metaKey), env, makeCtx());
+  assert.equal(meta.status, 200);
+  assert.equal(meta.headers.get('content-type'), 'application/json');
+  assert.equal((await meta.json()).session_id, SESSION);
+});
+
+test('deliver stores dodanie.xml, dodanie.md and dodanie.meta.json with the 30-day TTL and reports delivered_at', async () => {
+  const env = makeEnv();
+  await worker.fetch(uploadRequest(XML), env, makeCtx());
+  const before = env.KONTROLA._store.size;
+
+  const body = await deliver(env, SESSION, 'de');
+  assert.equal(body.ok, true);
+  assert.ok(body.delivered_at);
+  assert.equal(body.lang, 'de');
+
+  const k = deliveryKeys(SESSION);
+  assert.equal(env.KONTROLA._store.size, before + 3);
+  assert.equal(await env.KONTROLA.get(k.xml, 'text'), FIXED_XML);
+  assert.equal(await env.KONTROLA.get(k.md, 'text'), REPORT_MD);
+  const meta = await env.KONTROLA.get(k.meta, 'json');
+  assert.equal(meta.delivered_at, body.delivered_at);
+  assert.equal(meta.lang, 'de');
+  assert.equal(meta.session_id, SESSION);
+  for (const key of [k.xml, k.md, k.meta]) {
+    assert.equal(env.KONTROLA._store.get(key).options.expirationTtl, RETENTION_SECONDS, key);
+  }
+  // No Stripe call for the delivery: the admin token is the whole credential here.
+  assert.equal(env.outbound.filter((x) => x.url.startsWith('https://api.stripe.com/')).length, 1, 'only the upload asked Stripe');
+});
+
+test('deliver answers 400 on a missing field, an unknown language, a non-XML file, bad JSON or a missing session_id', async () => {
+  const env = makeEnv();
+  const good = { xml: FIXED_XML, report_md: REPORT_MD, lang: 'sk' };
+  const cases = [
+    [{ ...good, xml: '' }, ['xml']],
+    [{ ...good, xml: undefined }, ['xml']],
+    [{ ...good, report_md: '   ' }, ['report_md']],
+    [{ ...good, lang: 'fr' }, ['lang']],
+    [{ ...good, lang: undefined }, ['lang']],
+    [{ lang: 'sk' }, ['xml', 'report_md']],
+    [{}, ['xml', 'report_md', 'lang']],
+  ];
+  for (const [payload, fields] of cases) {
+    const res = await worker.fetch(deliverRequest(payload), env, makeCtx());
+    assert.equal(res.status, 400, JSON.stringify(payload));
+    const body = await res.json();
+    assert.equal(body.error, 'missing_fields');
+    assert.deepEqual(body.fields, fields);
+  }
+  const notXml = await worker.fetch(deliverRequest({ ...good, xml: 'IBAN;suma' }), env, makeCtx());
+  assert.equal(notXml.status, 400);
+  assert.equal((await notXml.json()).error, 'not_xml');
+
+  const badJson = await worker.fetch(deliverRequest('{not json', { raw: true }), env, makeCtx());
+  assert.equal(badJson.status, 400);
+  assert.equal((await badJson.json()).error, 'bad_json');
+
+  const noSession = await worker.fetch(deliverRequest(good, { session: '' }), env, makeCtx());
+  assert.equal(noSession.status, 400);
+  assert.equal((await noSession.json()).error, 'missing_session_id');
+
+  assert.equal(env.KONTROLA._store.size, 0, 'nothing was written by any refused delivery');
+});
+
+test('a second deliver replaces the first: one delivery per order, the latest wins', async () => {
+  const env = makeEnv();
+  await deliver(env, SESSION, 'sk');
+  const res = await worker.fetch(deliverRequest({ xml: `${FIXED_XML}<!-- v2 -->`, report_md: `${REPORT_MD}v2\n`, lang: 'en' }), env, makeCtx());
+  assert.equal(res.status, 200);
+  const k = deliveryKeys(SESSION);
+  assert.equal(await env.KONTROLA.get(k.xml, 'text'), `${FIXED_XML}<!-- v2 -->`);
+  assert.equal((await env.KONTROLA.get(k.meta, 'json')).lang, 'en');
+  assert.equal([...env.KONTROLA._store.keys()].filter((x) => x.startsWith(`kontrola/${SESSION}/dodanie`)).length, 3);
+});
+
+test('status reports delivered false before and delivered true with both download paths after the delivery', async () => {
+  const env = makeEnv();
+  await worker.fetch(uploadRequest(XML), env, makeCtx());
+  const before = await (await worker.fetch(statusRequest(), env, makeCtx())).json();
+  assert.equal(before.delivered, false);
+  assert.equal(before.delivered_at, null);
+  assert.equal('download_xml' in before, false);
+  assert.equal('download_report' in before, false);
+
+  const d = await deliver(env);
+  const after = await (await worker.fetch(statusRequest(), env, makeCtx())).json();
+  assert.equal(after.paid, true);
+  assert.equal(after.uploaded, true);
+  assert.equal(after.delivered, true);
+  assert.equal(after.delivered_at, d.delivered_at);
+  assert.equal(after.download_xml, `/v1/kontrola/download?session_id=${SESSION}&what=xml`);
+  assert.equal(after.download_report, `/v1/kontrola/download?session_id=${SESSION}&what=report`);
+  // Relative paths only: the page adds the API host itself.
+  assert.ok(after.download_xml.startsWith('/'));
+});
+
+test('status on an unpaid session never reports a delivery, even when the files exist', async () => {
+  const bucket = createMockKv();
+  await deliver(makeEnv({ bucket }));
+  const body = await (await worker.fetch(statusRequest(), makeEnv({ bucket, stripe: 'unpaid' }), makeCtx())).json();
+  assert.equal(body.paid, false);
+  assert.equal(body.delivered, false);
+  assert.equal('download_xml' in body, false);
+});
+
+test('a delivery does not use up the upload allowance of the session', async () => {
+  const env = makeEnv();
+  await deliver(env);
+  for (let i = 0; i < MAX_UPLOADS_PER_SESSION; i++) {
+    const r = await worker.fetch(uploadRequest(XML), env, makeCtx());
+    assert.equal(r.status, 200, `upload ${i + 1} after delivery`);
+  }
+  assert.equal((await worker.fetch(uploadRequest(XML), env, makeCtx())).status, 429);
+});
+
+test('download before delivery is 404 not_delivered, after delivery the xml and the report come back as attachments', async () => {
+  const env = makeEnv();
+  await worker.fetch(uploadRequest(XML), env, makeCtx());
+
+  const early = await worker.fetch(downloadRequest({ what: 'xml' }), env, makeCtx());
+  assert.equal(early.status, 404);
+  assert.equal((await early.json()).error, 'not_delivered');
+  const earlyReport = await worker.fetch(downloadRequest({ what: 'report' }), env, makeCtx());
+  assert.equal(earlyReport.status, 404);
+
+  await deliver(env);
+
+  const xml = await worker.fetch(downloadRequest({ what: 'xml' }), env, makeCtx());
+  assert.equal(xml.status, 200);
+  assert.equal(xml.headers.get('content-disposition'), 'attachment; filename="opraveny-pain001.xml"');
+  assert.ok(xml.headers.get('content-type').startsWith('application/xml'));
+  assert.equal(xml.headers.get('cache-control'), 'no-store');
+  assert.equal(xml.headers.get('Access-Control-Allow-Origin'), ORIGIN);
+  assert.equal(await xml.text(), FIXED_XML);
+
+  const report = await worker.fetch(downloadRequest({ what: 'report' }), env, makeCtx());
+  assert.equal(report.status, 200);
+  assert.equal(report.headers.get('content-disposition'), 'attachment; filename="sprava.md"');
+  assert.ok(report.headers.get('content-type').startsWith('text/markdown'));
+  assert.equal(await report.text(), REPORT_MD);
+});
+
+test('download fails closed exactly like the upload: 402 unpaid, 404 unknown session, 503 when Stripe cannot be asked', async () => {
+  // The delivered files exist in every case below; only the verification differs.
+  const bucket = createMockKv();
+  await deliver(makeEnv({ bucket }));
+
+  const unpaid = await worker.fetch(downloadRequest(), makeEnv({ bucket, stripe: 'unpaid' }), makeCtx());
+  assert.equal(unpaid.status, 402);
+  assert.equal((await unpaid.json()).error, 'not_paid');
+
+  const unknown = await worker.fetch(downloadRequest(), makeEnv({ bucket, stripe: 404 }), makeCtx());
+  assert.equal(unknown.status, 404);
+  assert.equal((await unknown.json()).error, 'session_not_found');
+
+  for (const options of [{ stripe: 403 }, { stripe: 500 }, { stripe: 'throw' }, { stripeKey: '' }]) {
+    const res = await worker.fetch(downloadRequest(), makeEnv({ bucket, ...options }), makeCtx());
+    assert.equal(res.status, 503, JSON.stringify(options));
+    assert.equal((await res.json()).error, 'verification_unavailable');
+    assert.equal(res.headers.get('Access-Control-Allow-Origin'), ORIGIN);
+  }
+});
+
+test('download refuses a missing session_id, an unknown what, and never asks Stripe for either', async () => {
+  const env = makeEnv();
+  await deliver(env);
+  env.outbound.length = 0;
+  const noSession = await worker.fetch(downloadRequest({ session: '' }), env, makeCtx());
+  assert.equal(noSession.status, 400);
+  assert.equal((await noSession.json()).error, 'missing_session_id');
+  for (const what of ['', 'meta', 'xml/../report', 'XML']) {
+    const res = await worker.fetch(downloadRequest({ what }), env, makeCtx());
+    assert.equal(res.status, 400, JSON.stringify(what));
+    assert.equal((await res.json()).error, 'bad_what');
+  }
+  assert.equal(env.outbound.filter((x) => x.url.startsWith('https://api.stripe.com/')).length, 0);
+});
+
+test('a paid session cannot download another session\'s delivery: the key is derived from the verified session id only', async () => {
+  const env = makeEnv();
+  await deliver(env, SESSION);
+  const other = await worker.fetch(downloadRequest({ session: SESSION_2 }), env, makeCtx());
+  assert.equal(other.status, 404);
+  assert.equal((await other.json()).error, 'not_delivered');
+});
+
+test('download shares the per-IP rate limit with status and upload', async () => {
+  const env = makeEnv();
+  const { RATE_LIMIT_DEFAULT, RATE_LIMIT_WINDOW_SECONDS } = await import('../worker/src/security.js');
+  const key = `ratelimit:8.8.8.8:${Math.floor(Date.now() / (RATE_LIMIT_WINDOW_SECONDS * 1000))}`;
+  await env.ASISTENT_CACHE.put(key, String(RATE_LIMIT_DEFAULT));
+  const res = await worker.fetch(downloadRequest({ ip: '8.8.8.8' }), env, makeCtx());
+  assert.equal(res.status, 429);
+  assert.equal(env.outbound.filter((c) => c.url.startsWith('https://api.stripe.com/')).length, 0);
+});
+
+test('the OPTIONS preflight for /v1/kontrola/download passes for arling.sk and is refused for a stranger', async () => {
+  const env = makeEnv();
+  const okRes = await worker.fetch(new Request(`${API}/v1/kontrola/download`, {
+    method: 'OPTIONS', headers: { Origin: ORIGIN, 'Access-Control-Request-Method': 'GET' },
+  }), env, makeCtx());
+  assert.equal(okRes.status, 204);
+  assert.equal(okRes.headers.get('Access-Control-Allow-Origin'), ORIGIN);
+  const badRes = await worker.fetch(new Request(`${API}/v1/kontrola/download`, {
+    method: 'OPTIONS', headers: { Origin: 'https://zly.example', 'Access-Control-Request-Method': 'GET' },
+  }), env, makeCtx());
+  assert.equal(badRes.status, 403);
+});
+
+test('download from a stranger origin carries no CORS header, so a foreign page cannot read the file even with the session id', async () => {
+  const env = makeEnv();
+  await deliver(env);
+  const res = await worker.fetch(downloadRequest({ origin: 'https://zly.example' }), env, makeCtx());
+  assert.equal(res.status, 200); // the request itself is valid; the browser refuses to expose the body
+  assert.equal(res.headers.get('Access-Control-Allow-Origin'), null);
+});
+
+test('no delivery-side response body contains the full customer e-mail', async () => {
+  const env = makeEnv();
+  await worker.fetch(uploadRequest(XML), env, makeCtx());
+  await deliver(env);
+  const bodies = [];
+  bodies.push(await (await worker.fetch(listRequest(), env, makeCtx())).text());
+  bodies.push(await (await worker.fetch(statusRequest(), env, makeCtx())).text());
+  bodies.push(await (await worker.fetch(downloadRequest({ what: 'report' }), env, makeCtx())).text());
+  bodies.push(await (await worker.fetch(deliverRequest({ xml: FIXED_XML, report_md: REPORT_MD, lang: 'sk' }), env, makeCtx())).text());
+  for (const body of bodies) {
+    assert.equal(body.includes('zakaznik@firma.sk'), false, body);
+  }
+});
+
+test('the wrong method on a kontrola route is 404, not an admin action: GET deliver, POST uploads', async () => {
+  const env = makeEnv();
+  const getDeliver = await worker.fetch(new Request(`${API}/v1/kontrola/admin/deliver?session_id=${SESSION}`, { method: 'GET', headers: adminHeaders() }), env, makeCtx());
+  assert.equal(getDeliver.status, 404);
+  const postList = await worker.fetch(new Request(`${API}/v1/kontrola/admin/uploads`, { method: 'POST', headers: adminHeaders() }), env, makeCtx());
+  assert.equal(postList.status, 404);
+  assert.equal(env.KONTROLA._store.size, 0);
 });
