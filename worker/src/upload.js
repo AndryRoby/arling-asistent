@@ -7,6 +7,8 @@
  * over here instead of mailing it to andrej@arling.sk.
  *
  *   POST /v1/kontrola/upload?session_id=cs_...   raw XML body, max 5 MB
+ *        header X-Arling-Consent: 1              the customer ticked the box on
+ *                                                the upload page (see CONSENT_HEADER)
  *   GET  /v1/kontrola/status?session_id=cs_...   {paid, uploaded, email_masked}
  *
  * The only thing standing between the internet and this R2 bucket is the
@@ -59,6 +61,25 @@ export const RETENTION_SECONDS = 30 * 24 * 60 * 60;
  * to fill the namespace with 5 MB files.
  */
 export const MAX_UPLOADS_PER_SESSION = 5;
+
+/**
+ * The upload page asks the customer to tick one box before the file can be
+ * chosen: consent to the service starting before the 14-day withdrawal
+ * period ends, with the notice that the right of withdrawal is lost once
+ * the corrected file and the report are delivered (zákon 102/2014 Z. z.,
+ * § 7 ods. 6 písm. a), see ops/audit/2026-09-10/pravo-a-platby.md). The
+ * page sends the tick as this header with the value "1". The worker only
+ * RECORDS it, next to the file, so the declaration can be shown later; it
+ * does not refuse an upload without it. Refusing would lock out a paying
+ * customer whose browser still runs the page from before the box existed,
+ * and the record of "no consent" is itself the useful fact.
+ */
+export const CONSENT_HEADER = 'X-Arling-Consent';
+
+/** true only for the exact value the page sends; anything else is "not given". */
+export function readConsent(request) {
+  return String(request.headers.get(CONSENT_HEADER) || '').trim() === '1';
+}
 
 export function objectKeys(sessionId, isoTime, nonce) {
   // The time alone is not unique: a double-click or two files sent in the
@@ -245,6 +266,7 @@ export async function handleKontrolaUploadRoute(request, env, ctx) {
 
   const uploadedAt = new Date().toISOString();
   const keys = objectKeys(sessionId, uploadedAt, uploadNonce());
+  const consent = readConsent(request);
   const meta = {
     session_id: sessionId,
     email: (session.customer_details && session.customer_details.email) || null,
@@ -255,6 +277,10 @@ export async function handleKontrolaUploadRoute(request, env, ctx) {
     paid_at: Number.isFinite(session.created) ? new Date(session.created * 1000).toISOString() : null,
     uploaded_at: uploadedAt,
     size: buf.byteLength,
+    // The declaration from the upload page (CONSENT_HEADER). Stored per
+    // upload, not per session: it is the customer's statement that goes
+    // with this file, and a later upload carries its own.
+    consent,
   };
 
   if ((await countUploads(env.KONTROLA, sessionId)) >= MAX_UPLOADS_PER_SESSION) {
@@ -262,9 +288,11 @@ export async function handleKontrolaUploadRoute(request, env, ctx) {
   }
 
   // expirationTtl is the whole retention policy. See RETENTION_SECONDS.
-  await env.KONTROLA.put(keys.xml, buf, { expirationTtl: RETENTION_SECONDS, metadata: { contentType: 'application/xml' } });
+  // consent also sits in the KV key metadata, so a list() over the prefix
+  // shows it without reading every value.
+  await env.KONTROLA.put(keys.xml, buf, { expirationTtl: RETENTION_SECONDS, metadata: { contentType: 'application/xml', consent } });
   await env.KONTROLA.put(keys.meta, JSON.stringify(meta, null, 2), {
-    expirationTtl: RETENTION_SECONDS, metadata: { contentType: 'application/json' },
+    expirationTtl: RETENTION_SECONDS, metadata: { contentType: 'application/json', consent },
   });
 
   // The ntfy line telling Andrej there is work waiting. It must never fail
