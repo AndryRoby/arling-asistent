@@ -21,7 +21,7 @@ import {
   SESSION_ID_PATTERN,
 } from '../worker/src/upload.js';
 import { KONTROLA_UPLOAD_EVENT } from '../worker/src/notify.js';
-import { RETENTION_SECONDS, MAX_UPLOADS_PER_SESSION } from '../worker/src/upload.js';
+import { RETENTION_SECONDS, MAX_UPLOADS_PER_SESSION, CONSENT_HEADER, readConsent } from '../worker/src/upload.js';
 
 const SESSION = 'cs_test_a1b2c3d4e5f6g7h8i9j0';
 const ORIGIN = 'https://arling.sk';
@@ -106,10 +106,17 @@ function makeEnv({ stripe = 'paid', bucket = createMockKv(), stripeKey = 'sk_tes
   return env;
 }
 
-function uploadRequest(body, { session = SESSION, origin = ORIGIN, type = 'application/xml' } = {}) {
+/**
+ * `consent` is what the page sends in X-Arling-Consent: '1' after the
+ * customer ticked the box (the default here, like the page), any other
+ * string to test odd values, or null for a request without the header
+ * (a browser still running the page from before the box existed).
+ */
+function uploadRequest(body, { session = SESSION, origin = ORIGIN, type = 'application/xml', consent = '1' } = {}) {
   const url = `https://arling-asistent.arling.workers.dev/v1/kontrola/upload${session ? `?session_id=${session}` : ''}`;
   const headers = { 'Content-Type': type };
   if (origin) headers.Origin = origin;
+  if (consent !== null && consent !== undefined) headers[CONSENT_HEADER] = consent;
   return new Request(url, { method: 'POST', headers, body });
 }
 
@@ -194,6 +201,7 @@ test('a paid session plus an XML body stores the file and its metadata in KV and
   assert.equal(meta.paid_at, new Date(1757500000 * 1000).toISOString());
   assert.equal(meta.uploaded_at, body.uploaded_at);
   assert.equal(meta.size, new TextEncoder().encode(XML).length);
+  assert.equal(meta.consent, true); // the page sent X-Arling-Consent: 1
 
   // Stripe was actually asked, on the session-specific URL.
   assert.ok(env.outbound.some((c) => c.url === `https://api.stripe.com/v1/checkout/sessions/${SESSION}`));
@@ -430,6 +438,79 @@ test('a paid session cannot upload more than MAX_UPLOADS_PER_SESSION files', asy
   assert.equal((await res.json()).error, 'upload_limit');
   const xmls = [...env.KONTROLA._store.keys()].filter((k) => k.endsWith('.xml'));
   assert.equal(xmls.length, MAX_UPLOADS_PER_SESSION);
+});
+
+// ---------------------------------------------------------------------------
+// consent to the service starting before the withdrawal period ends
+// ---------------------------------------------------------------------------
+
+test('CONSENT_HEADER is the name the upload page sends, and readConsent accepts only the value 1', () => {
+  assert.equal(CONSENT_HEADER, 'X-Arling-Consent');
+  const req = (value) => new Request('https://x.example/', { headers: value === null ? {} : { [CONSENT_HEADER]: value } });
+  assert.equal(readConsent(req('1')), true);
+  assert.equal(readConsent(req(' 1 ')), true); // a stray space is not a refusal
+  assert.equal(readConsent(req(null)), false);
+  assert.equal(readConsent(req('')), false);
+  assert.equal(readConsent(req('0')), false);
+  assert.equal(readConsent(req('true')), false);
+  assert.equal(readConsent(req('yes')), false);
+});
+
+test('an upload with X-Arling-Consent: 1 records consent true in the meta record and in the KV key metadata', async () => {
+  const env = makeEnv();
+  const res = await worker.fetch(uploadRequest(XML, { consent: '1' }), env, makeCtx());
+  assert.equal(res.status, 200);
+  const objs = [...env.KONTROLA._store.values()];
+  assert.equal(objs.length, 2);
+  // Both keys carry it in the metadata, so list() alone shows who declared what.
+  for (const o of objs) assert.equal(o.options.metadata.consent, true, o.name);
+  const metaKey = objs.map((o) => o.name).find((k) => k.endsWith('.meta.json'));
+  assert.equal((await env.KONTROLA.get(metaKey, 'json')).consent, true);
+});
+
+test('an upload without the header is still accepted, and records consent false rather than guessing', async () => {
+  const env = makeEnv();
+  const res = await worker.fetch(uploadRequest(XML, { consent: null }), env, makeCtx());
+  // Not refused: a customer whose browser still runs the page from before
+  // the box existed has paid, and "no consent recorded" is the honest fact.
+  assert.equal(res.status, 200);
+  const objs = [...env.KONTROLA._store.values()];
+  assert.equal(objs.length, 2);
+  for (const o of objs) assert.equal(o.options.metadata.consent, false, o.name);
+  const metaKey = objs.map((o) => o.name).find((k) => k.endsWith('.meta.json'));
+  const meta = await env.KONTROLA.get(metaKey, 'json');
+  assert.equal(meta.consent, false);
+  assert.equal(typeof meta.consent, 'boolean'); // never undefined or a string
+});
+
+test('only the exact value 1 counts as consent; 0, true and yes are recorded as false', async () => {
+  for (const value of ['0', 'true', 'yes', '']) {
+    const env = makeEnv();
+    const res = await worker.fetch(uploadRequest(XML, { consent: value }), env, makeCtx());
+    assert.equal(res.status, 200, JSON.stringify(value));
+    const metaKey = [...env.KONTROLA._store.keys()].find((k) => k.endsWith('.meta.json'));
+    assert.equal((await env.KONTROLA.get(metaKey, 'json')).consent, false, JSON.stringify(value));
+  }
+});
+
+test('consent is per upload: a second file without the header does not inherit the consent of the first one', async () => {
+  const env = makeEnv();
+  assert.equal((await worker.fetch(uploadRequest(XML, { consent: '1' }), env, makeCtx())).status, 200);
+  assert.equal((await worker.fetch(uploadRequest(XML, { consent: null }), env, makeCtx())).status, 200);
+  const metas = [];
+  for (const k of [...env.KONTROLA._store.keys()].filter((x) => x.endsWith('.meta.json')).sort()) {
+    metas.push(await env.KONTROLA.get(k, 'json'));
+  }
+  assert.equal(metas.length, 2);
+  assert.deepEqual(metas.map((m) => m.consent).sort(), [false, true]);
+});
+
+test('consent never appears in the upload or status response body: it is a record, not something the page reads back', async () => {
+  const env = makeEnv();
+  const up = await (await worker.fetch(uploadRequest(XML, { consent: '1' }), env, makeCtx())).json();
+  assert.equal('consent' in up, false);
+  const st = await (await worker.fetch(statusRequest(), env, makeCtx())).json();
+  assert.deepEqual(Object.keys(st).sort(), ['email_masked', 'paid', 'uploaded']);
 });
 
 test('status and upload share the per-IP rate limit used by chat, so nobody can burn our Stripe quota', async () => {
