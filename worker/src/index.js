@@ -13,6 +13,11 @@
  *                                        check: raw XML body, only for a
  *                                        paid Stripe Checkout Session)
  *   GET  /v1/kontrola/status         -> upload.js
+ *   GET  /v1/kontrola/download       -> upload.js (the delivered result, same
+ *                                        paid-session check as the upload)
+ *   GET  /v1/kontrola/admin/uploads  -> upload.js (admin only, X-Admin-Token)
+ *   GET  /v1/kontrola/admin/upload   -> upload.js (admin only)
+ *   PUT  /v1/kontrola/admin/deliver  -> upload.js (admin only)
  *   POST /v1/tenants                 -> onboarding.js
  *   GET  /v1/tenants/:id/status      -> onboarding.js
  *   POST /v1/tenants/:id/reingest    -> onboarding.js (admin only, X-Admin-Token)
@@ -39,7 +44,14 @@
 import { handleChatRoute } from './chat.js';
 import { handleGiftRoute } from './gift.js';
 import { handleCreateTenantRoute, handleTenantStatusRoute, handleReingestRoute, handleSetPlanRoute } from './onboarding.js';
-import { handleKontrolaUploadRoute, handleKontrolaStatusRoute } from './upload.js';
+import {
+  handleKontrolaUploadRoute,
+  handleKontrolaStatusRoute,
+  handleKontrolaDownloadRoute,
+  handleKontrolaAdminUploadsRoute,
+  handleKontrolaAdminUploadRoute,
+  handleKontrolaAdminDeliverRoute,
+} from './upload.js';
 import { parseAllowedOrigins, corsHeaders, InputTooLargeError } from './security.js';
 import { ValidationError } from './tenants.js';
 import widgetSource from './widget-src.js';
@@ -161,6 +173,22 @@ export default {
 
       if (url.pathname === '/v1/kontrola/status' && request.method === 'GET') {
         return await handleKontrolaStatusRoute(request, env);
+      }
+
+      if (url.pathname === '/v1/kontrola/download' && request.method === 'GET') {
+        return await handleKontrolaDownloadRoute(request, env);
+      }
+
+      if (url.pathname === '/v1/kontrola/admin/uploads' && request.method === 'GET') {
+        return await handleKontrolaAdminUploadsRoute(request, env);
+      }
+
+      if (url.pathname === '/v1/kontrola/admin/upload' && request.method === 'GET') {
+        return await handleKontrolaAdminUploadRoute(request, env);
+      }
+
+      if (url.pathname === '/v1/kontrola/admin/deliver' && request.method === 'PUT') {
+        return await handleKontrolaAdminDeliverRoute(request, env);
       }
 
       if (url.pathname === '/v1/tenants' && request.method === 'POST') {
