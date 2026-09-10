@@ -425,6 +425,9 @@ export async function handleKontrolaStatusRoute(request, env) {
     // Amount lets the Doctor page tell a 29 EUR fix session from the
     // 149 EUR check session; both are "paid".
     amount_total: typeof session.amount_total === 'number' ? session.amount_total : null,
+    // Amount before a promotion code. The GDPR page checks this one, so a
+    // discounted 39 EUR pack (code UCTOVNIK, 10 EUR off) still unlocks.
+    amount_subtotal: typeof session.amount_subtotal === 'number' ? session.amount_subtotal : null,
     currency: session.currency || null,
     // false for a Stripe test-mode session (rehearsal with a test card).
     livemode: session.livemode !== false,

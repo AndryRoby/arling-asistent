@@ -105,6 +105,7 @@ function makeEnv({ stripe = 'paid', bucket = createMockKv(), stripeKey = 'sk_liv
           object: 'checkout.session',
           payment_status: stripe === 'paid' ? 'paid' : 'unpaid',
           amount_total: amount,
+          amount_subtotal: amount,
           currency: 'eur',
           ...(livemode === undefined ? {} : { livemode }),
           created: 1757500000,
@@ -381,12 +382,27 @@ test('a cs_live_ session is read with the live key', async () => {
 test('status says paid but not uploaded before the file arrives, and uploaded after it', async () => {
   const env = makeEnv();
   const before = await (await worker.fetch(statusRequest(), env, makeCtx())).json();
-  assert.deepEqual(before, { paid: true, uploaded: false, amount_total: 14900, currency: 'eur', livemode: true, email_masked: 'z***@firma.sk', delivered: false, delivered_at: null });
+  assert.deepEqual(before, { paid: true, uploaded: false, amount_total: 14900, amount_subtotal: 14900, currency: 'eur', livemode: true, email_masked: 'z***@firma.sk', delivered: false, delivered_at: null });
 
   await worker.fetch(uploadRequest(XML), env, makeCtx());
 
   const after = await (await worker.fetch(statusRequest(), env, makeCtx())).json();
-  assert.deepEqual(after, { paid: true, uploaded: true, amount_total: 14900, currency: 'eur', livemode: true, email_masked: 'z***@firma.sk', delivered: false, delivered_at: null });
+  assert.deepEqual(after, { paid: true, uploaded: true, amount_total: 14900, amount_subtotal: 14900, currency: 'eur', livemode: true, email_masked: 'z***@firma.sk', delivered: false, delivered_at: null });
+});
+
+test('status carries amount_subtotal (price before a promotion code) so a discounted pack still unlocks', async () => {
+  const env = makeEnv();
+  const inner = env.fetchImpl;
+  env.fetchImpl = async (url, opts) => {
+    const r = await inner(url, opts);
+    if (!String(url).includes('/v1/checkout/sessions/')) return r;
+    const body = await r.json();
+    return { ok: true, status: 200, json: async () => ({ ...body, amount_total: 2900, amount_subtotal: 3900 }) };
+  };
+  const st = await (await worker.fetch(statusRequest(), env, makeCtx())).json();
+  assert.equal(st.paid, true);
+  assert.equal(st.amount_total, 2900);
+  assert.equal(st.amount_subtotal, 3900);
 });
 
 test('status on an unpaid session reports paid false and does not claim an upload', async () => {
@@ -566,7 +582,7 @@ test('consent never appears in the upload or status response body: it is a recor
   const up = await (await worker.fetch(uploadRequest(XML, { consent: '1' }), env, makeCtx())).json();
   assert.equal('consent' in up, false);
   const st = await (await worker.fetch(statusRequest(), env, makeCtx())).json();
-  assert.deepEqual(Object.keys(st).sort(), ['amount_total', 'currency', 'delivered', 'delivered_at', 'email_masked', 'livemode', 'paid', 'uploaded']);
+  assert.deepEqual(Object.keys(st).sort(), ['amount_subtotal', 'amount_total', 'currency', 'delivered', 'delivered_at', 'email_masked', 'livemode', 'paid', 'uploaded']);
 });
 
 test('status and upload share the per-IP rate limit used by chat, so nobody can burn our Stripe quota', async () => {
