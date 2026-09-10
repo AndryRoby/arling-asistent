@@ -74,6 +74,10 @@ export const SESSION_ID_PATTERN = /^cs_[A-Za-z0-9_-]{8,200}$/;
  * remember to create. Values up to 25 MB are fine for a 5 MB cap.
  */
 export const R2_PREFIX = 'kontrola';
+// The 149 EUR check is the only product whose session may upload a file.
+// A cheaper checkout (the 29 EUR self-service address fix on the Doctor
+// page) is paid, but must not open the human service; 402 wrong_product.
+export const MIN_UPLOAD_AMOUNT_CENTS = 14900;
 export const RETENTION_SECONDS = 30 * 24 * 60 * 60;
 /**
  * A paid session may upload a few exports (one per bank is plausible), but
@@ -320,6 +324,9 @@ export async function handleKontrolaUploadRoute(request, env, ctx) {
     // whose whole job is "you just paid, now hand over the file".
     return jsonResponse(request, env, { error: 'not_paid', payment_status: session.payment_status || 'unknown' }, 402);
   }
+  if (typeof session.amount_total === 'number' && session.amount_total < MIN_UPLOAD_AMOUNT_CENTS) {
+    return jsonResponse(request, env, { error: 'wrong_product', amount_total: session.amount_total }, 402);
+  }
 
   const buf = await request.arrayBuffer();
   if (buf.byteLength > MAX_UPLOAD_BYTES) {
@@ -404,6 +411,10 @@ export async function handleKontrolaStatusRoute(request, env) {
   const body = {
     paid,
     uploaded,
+    // Amount lets the Doctor page tell a 29 EUR fix session from the
+    // 149 EUR check session; both are "paid".
+    amount_total: typeof session.amount_total === 'number' ? session.amount_total : null,
+    currency: session.currency || null,
     email_masked: maskEmail(session.customer_details && session.customer_details.email),
     delivered: !!delivery,
     delivered_at: delivery ? delivery.delivered_at || null : null,
