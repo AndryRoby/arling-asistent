@@ -75,13 +75,14 @@ function createCounterKv() {
  *   'paid' | 'unpaid' | 403 | 500 | 404 | 'throw'
  * Every outgoing call is recorded in env.outbound.
  */
-function makeEnv({ stripe = 'paid', bucket = createMockKv(), stripeKey = 'sk_test_x', counter = createCounterKv(), adminToken = ADMIN, amount = 14900 } = {}) {
+function makeEnv({ stripe = 'paid', bucket = createMockKv(), stripeKey = 'sk_live_x', testKey = stripeKey === '' ? '' : 'sk_test_y', counter = createCounterKv(), adminToken = ADMIN, amount = 14900, livemode } = {}) {
   const outbound = [];
   const env = {
     KONTROLA: bucket,
     ASISTENT_CACHE: counter,
     ALLOWED_ORIGINS: 'arling.sk',
     STRIPE_SECRET_KEY: stripeKey,
+    STRIPE_TEST_SECRET_KEY: testKey,
     ADMIN_TOKEN: adminToken,
     outbound,
     fetchImpl: async (url, opts) => {
@@ -105,6 +106,7 @@ function makeEnv({ stripe = 'paid', bucket = createMockKv(), stripeKey = 'sk_tes
           payment_status: stripe === 'paid' ? 'paid' : 'unpaid',
           amount_total: amount,
           currency: 'eur',
+          ...(livemode === undefined ? {} : { livemode }),
           created: 1757500000,
           customer_details: { email: 'zakaznik@firma.sk' },
         }),
@@ -340,15 +342,51 @@ test('a paid 29 EUR session (self-service fix) is refused by upload with 402 wro
   assert.equal((await bucket.list({ prefix: 'kontrola/' })).keys.length, 0);
 });
 
+test('a test-mode session (livemode false) is refused by upload with 402 test_mode, status reports livemode false', async () => {
+  const bucket = createMockKv();
+  const env = makeEnv({ bucket, livemode: false });
+  const res = await worker.fetch(uploadRequest(XML), env, makeCtx());
+  assert.equal(res.status, 402);
+  assert.equal((await res.json()).error, 'test_mode');
+  assert.equal((await bucket.list({ prefix: 'kontrola/' })).keys.length, 0);
+  const st = await (await worker.fetch(statusRequest(), env, makeCtx())).json();
+  assert.equal(st.paid, true);
+  assert.equal(st.livemode, false);
+});
+
+test('a cs_test_ session is read with the test key; without a test key it is unavailable and the live key is never used', async () => {
+  const env = makeEnv();
+  await worker.fetch(statusRequest(), env, makeCtx());
+  const call = env.outbound.find((o) => o.url.includes('checkout/sessions/'));
+  assert.ok(call, 'Stripe was called');
+  assert.equal(call.opts.headers.Authorization, `Basic ${Buffer.from('sk_test_y:').toString('base64')}`);
+
+  const bez = makeEnv({ testKey: '' });
+  const res = await worker.fetch(statusRequest(), bez, makeCtx());
+  assert.equal(res.status, 503);
+  assert.equal((await res.json()).error, 'verification_unavailable');
+  assert.equal(bez.outbound.filter((o) => o.url.includes('api.stripe.com')).length, 0);
+});
+
+test('a cs_live_ session is read with the live key', async () => {
+  const env = makeEnv();
+  const live = 'cs_live_a1b2c3d4e5f6g7h8i9j0';
+  const res = await worker.fetch(statusRequest({ session: live }), env, makeCtx());
+  assert.equal(res.status, 200);
+  const call = env.outbound.find((o) => o.url.includes('checkout/sessions/'));
+  assert.equal(call.opts.headers.Authorization, `Basic ${Buffer.from('sk_live_x:').toString('base64')}`);
+  assert.equal((await res.json()).livemode, true);
+});
+
 test('status says paid but not uploaded before the file arrives, and uploaded after it', async () => {
   const env = makeEnv();
   const before = await (await worker.fetch(statusRequest(), env, makeCtx())).json();
-  assert.deepEqual(before, { paid: true, uploaded: false, amount_total: 14900, currency: 'eur', email_masked: 'z***@firma.sk', delivered: false, delivered_at: null });
+  assert.deepEqual(before, { paid: true, uploaded: false, amount_total: 14900, currency: 'eur', livemode: true, email_masked: 'z***@firma.sk', delivered: false, delivered_at: null });
 
   await worker.fetch(uploadRequest(XML), env, makeCtx());
 
   const after = await (await worker.fetch(statusRequest(), env, makeCtx())).json();
-  assert.deepEqual(after, { paid: true, uploaded: true, amount_total: 14900, currency: 'eur', email_masked: 'z***@firma.sk', delivered: false, delivered_at: null });
+  assert.deepEqual(after, { paid: true, uploaded: true, amount_total: 14900, currency: 'eur', livemode: true, email_masked: 'z***@firma.sk', delivered: false, delivered_at: null });
 });
 
 test('status on an unpaid session reports paid false and does not claim an upload', async () => {
@@ -528,7 +566,7 @@ test('consent never appears in the upload or status response body: it is a recor
   const up = await (await worker.fetch(uploadRequest(XML, { consent: '1' }), env, makeCtx())).json();
   assert.equal('consent' in up, false);
   const st = await (await worker.fetch(statusRequest(), env, makeCtx())).json();
-  assert.deepEqual(Object.keys(st).sort(), ['amount_total', 'currency', 'delivered', 'delivered_at', 'email_masked', 'paid', 'uploaded']);
+  assert.deepEqual(Object.keys(st).sort(), ['amount_total', 'currency', 'delivered', 'delivered_at', 'email_masked', 'livemode', 'paid', 'uploaded']);
 });
 
 test('status and upload share the per-IP rate limit used by chat, so nobody can burn our Stripe quota', async () => {
