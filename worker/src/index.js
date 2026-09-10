@@ -18,6 +18,15 @@
  *   GET  /v1/kontrola/admin/uploads  -> upload.js (admin only, X-Admin-Token)
  *   GET  /v1/kontrola/admin/upload   -> upload.js (admin only)
  *   PUT  /v1/kontrola/admin/deliver  -> upload.js (admin only)
+ *   POST /v1/ucet/kod                -> ucet.js (e-mail login: send a 6-digit code)
+ *   POST /v1/ucet/over               -> ucet.js (verify the code, returns a Bearer token)
+ *   GET  /v1/ucet/ja                 -> ucet.js (Bearer; account, purchases, subscriptions)
+ *   DELETE /v1/ucet/ja               -> ucet.js (Bearer; "forget me", purchases kept)
+ *   POST /v1/ucet/nakup-session      -> ucet.js (Bearer; attach one paid Checkout Session)
+ *   PUT  /v1/ucet/nakup              -> ucet.js (admin only, X-Admin-Token; licence-service webhook)
+ *   GET  /v1/ucet/hra/:hra           -> ucet.js (Bearer; cross-device game state, opaque JSON)
+ *   PUT  /v1/ucet/hra/:hra           -> ucet.js (Bearer; same, max 64 kB)
+ *   POST /v1/ucet/odhlasit           -> ucet.js (Bearer; invalidate every token for this account)
  *   POST /v1/tenants                 -> onboarding.js
  *   GET  /v1/tenants/:id/status      -> onboarding.js
  *   POST /v1/tenants/:id/reingest    -> onboarding.js (admin only, X-Admin-Token)
@@ -52,6 +61,17 @@ import {
   handleKontrolaAdminUploadRoute,
   handleKontrolaAdminDeliverRoute,
 } from './upload.js';
+import {
+  handleUcetKodRoute,
+  handleUcetOverRoute,
+  handleUcetJaRoute,
+  handleUcetDeleteRoute,
+  handleUcetNakupSessionRoute,
+  handleUcetNakupRoute,
+  handleUcetHraGetRoute,
+  handleUcetHraPutRoute,
+  handleUcetOdhlasitRoute,
+} from './ucet.js';
 import { parseAllowedOrigins, corsHeaders, InputTooLargeError } from './security.js';
 import { ValidationError } from './tenants.js';
 import widgetSource from './widget-src.js';
@@ -189,6 +209,42 @@ export default {
 
       if (url.pathname === '/v1/kontrola/admin/deliver' && request.method === 'PUT') {
         return await handleKontrolaAdminDeliverRoute(request, env);
+      }
+
+      if (url.pathname === '/v1/ucet/kod' && request.method === 'POST') {
+        return await handleUcetKodRoute(request, env);
+      }
+
+      if (url.pathname === '/v1/ucet/over' && request.method === 'POST') {
+        return await handleUcetOverRoute(request, env);
+      }
+
+      if (url.pathname === '/v1/ucet/ja' && request.method === 'GET') {
+        return await handleUcetJaRoute(request, env);
+      }
+
+      if (url.pathname === '/v1/ucet/ja' && request.method === 'DELETE') {
+        return await handleUcetDeleteRoute(request, env);
+      }
+
+      if (url.pathname === '/v1/ucet/nakup-session' && request.method === 'POST') {
+        return await handleUcetNakupSessionRoute(request, env);
+      }
+
+      if (url.pathname === '/v1/ucet/nakup' && request.method === 'PUT') {
+        return await handleUcetNakupRoute(request, env);
+      }
+
+      if (url.pathname === '/v1/ucet/odhlasit' && request.method === 'POST') {
+        return await handleUcetOdhlasitRoute(request, env);
+      }
+
+      const hraMatch = url.pathname.match(/^\/v1\/ucet\/hra\/([^/]+)$/);
+      if (hraMatch && request.method === 'GET') {
+        return await handleUcetHraGetRoute(request, env, hraMatch[1]);
+      }
+      if (hraMatch && request.method === 'PUT') {
+        return await handleUcetHraPutRoute(request, env, hraMatch[1]);
       }
 
       if (url.pathname === '/v1/tenants' && request.method === 'POST') {

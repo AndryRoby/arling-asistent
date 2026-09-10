@@ -15,6 +15,9 @@ enabled = true
 # always allowed automatically once created (see src/security.js).
 [vars]
 ALLOWED_ORIGINS = "arling.sk"
+# Stripe zakaznicky portal (sprava karty, zrusenie predplatneho), verejny
+# odkaz, nie tajomstvo. Vraciaj sa nezmeneny v GET /v1/ucet/ja (src/ucet.js).
+STRIPE_PORTAL_URL = "https://billing.stripe.com/p/login/3cIaER9M63hNeFcg8B4ko00"
 # Denny strop na Workers AI v neuronoch (viac v src/budget.js).
 # 9500 je zamerne pod bezplatnou dennou davkou 10 000, takze kym to nezvysime,
 # nad ramec pausalu 5 USD nezaplatime nic. Pri prvom platiacom zakaznikovi
@@ -82,3 +85,21 @@ crons = ["0 3 * * *"]
 # paid before accepting a file. Read access to Checkout Sessions is enough.
 # Without it every upload is refused with 503 (fail closed). Set with:
 #   wrangler secret put STRIPE_SECRET_KEY
+# Same key is reused by src/ucet.js for the Stripe purchase lookups (A.2
+# backfill, A.4 nakup-session).
+
+# Secret (not a [vars] entry, never committed): HMAC-SHA256 key (base64,
+# e.g. `openssl rand -base64 32`) that signs the /v1/ucet/* Bearer token
+# (src/ucet.js). Without it every /v1/ucet/* route, including the admin
+# PUT /v1/ucet/nakup, answers 503 {error:'ucet_unavailable'} - the account
+# system stays off rather than issue tokens nobody can invalidate. Set with:
+#   wrangler secret put UCET_TAJOMSTVO
+
+# Secret (not a [vars] entry, never committed): Resend API key used by
+# src/ucet.js (posliKodEmailom) to send the 6-digit login code. Without it
+# POST /v1/ucet/kod answers 503 {error:'mail_unavailable'} and discards the
+# code - no account can be silently half-created. Resend's free tier
+# (3 000 e-mails/month) is enough for this. arling.sk needs SPF/DKIM DNS
+# records before Resend will actually deliver (see ops/spec-ucet.md, časť C).
+# Set with:
+#   wrangler secret put RESEND_API_KEY

@@ -55,13 +55,20 @@ export function parseAllowedOrigins(envValue) {
     .filter(Boolean);
 }
 
-/** Build CORS response headers for a request, or null if the origin is not allowed. */
+/**
+ * Build CORS response headers for a request, or null if the origin is not
+ * allowed. PUT and DELETE, and the Authorization/X-Admin-Token headers, are
+ * here for /v1/ucet/* (ucet.js): a Bearer token authenticates the account
+ * routes, X-Admin-Token the one admin write, and the game-state and
+ * "forget me" routes need PUT/DELETE. Every other caller only ever sends
+ * headers/methods it already used, so this is purely additive.
+ */
 export function corsHeaders(origin, allowedDomains) {
   if (!isOriginAllowed(origin, allowedDomains)) return null;
   return {
     'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Methods': 'POST, GET, PATCH, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Arling-Consent',
+    'Access-Control-Allow-Methods': 'POST, GET, PUT, PATCH, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Arling-Consent, Authorization, X-Admin-Token',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
   };
