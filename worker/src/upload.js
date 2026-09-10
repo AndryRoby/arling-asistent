@@ -9,7 +9,7 @@
  *   POST /v1/kontrola/upload?session_id=cs_...   raw XML body, max 5 MB
  *        header X-Arling-Consent: 1              the customer ticked the box on
  *                                                the upload page (see CONSENT_HEADER)
- *   GET  /v1/kontrola/status?session_id=cs_...   {paid, uploaded, email_masked,
+ *   GET  /v1/kontrola/status?session_id=cs_...   {paid, uploaded, livemode, email_masked,
  *                                                 delivered, delivered_at,
  *                                                 download_xml?, download_report?}
  *   GET  /v1/kontrola/download?session_id=cs_...&what=xml|report
@@ -229,11 +229,18 @@ function jsonResponse(request, env, obj, status = 200) {
  * without a network (same convention as notify.js and onboarding.js).
  */
 export async function fetchCheckoutSession(env, sessionId) {
-  const key = env && env.STRIPE_SECRET_KEY;
+  // A cs_test_ session lives in Stripe's test mode and can only be read
+  // with the test key (STRIPE_TEST_SECRET_KEY). It exists so the whole
+  // buy-and-unlock path can be rehearsed with a test card and no money.
+  // Without a test key configured, test sessions are simply unavailable;
+  // the live key never sees them, so a leaked test link can not unlock
+  // anything in an account that has no test key set.
+  const testMode = /^cs_test_/.test(sessionId);
+  const key = env && (testMode ? env.STRIPE_TEST_SECRET_KEY : env.STRIPE_SECRET_KEY);
   if (!key) {
     // The secret is set by hand (wrangler secret put STRIPE_SECRET_KEY).
     // Until it is, refusing everything is the only honest answer.
-    console.error('[arling-asistent] STRIPE_SECRET_KEY is not set, refusing kontrola uploads');
+    console.error('[arling-asistent] ' + (testMode ? 'STRIPE_TEST_SECRET_KEY' : 'STRIPE_SECRET_KEY') + ' is not set, refusing kontrola lookups');
     return { ok: false, reason: 'unavailable' };
   }
   const fetchImpl = (env && env.fetchImpl) || fetch;
@@ -327,6 +334,10 @@ export async function handleKontrolaUploadRoute(request, env, ctx) {
   if (typeof session.amount_total === 'number' && session.amount_total < MIN_UPLOAD_AMOUNT_CENTS) {
     return jsonResponse(request, env, { error: 'wrong_product', amount_total: session.amount_total }, 402);
   }
+  // A test-mode payment must never open the human service: nobody paid.
+  if (session.livemode === false) {
+    return jsonResponse(request, env, { error: 'test_mode' }, 402);
+  }
 
   const buf = await request.arrayBuffer();
   if (buf.byteLength > MAX_UPLOAD_BYTES) {
@@ -415,6 +426,8 @@ export async function handleKontrolaStatusRoute(request, env) {
     // 149 EUR check session; both are "paid".
     amount_total: typeof session.amount_total === 'number' ? session.amount_total : null,
     currency: session.currency || null,
+    // false for a Stripe test-mode session (rehearsal with a test card).
+    livemode: session.livemode !== false,
     email_masked: maskEmail(session.customer_details && session.customer_details.email),
     delivered: !!delivery,
     delivered_at: delivery ? delivery.delivered_at || null : null,
