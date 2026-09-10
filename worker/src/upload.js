@@ -78,7 +78,10 @@ export const CONSENT_HEADER = 'X-Arling-Consent';
 
 /** true only for the exact value the page sends; anything else is "not given". */
 export function readConsent(request) {
-  return String(request.headers.get(CONSENT_HEADER) || '').trim() === '1';
+  if (String(request.headers.get(CONSENT_HEADER) || '').trim() === '1') return true;
+  // The page sends consent=1 in the query string: a custom header would need
+  // Access-Control-Allow-Headers on the preflight, a query parameter does not.
+  try { return new URL(request.url).searchParams.get('consent') === '1'; } catch (e) { return false; }
 }
 
 export function objectKeys(sessionId, isoTime, nonce) {
