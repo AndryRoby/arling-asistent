@@ -50,6 +50,8 @@
  * hardest, since the demo page's trial form calls both from arling.sk).
  */
 
+import { PUBLISHER_CONFIG } from './publisher-config.js';
+import { handlePublisherRoute, handlePublisherReleaseRoute } from './publisher.js';
 import { handleChatRoute } from './chat.js';
 import { handleGiftRoute } from './gift.js';
 import { handleCreateTenantRoute, handleTenantStatusRoute, handleReingestRoute, handleSetPlanRoute } from './onboarding.js';
@@ -185,6 +187,13 @@ export default {
 
       if (url.pathname === '/v1/gift' && request.method === 'POST') {
         return await handleGiftRoute(request, env, ctx);
+      }
+
+      if (['/v1/publisher/status', '/v1/publisher/download'].includes(url.pathname) && request.method === 'GET') {
+        return await handlePublisherRoute(request, { ...env, ...PUBLISHER_CONFIG });
+      }
+      if (url.pathname === '/v1/publisher/admin/release' && request.method === 'PUT') {
+        return await handlePublisherReleaseRoute(request, { ...env, ...PUBLISHER_CONFIG });
       }
 
       if (url.pathname === '/v1/kontrola/upload' && request.method === 'POST') {
