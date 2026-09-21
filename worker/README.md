@@ -16,6 +16,17 @@ Volá ich len stránka https://arling.sk/kontrola-suboru/nahrat/ (a jej `de/`, `
 
 Všetky tri zdieľajú limit na IP so `/v1/chat` (každé volanie stojí jeden dopyt na Stripe).
 
+**Testovací režim (od 21. 9. 2026).** Session s `livemode: false` otvorí tovar len vtedy,
+keď ju zaplatila adresa zo zoznamu v tajomstve `TEST_EMAILS`. Inak `status` vráti
+`paid: false` a `reason: "test_disabled"`, a `upload` aj `download` vrátia 402 `test_mode`.
+Ostrá session sa tým nemení vôbec a jej odpoveď má presne taký tvar ako predtým.
+Dovtedy hlásil `status` ako zaplatenú každú session vrátane testovacej, takže verejný
+testovací odkaz a karta 4242 otvorili ostrý tovar na stránkach, ktoré `livemode`
+nekontrolujú (nález N1 v `ops/stripe/audit-po-platbe-2026-09-21.md`). S adresou
+v `TEST_EMAILS` sa zároveň dá po prvý raz prejsť celá cesta kontroly za 149 € bez peňazí;
+ntfy takú skúšku označí predponou `test-`. Podrobne v
+`ops/bezpecnost/arling-asistent-worker.md`.
+
 ## Kontrola súboru: admin cesty
 
 Hlavička `X-Admin-Token` musí sedieť so secretom `ADMIN_TOKEN` (`wrangler secret put ADMIN_TOKEN`, ten istý ako pre `/v1/tenants/:id/plan`); bez nej, s inou hodnotou, alebo bez nastaveného secretu je odpoveď 401. Volá ich iba `ops/kontrola/zakazka.mjs` z PC, nikdy stránka. Nevolajú Stripe.

@@ -95,6 +95,24 @@ crons = ["0 3 * * *"]
 # system stays off rather than issue tokens nobody can invalidate. Set with:
 #   wrangler secret put UCET_TAJOMSTVO
 
+# Secret (not a [vars] entry, never committed): ciarkou oddeleny zoznam
+# adries, ktorymi skusa majitel v testovacom rezime Stripe, napriklad
+# "andrej@arling.sk". Testovacia Checkout Session (livemode false) otvori
+# tovar LEN vtedy, ked ju zaplatila adresa z tohto zoznamu; bez tohto
+# tajomstva neotvori nic. Zaroven to je jedina cesta, ako v teste prejst celu
+# kontrolu SEPA suboru za 149 EUR bez penazi (src/upload.js,
+# testSessionPovolena; nalezy N1 a B2 v ops/stripe/audit-po-platbe-2026-09-21.md
+# a report ops/bezpecnost/arling-asistent-worker.md). POZOR: nastavit PRED
+# nasadenim, inak prestanu majitelove skusky odomykat tovar. Set with:
+#   wrangler secret put TEST_EMAILS
+
+# Secret (not a [vars] entry, never committed, VOLITELNE): tajomstvo, ktore
+# pri udalostiach quota_80, quota_100 a kontrola_upload pyta homelab
+# (products/subscribe-service/app.py, ping_token_ok) v hlavicke X-Ping-Token.
+# Musi sa zhodovat s PING_TOKEN tej sluzby. Kym tam nastaveny nie je, nechaj
+# nenastaveny aj tu; ping potom ide ako doteraz bez hlavicky. Set with:
+#   wrangler secret put PING_TOKEN
+
 # Secret (not a [vars] entry, never committed): Resend API key used by
 # src/ucet.js (posliKodEmailom) to send the 6-digit login code. Without it
 # POST /v1/ucet/kod answers 503 {error:'mail_unavailable'} and discards the

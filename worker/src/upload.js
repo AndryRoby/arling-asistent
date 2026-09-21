@@ -49,7 +49,7 @@
  * promise more than this code does.
  */
 
-import { corsHeaders, parseAllowedOrigins } from './security.js';
+import { corsHeaders, parseAllowedOrigins, bezpecnePorovnaj, SECURITY_HEADERS } from './security.js';
 import { notifyKontrolaUpload } from './notify.js';
 import { checkRateLimit } from './security.js';
 
@@ -169,7 +169,50 @@ const KV_KEY_PATTERN = /^kontrola\/cs_[A-Za-z0-9_-]{8,200}\/[A-Za-z0-9_.:-]{1,12
  */
 export function isAdmin(request, env) {
   const provided = request.headers.get('X-Admin-Token') || '';
-  return !!(env && env.ADMIN_TOKEN && provided === env.ADMIN_TOKEN);
+  // Konstantny cas: obycajne === prestane porovnavat na prvom rozdiele.
+  return !!(env && env.ADMIN_TOKEN && bezpecnePorovnaj(provided, env.ADMIN_TOKEN));
+}
+
+// ---------------------------------------------------------------------------
+// Testovací režim Stripe: kto smie dostať ostrý tovar za testovaciu kartu
+//
+// Nález N1 auditu ops/stripe/audit-po-platbe-2026-09-21.md, časť pre worker.
+// Do 21. 9. 2026 vracal GET /v1/kontrola/status pre KAŽDÚ zaplatenú session
+// paid: true, aj keď bola testovacia (livemode false). Stránky obchodu na
+// arling.sk sa pýtajú práve tohto endpointu, a väčšina z nich livemode
+// nekontroluje, takže ktokoľvek zaplatil testovacou kartou 4242 cez verejný
+// testovací odkaz (je v zdroji stránky, atribút data-link-test) a dostal
+// ostrý balík GDPR, ostré XML e-faktúry, ostrú opravu aj knihy hlavolamov.
+// Jedno miesto to zatvára pre všetky stránky naraz, presne ako audit
+// odporúča.
+//
+// TEST_EMAILS je nové tajomstvo (wrangler secret put TEST_EMAILS), čiarkou
+// oddelený zoznam adries, ktorými skúša majiteľ. Bez neho testovacia session
+// neotvorí nič. To isté pravidlo zároveň púšťa nahratie súboru pri kontrole
+// za 149 €, takže sa celá cesta po platbe dá po prvý raz vyskúšať bez peňazí
+// (nález B2 auditu).
+// ---------------------------------------------------------------------------
+
+/** TEST_EMAILS -> množina adries malými písmenami. Prázdne, kým tajomstvo nie je nastavené. */
+export function povoleneTestovacieEmaily(env) {
+  return new Set(
+    String((env && env.TEST_EMAILS) || '')
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean)
+  );
+}
+
+/**
+ * Smie táto session otvoriť tovar? Ostrá (livemode true alebo chýbajúce pole)
+ * vždy; testovacia len vtedy, keď ju zaplatila adresa zo zoznamu TEST_EMAILS.
+ */
+export function testSessionPovolena(env, session) {
+  if (!session || session.livemode !== false) return true;
+  const povolene = povoleneTestovacieEmaily(env);
+  if (povolene.size === 0) return false;
+  const email = String((session.customer_details && session.customer_details.email) || '').trim().toLowerCase();
+  return !!email && povolene.has(email);
 }
 
 export const DELIVERY_LANGS = new Set(['sk', 'de', 'en']);
@@ -214,6 +257,7 @@ function jsonResponse(request, env, obj, status = 200) {
       // A payment page must never be served from a cache: paid/uploaded
       // both change during the visit.
       'cache-control': 'no-store',
+      ...SECURITY_HEADERS,
       ...corsFor(request, env),
     },
   });
@@ -335,7 +379,11 @@ export async function handleKontrolaUploadRoute(request, env, ctx) {
     return jsonResponse(request, env, { error: 'wrong_product', amount_total: session.amount_total }, 402);
   }
   // A test-mode payment must never open the human service: nobody paid.
-  if (session.livemode === false) {
+  // Výnimka je skúška majiteľa: session zaplatená adresou zo zoznamu
+  // TEST_EMAILS prejde, ale ntfy ju označí ako test, aby si Andrej nepomýlil
+  // skúšku so zaplatenou objednávkou za 149 € (nález B2 auditu).
+  const testovacia = session.livemode === false;
+  if (!testSessionPovolena(env, session)) {
     return jsonResponse(request, env, { error: 'test_mode' }, 402);
   }
 
@@ -393,7 +441,7 @@ export async function handleKontrolaUploadRoute(request, env, ctx) {
   // to this order's upload and status, and a phone notification is not the
   // place to carry a credential. The tail is enough to find the order in
   // the Stripe dashboard.
-  const ping = notifyKontrolaUpload(env, { sessionId: sessionId.slice(-8) });
+  const ping = notifyKontrolaUpload(env, { sessionId: sessionId.slice(-8), test: testovacia });
   if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(ping);
   else await ping;
 
@@ -416,7 +464,10 @@ export async function handleKontrolaStatusRoute(request, env) {
   }
 
   const session = check.session;
-  const paid = session.payment_status === 'paid';
+  // Testovacia session bez povolenej adresy nie je pre stránky obchodu
+  // "zaplatená": inak by testovacia karta otvorila ostrý tovar (nález N1).
+  const testOdmietnuty = !testSessionPovolena(env, session);
+  const paid = session.payment_status === 'paid' && !testOdmietnuty;
   const uploaded = paid ? (await countUploads(env.KONTROLA, sessionId)) > 0 : false;
   const delivery = paid ? await readDelivery(env.KONTROLA, sessionId) : null;
   const body = {
@@ -435,6 +486,9 @@ export async function handleKontrolaStatusRoute(request, env) {
     delivered: !!delivery,
     delivered_at: delivery ? delivery.delivered_at || null : null,
   };
+  // Dôvod sa pridáva len v odmietnutom prípade, aby ostrá odpoveď mala presne
+  // taký tvar ako doteraz a stránky sa nemuseli meniť.
+  if (testOdmietnuty) body.reason = 'test_disabled';
   if (delivery) {
     // Relative on purpose: the page knows the API host, and the same
     // session id the page already holds is the whole credential.
@@ -484,6 +538,11 @@ export async function handleKontrolaDownloadRoute(request, env) {
   if (check.session.payment_status !== 'paid') {
     return jsonResponse(request, env, { error: 'not_paid', payment_status: check.session.payment_status || 'unknown' }, 402);
   }
+  // Tá istá brána ako pri stave a nahratí: opravený súbor s cudzími IBAN
+  // nesmie vydať testovacia session, ktorú nikto nezaplatil.
+  if (!testSessionPovolena(env, check.session)) {
+    return jsonResponse(request, env, { error: 'test_mode' }, 402);
+  }
 
   const keys = deliveryKeys(sessionId);
   const key = what === 'xml' ? keys.xml : keys.md;
@@ -504,6 +563,7 @@ export async function handleKontrolaDownloadRoute(request, env) {
       'content-type': contentType,
       'content-disposition': `attachment; filename="${filename}"`,
       'cache-control': 'no-store',
+      ...SECURITY_HEADERS,
       ...corsFor(request, env),
     },
   });
@@ -593,6 +653,7 @@ export async function handleKontrolaAdminUploadRoute(request, env) {
     headers: {
       'content-type': isJson ? 'application/json' : 'application/xml',
       'cache-control': 'no-store',
+      ...SECURITY_HEADERS,
       ...corsFor(request, env),
     },
   });

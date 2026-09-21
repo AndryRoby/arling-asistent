@@ -140,19 +140,145 @@ export function normaliseDomain(input) {
 }
 
 
-/** True for hostnames the worker can never fetch from the public internet: localhost, loopback, RFC 1918 ranges, link-local, .local/.internal names. */
-export function isPrivateHost(hostname) {
-  const h = String(hostname || '').toLowerCase().replace(/^\[|\]$/g, '');
-  if (!h || h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local') || h.endsWith('.internal') || h.endsWith('.lan') || h.endsWith('.home')) return true;
-  if (h === '::1' || h === '0.0.0.0' || h.startsWith('fe80:') || h.startsWith('fc') || h.startsWith('fd')) return true;
-  const m = h.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
-  if (m) {
-    const [a, b] = [Number(m[1]), Number(m[2])];
-    if (a === 10 || a === 127 || a === 0) return true;
-    if (a === 192 && b === 168) return true;
-    if (a === 172 && b >= 16 && b <= 31) return true;
-    if (a === 169 && b === 254) return true;
+// ---------------------------------------------------------------------------
+// SSRF: ktorú adresu smie worker stiahnuť
+//
+// feed_url zadáva ktokoľvek z internetu (POST /v1/tenants) a worker ju sám
+// stiahne, takže je to klasické miesto na SSRF. Predchádzajúca podoba tejto
+// kontroly porovnávala hostiteľa ako reťazec a dala sa obísť tromi spôsobmi,
+// ktoré tu preto majú vlastné testy:
+//
+//   1. IPv6 obal súkromnej adresy: http://[::ffff:127.0.0.1]/feed.xml alebo
+//      http://[::ffff:7f00:1]/ - ani jeden netvarom nesedel na vzor štyroch
+//      oktetov a nezačínal na ::1, fe80:, fc ani fd.
+//   2. IPv4 zapísaná inak než štyrmi oktetmi: http://2130706433/,
+//      http://127.1/, http://0x7f000001/, http://0177.0.0.1/. Rozlišovač
+//      adries (a teda aj fetch) ich číta ako 127.0.0.1, vzor na štyri oktety
+//      nie.
+//   3. Presmerovanie: verejná adresa, ktorá odpovie 302 na http://127.0.0.1/.
+//      To rieši feed.js, ktorý každý skok posiela znova cez túto funkciu.
+//
+// Zároveň sa opravil opačný smer: `h.startsWith('fc')` označoval za súkromnú
+// každú doménu, ktorá sa začína na fc alebo fd (fcbarcelona.sk, fdmarket.cz).
+// Prefix IPv6 sa odteraz testuje len na tom, čo je naozaj IPv6 literál.
+//
+// Čo táto funkcia NEVIE: hostiteľ, ktorý sa v DNS preloží na súkromnú adresu
+// (DNS rebinding). To sa dá zavrieť len kontrolou adresy až po preklade,
+// ktorú Workers runtime neponúka; je to vedome prijaté riziko a je zapísané
+// v ops/bezpecnost/arling-asistent-worker.md.
+// ---------------------------------------------------------------------------
+
+/** Názvy domén, ktoré nikdy nevedú na verejný server. */
+const PRIVATE_SUFFIXES = ['.localhost', '.local', '.internal', '.lan', '.home', '.intranet', '.corp', '.private'];
+
+/** Jeden diel IPv4 zápisu: desiatkový, osmičkový (0...) alebo šestnástkový (0x...). Vracia číslo alebo null. */
+function parseIpv4Part(part) {
+  const p = String(part);
+  if (!p) return null;
+  if (/^0[xX][0-9a-fA-F]+$/.test(p)) return parseInt(p.slice(2), 16);
+  if (/^0[0-7]+$/.test(p)) return parseInt(p.slice(1), 8);
+  if (/^(0|[1-9][0-9]*)$/.test(p)) return parseInt(p, 10);
+  return null;
+}
+
+/**
+ * Hostiteľ -> 32-bitové číslo IPv4, alebo null, keď to IPv4 nie je.
+ * Podporuje všetky tvary, ktoré rozlišovač adries berie: "a.b.c.d", "a.b.c",
+ * "a.b" a holé "a" (to posledné je to, čo robí z 2130706433 adresu 127.0.0.1).
+ */
+export function parseIpv4(hostname) {
+  const parts = String(hostname || '').split('.');
+  if (parts.length === 0 || parts.length > 4) return null;
+  const nums = parts.map(parseIpv4Part);
+  if (nums.some((n) => n === null || !Number.isFinite(n) || n < 0)) return null;
+  const last = nums[nums.length - 1];
+  const head = nums.slice(0, -1);
+  // Každý diel okrem posledného je jeden bajt; posledný vyplní zvyšok.
+  if (head.some((n) => n > 255)) return null;
+  const restBits = 8 * (4 - parts.length + 1);
+  if (last >= Math.pow(2, restBits)) return null;
+  let value = last;
+  for (let i = 0; i < head.length; i++) {
+    value += head[i] * Math.pow(2, 8 * (3 - i));
   }
+  return value >>> 0;
+}
+
+/** Je 32-bitová IPv4 adresa v rozsahu, ktorý nepatrí na verejný internet? */
+export function isPrivateIpv4Number(value) {
+  const a = (value >>> 24) & 255;
+  const b = (value >>> 16) & 255;
+  if (a === 0 || a === 10 || a === 127) return true; // toto zariadenie, privátna sieť, loopback
+  if (a === 192 && b === 168) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 169 && b === 254) return true; // link-local, vrátane metadátovej 169.254.169.254
+  if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
+  if (a === 192 && b === 0) return true; // 192.0.0.0/24 a 192.0.2.0/24
+  if (a >= 224) return true; // multicast a rezervované
+  return false;
+}
+
+/** IPv6 literál -> pole ôsmich 16-bitových čísel, alebo null. Zvláda "::" aj koncovú IPv4. */
+export function expandIpv6(literal) {
+  let text = String(literal || '').toLowerCase().split('%')[0];
+  if (!text.includes(':')) return null;
+  // Koncová IPv4 ("::ffff:127.0.0.1") sa najprv prepíše na dva hextety, aby
+  // ďalej existoval už len jeden tvar zápisu.
+  const lastColon = text.lastIndexOf(':');
+  const lastPart = text.slice(lastColon + 1);
+  if (lastPart.includes('.')) {
+    const v4 = parseIpv4(lastPart);
+    if (v4 === null) return null;
+    text = `${text.slice(0, lastColon + 1)}${((v4 >>> 16) & 0xffff).toString(16)}:${(v4 & 0xffff).toString(16)}`;
+  }
+  const dvojbodka = text.indexOf('::');
+  let hextets;
+  if (dvojbodka === -1) {
+    hextets = text.split(':');
+  } else {
+    const pred = text.slice(0, dvojbodka).split(':').filter((s) => s !== '');
+    const za = text.slice(dvojbodka + 2).split(':').filter((s) => s !== '');
+    const chyba = 8 - pred.length - za.length;
+    if (chyba < 0) return null;
+    hextets = [...pred, ...new Array(chyba).fill('0'), ...za];
+  }
+  const cisla = hextets.map((h) => (/^[0-9a-f]{1,4}$/.test(h) ? parseInt(h, 16) : null));
+  if (cisla.some((n) => n === null)) return null;
+  return cisla.length === 8 ? cisla : null;
+}
+
+/** Je táto IPv6 adresa (alebo IPv4 zabalená do IPv6) mimo verejného internetu? */
+export function isPrivateIpv6(literal) {
+  const h = expandIpv6(literal);
+  if (!h) return true; // nerozlúštený IPv6 literál radšej odmietnuť než pustiť
+  const nulovyZaciatok = h.slice(0, 5).every((x) => x === 0);
+  // ::, ::1 a ostatné adresy v ::/96 (vrátane IPv4-compatible ::127.0.0.1).
+  if (nulovyZaciatok && h[5] === 0) return true;
+  // IPv4-mapped ::ffff:a.b.c.d a NAT64 64:ff9b::/96 nesú IPv4 v posledných dvoch hextetoch.
+  const jeMapped = nulovyZaciatok && h[5] === 0xffff;
+  const jeNat64 = h[0] === 0x0064 && h[1] === 0xff9b;
+  if (jeMapped || jeNat64) return isPrivateIpv4Number((((h[6] << 16) >>> 0) + h[7]) >>> 0);
+  if (h[0] >= 0xfe80 && h[0] <= 0xfebf) return true; // link-local
+  if (h[0] >= 0xfc00 && h[0] <= 0xfdff) return true; // unique local
+  if ((h[0] & 0xff00) === 0xff00) return true; // multicast
+  return false;
+}
+
+/**
+ * True pre hostiteľov, ktorých worker nikdy nemá sťahovať: localhost, loopback,
+ * rozsahy súkromných sietí, link-local, mená .local/.internal a všetky zápisy
+ * tých istých adries, ktoré rozlišovač prijme (pozri komentár vyššie).
+ */
+export function isPrivateHost(hostname) {
+  const raw = String(hostname || '').trim().toLowerCase();
+  if (!raw) return true;
+  const h = raw.replace(/^\[/, '').replace(/\]$/, '');
+  if (!h) return true;
+  if (h === 'localhost') return true;
+  if (PRIVATE_SUFFIXES.some((s) => h.endsWith(s))) return true;
+  if (h.includes(':')) return isPrivateIpv6(h);
+  const v4 = parseIpv4(h);
+  if (v4 !== null) return isPrivateIpv4Number(v4);
   return false;
 }
 

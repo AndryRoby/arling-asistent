@@ -68,6 +68,21 @@ export function buildEventPingUrl(baseUrl, { event, tenantId }) {
 export const KONTROLA_UPLOAD_EVENT = 'kontrola_upload';
 
 /**
+ * Hlavičky pingu.
+ *
+ * Služba na homelabe (products/subscribe-service/app.py, ping_token_ok)
+ * pýta pri udalostiach quota_80, quota_100 a kontrola_upload tajomstvo v
+ * hlavičke X-Ping-Token. Worker ho dovtedy neposielal vôbec: v deň, keď sa
+ * na homelabe nastaví PING_TOKEN, by každý ping skončil na 403 a majiteľ by
+ * sa o zaplatenej kontrole za 149 € nedozvedel. Kým tajomstvo nastavené nie
+ * je, ping ide ako doteraz bez hlavičky.
+ */
+function pingHeaders(env) {
+  const token = env && env.PING_TOKEN;
+  return token ? { 'X-Ping-Token': token } : {};
+}
+
+/**
  * Ping the owner that a paid file check has arrived, with the Stripe
  * Checkout Session id as the tenant field (that id is what identifies the
  * order everywhere else: the R2 prefix, the Stripe dashboard, the e-mail).
@@ -76,14 +91,26 @@ export const KONTROLA_UPLOAD_EVENT = 'kontrola_upload';
  * upload.js can fire it without a try/catch and the upload cannot fail
  * because of a notification.
  */
-export async function notifyKontrolaUpload(env, { sessionId } = {}) {
+export async function notifyKontrolaUpload(env, { sessionId, test = false } = {}) {
   try {
     const baseUrl = env && env.QUOTA_PING_URL !== undefined ? env.QUOTA_PING_URL : DEFAULT_QUOTA_PING_URL;
     if (!baseUrl || !sessionId) return false;
     const fetchImpl = (env && env.fetchImpl) || fetch;
-    const res = await fetchImpl(buildEventPingUrl(baseUrl, { event: KONTROLA_UPLOAD_EVENT, tenantId: sessionId }), { method: 'GET' });
+    // Skúška majiteľa testovacou kartou musí byť v ntfy na prvý pohľad
+    // odlíšiteľná od zaplatenej objednávky za 149 €. Malé písmená zámerne:
+    // subscribe-service z parametra t vyhadzuje všetko okrem a-z, 0-9 a
+    // spojovníka, takže veľké TEST by z názvu ticho zmizlo.
+    const znacka = test ? `test-${sessionId}` : sessionId;
+    const res = await fetchImpl(buildEventPingUrl(baseUrl, { event: KONTROLA_UPLOAD_EVENT, tenantId: znacka }), {
+      method: 'GET',
+      headers: pingHeaders(env),
+    });
+    // Odpoveď 403 (chýbajúce tajomstvo) alebo 5xx znamená, že sa majiteľ o
+    // zaplatenej kontrole nedozvedel. Vrátiť true by bola predstieraná
+    // funkcia, hoci samotné nahratie súboru zlyhať nesmie.
     if (res && res.ok === false) {
       console.warn(`[arling-asistent] kontrola_upload ping for ${sessionId} returned HTTP ${res.status}`);
+      return false;
     }
     return true;
   } catch (err) {
@@ -139,7 +166,7 @@ export async function maybeNotifyQuota(env, { tenantId, usedBefore, usedAfter, q
 
       const event = `quota_${threshold}`;
       try {
-        const res = await fetchImpl(buildQuotaPingUrl(baseUrl, { event, tenantId, percent }), { method: 'GET' });
+        const res = await fetchImpl(buildQuotaPingUrl(baseUrl, { event, tenantId, percent }), { method: 'GET', headers: pingHeaders(env) });
         if (res && res.ok === false) {
           console.warn(`[arling-asistent] quota ping ${event} for ${tenantId} returned HTTP ${res.status}`);
         }
