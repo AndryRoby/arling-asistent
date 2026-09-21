@@ -31,7 +31,7 @@
  */
 
 import { embedTexts } from './embed.js';
-import { wrapUntrustedBlock, scanForInjection, detectInjection } from './security.js';
+import { wrapUntrustedBlock, scanForInjection, detectInjection, SECURITY_HEADERS } from './security.js';
 import {
   CHAT_MODEL_DEFAULT,
   FALLBACK_TOP_K,
@@ -401,6 +401,21 @@ export async function handleGiftRoute(request, env, ctx, deps = {}) {
     }
   }
 
+  const headers = origin ? securityMod.corsHeaders(origin, [tenant.domain, ...allowed]) : {};
+
+  // Poradie ako v chat.js, a to je celý zmysel: do 21. 9. 2026 sa tu model
+  // volal PRED kontrolou stropu a pred isOurTest, takže denný strop neurónov
+  // nikdy nezabránil ani jednému volaniu (len po ňom vrátil chybu) a naše
+  // vlastné testy míňali dávku, proti čomu budget.js vznikol.
+  if (isOurTest(request, env)) {
+    return jsonResponse({ picks: [], meta: { test: true } }, 200, headers);
+  }
+  const rozpocet = await hasBudget(env, NEURONS.giftTurn);
+  if (!rozpocet.ok) {
+    console.warn('[arling-asistent] denny strop neuronov vycerpany (gift):', rozpocet);
+    return jsonResponse({ error: 'quota_exceeded' }, 503, headers);
+  }
+
   const result = await runGift(env, {
     tenant,
     recipient,
@@ -411,16 +426,6 @@ export async function handleGiftRoute(request, env, ctx, deps = {}) {
   });
   await spend(env, NEURONS.giftTurn);
 
-  const headers = origin ? securityMod.corsHeaders(origin, [tenant.domain, ...allowed]) : {};
-
-  if (isOurTest(request, env)) {
-    return jsonResponse({ picks: [], meta: { test: true } }, 200, headers);
-  }
-  const rozpocet = await hasBudget(env, NEURONS.giftTurn);
-  if (!rozpocet.ok) {
-    console.warn('[arling-asistent] denny strop neuronov vycerpany (gift):', rozpocet);
-    return jsonResponse({ error: 'quota_exceeded' }, 503, headers);
-  }
   return jsonResponse(
     {
       picks: result.picks,
@@ -437,6 +442,6 @@ export async function handleGiftRoute(request, env, ctx, deps = {}) {
 function jsonResponse(obj, status, extraHeaders = {}) {
   return new Response(JSON.stringify(obj), {
     status,
-    headers: { 'content-type': 'application/json', ...extraHeaders },
+    headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...SECURITY_HEADERS, ...extraHeaders },
   });
 }

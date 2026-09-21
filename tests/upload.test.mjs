@@ -75,7 +75,7 @@ function createCounterKv() {
  *   'paid' | 'unpaid' | 403 | 500 | 404 | 'throw'
  * Every outgoing call is recorded in env.outbound.
  */
-function makeEnv({ stripe = 'paid', bucket = createMockKv(), stripeKey = 'sk_live_x', testKey = stripeKey === '' ? '' : 'sk_test_y', counter = createCounterKv(), adminToken = ADMIN, amount = 14900, livemode } = {}) {
+function makeEnv({ stripe = 'paid', bucket = createMockKv(), stripeKey = 'sk_live_x', testKey = stripeKey === '' ? '' : 'sk_test_y', counter = createCounterKv(), adminToken = ADMIN, amount = 14900, livemode, testEmails = '' } = {}) {
   const outbound = [];
   const env = {
     KONTROLA: bucket,
@@ -83,6 +83,9 @@ function makeEnv({ stripe = 'paid', bucket = createMockKv(), stripeKey = 'sk_liv
     ALLOWED_ORIGINS: 'arling.sk',
     STRIPE_SECRET_KEY: stripeKey,
     STRIPE_TEST_SECRET_KEY: testKey,
+    // Prazdne, kym test nepovie inak: bez tohto tajomstva testovacia session
+    // neotvori nic (nalez N1 auditu po platbe).
+    TEST_EMAILS: testEmails,
     ADMIN_TOKEN: adminToken,
     outbound,
     fetchImpl: async (url, opts) => {
@@ -343,7 +346,7 @@ test('a paid 29 EUR session (self-service fix) is refused by upload with 402 wro
   assert.equal((await bucket.list({ prefix: 'kontrola/' })).keys.length, 0);
 });
 
-test('a test-mode session (livemode false) is refused by upload with 402 test_mode, status reports livemode false', async () => {
+test('a test-mode session (livemode false) is refused by upload with 402 test_mode, and status does NOT report it as paid', async () => {
   const bucket = createMockKv();
   const env = makeEnv({ bucket, livemode: false });
   const res = await worker.fetch(uploadRequest(XML), env, makeCtx());
@@ -351,8 +354,79 @@ test('a test-mode session (livemode false) is refused by upload with 402 test_mo
   assert.equal((await res.json()).error, 'test_mode');
   assert.equal((await bucket.list({ prefix: 'kontrola/' })).keys.length, 0);
   const st = await (await worker.fetch(statusRequest(), env, makeCtx())).json();
+  // Nalez N1 auditu ops/stripe/audit-po-platbe-2026-09-21.md: dovtedy tu
+  // bolo paid: true, a kedze stranky obchodu (GDPR balik, e-faktura, oprava
+  // za 29 EUR, knihy hlavolamov) sa pytaju prave tohto endpointu a livemode
+  // vacsinou nekontroluju, otvorila im testovacia karta 4242 ostry tovar.
+  assert.equal(st.paid, false);
+  assert.equal(st.reason, 'test_disabled');
+  assert.equal(st.livemode, false);
+});
+
+test('N1: bez tajomstva TEST_EMAILS testovacia session neotvori ani stiahnutie vysledku', async () => {
+  const bucket = createMockKv();
+  const env = makeEnv({ bucket, livemode: false });
+  // Vysledok uz je dodany (admin cesta ho zapisala este za ostrej session).
+  await bucket.put(deliveryKeys(SESSION).xml, '<?xml version="1.0"?><Document/>', {});
+  await bucket.put(deliveryKeys(SESSION).md, '# sprava', {});
+  await bucket.put(deliveryKeys(SESSION).meta, JSON.stringify({ delivered_at: '2026-09-20T10:00:00.000Z', lang: 'sk' }), {});
+  const res = await worker.fetch(new Request(`${API}/v1/kontrola/download?session_id=${SESSION}&what=xml`, { headers: { Origin: ORIGIN } }), env, makeCtx());
+  assert.equal(res.status, 402);
+  assert.equal((await res.json()).error, 'test_mode');
+});
+
+test('N1/B2: s adresou v TEST_EMAILS majitel prejde celu skusku a ntfy ju oznaci ako test', async () => {
+  const bucket = createMockKv();
+  const env = makeEnv({ bucket, livemode: false, testEmails: 'ina@firma.sk, zakaznik@firma.sk' });
+
+  const st = await (await worker.fetch(statusRequest(), env, makeCtx())).json();
   assert.equal(st.paid, true);
   assert.equal(st.livemode, false);
+  assert.equal(st.reason, undefined);
+
+  const res = await worker.fetch(uploadRequest(XML), env, makeCtx());
+  assert.equal(res.status, 200);
+  assert.equal((await bucket.list({ prefix: `kontrola/${SESSION}/` })).keys.length, 2);
+
+  const ping = env.outbound.find((o) => o.url.includes(KONTROLA_UPLOAD_EVENT));
+  assert.ok(ping, 'ntfy ping odisiel');
+  // Male pismena zamerne: subscribe-service z parametra t vyhadzuje vsetko
+  // okrem a-z, 0-9 a spojovnika, takze velke TEST by ticho zmizlo.
+  assert.match(new URL(ping.url).searchParams.get('t'), /^test-/);
+});
+
+test('cudzia adresa v testovacom rezime neprejde ani ked je TEST_EMAILS nastavene', async () => {
+  const env = makeEnv({ livemode: false, testEmails: 'majitel@arling.sk' });
+  const st = await (await worker.fetch(statusRequest(), env, makeCtx())).json();
+  assert.equal(st.paid, false);
+  assert.equal(st.reason, 'test_disabled');
+  assert.equal((await worker.fetch(uploadRequest(XML), env, makeCtx())).status, 402);
+});
+
+test('ostra session sa spravanim nemeni: TEST_EMAILS sa jej netyka', async () => {
+  const env = makeEnv({ livemode: true });
+  const st = await (await worker.fetch(statusRequest(), env, makeCtx())).json();
+  assert.equal(st.paid, true);
+  assert.equal(st.reason, undefined);
+  assert.equal((await worker.fetch(uploadRequest(XML), env, makeCtx())).status, 200);
+});
+
+test('ping kontroly nesie X-Ping-Token, ked je tajomstvo nastavene, a hlasi neuspech', async () => {
+  const env = makeEnv();
+  env.PING_TOKEN = 'ping-tajomstvo';
+  await worker.fetch(uploadRequest(XML), env, makeCtx());
+  const ping = env.outbound.find((o) => o.url.includes(KONTROLA_UPLOAD_EVENT));
+  assert.equal(ping.opts.headers['X-Ping-Token'], 'ping-tajomstvo');
+
+  // subscribe-service odpovie 403, ked tajomstvo nesedi: majitel sa o
+  // zaplatenej kontrole nedozvedel, takze notifyKontrolaUpload musi vratit
+  // false, nie true.
+  const { notifyKontrolaUpload } = await import('../worker/src/notify.js');
+  const odpoved = await notifyKontrolaUpload(
+    { QUOTA_PING_URL: 'https://homelab.example/subscribe/api/ping', fetchImpl: async () => ({ ok: false, status: 403 }) },
+    { sessionId: 'abcd1234' }
+  );
+  assert.equal(odpoved, false);
 });
 
 test('a cs_test_ session is read with the test key; without a test key it is unavailable and the live key is never used', async () => {

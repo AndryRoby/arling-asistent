@@ -33,7 +33,7 @@
  */
 
 import { embedTexts, EMBED_MODEL } from './embed.js';
-import { wrapUntrustedBlock, scanForInjection, detectInjection } from './security.js';
+import { wrapUntrustedBlock, scanForInjection, detectInjection, SECURITY_HEADERS } from './security.js';
 import { checkAndRecordConversation } from './tenants.js';
 import { maybeNotifyQuota } from './notify.js';
 import { hasBudget, spend, isOurTest, NEURONS } from './budget.js';
@@ -760,6 +760,6 @@ const MAX_MESSAGES_GUARD = 20;
 function jsonResponse(obj, status, extraHeaders = {}) {
   return new Response(JSON.stringify(obj), {
     status,
-    headers: { 'content-type': 'application/json', ...extraHeaders },
+    headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...SECURITY_HEADERS, ...extraHeaders },
   });
 }

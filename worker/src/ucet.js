@@ -34,7 +34,7 @@
  * tenantoch.
  */
 
-import { corsHeaders, parseAllowedOrigins } from './security.js';
+import { corsHeaders, parseAllowedOrigins, checkRateLimit, SECURITY_HEADERS } from './security.js';
 import { fetchCheckoutSession, isAdmin, SESSION_ID_PATTERN } from './upload.js';
 
 // ---------------------------------------------------------------------------
@@ -49,6 +49,15 @@ export const LIMIT_OKNO_SECONDS = 3600;
 export const TOKEN_TTL_SECONDS = 90 * 24 * 60 * 60; // 90 dni
 export const HRA_MAX_BYTES = 64 * 1024;
 export const HRA_PATTERN = /^[a-z0-9-]{1,32}$/;
+/**
+ * Koľko rôznych hier si smie jeden účet odložiť.
+ *
+ * HRA_PATTERN pripúšťa prakticky neobmedzene veľa mien, takže prihlásený
+ * zákazník vedel do KV zapísať ľubovoľný počet 64 kB záznamov (PUT
+ * /v1/ucet/hra/cokolvek-1, -2, -3 …) a platili by sme to my. Na arling.sk je
+ * hier rádovo desať, tridsaťdva je pohodlná rezerva.
+ */
+export const HRA_MAX_POCET = 32;
 
 // Konštanta zo špecifikácie (časť A.3); env.STRIPE_PORTAL_URL ju môže
 // prepísať, keby sa Stripe portál niekedy presunul.
@@ -163,6 +172,7 @@ function jsonOdpoved(request, env, obj, status = 200) {
     headers: {
       'content-type': 'application/json',
       'cache-control': 'no-store',
+      ...SECURITY_HEADERS,
       ...corsFor(request, env),
     },
   });
@@ -183,6 +193,21 @@ function strazSecretu(request, env) {
   if (!env || !env.UCET_TAJOMSTVO) {
     return jsonOdpoved(request, env, { error: 'ucet_unavailable' }, 503);
   }
+  return null;
+}
+
+/**
+ * Ten istý minútový limit na IP ako /v1/chat a /v1/kontrola/*.
+ *
+ * Cesty účtu ho do 21. 9. 2026 nemali žiadny okrem hodinového počítadla
+ * kódov, takže overovanie kódu, čítanie účtu aj zápis stavu hry sa dali
+ * volať ľubovoľne často a každé volanie znamená čítanie a zápis do KV,
+ * ktoré platíme my. Vracia Response pri prekročení, inak null.
+ */
+async function strazLimitu(request, env) {
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const rate = await checkRateLimit(env.ASISTENT_CACHE, ip);
+  if (!rate.allowed) return jsonOdpoved(request, env, { error: 'rate_limited' }, 429);
   return null;
 }
 
@@ -427,6 +452,8 @@ export async function handleUcetKodRoute(request, env) {
 export async function handleUcetOverRoute(request, env) {
   const straz = strazSecretu(request, env);
   if (straz) return straz;
+  const limit = await strazLimitu(request, env);
+  if (limit) return limit;
 
   let telo;
   try {
@@ -447,7 +474,9 @@ export async function handleUcetOverRoute(request, env) {
   }
 
   const zadanyKod = String((telo && telo.kod) || '').trim();
-  if (zadanyKod !== zaznam.kod) {
+  // Porovnanie v konštantnom čase: kód je celé prihlásenie a obyčajné !==
+  // prestane porovnávať na prvej rozdielnej číslici.
+  if (!bezpecneRovnake(zadanyKod, zaznam.kod)) {
     const pokusy = (zaznam.pokusy || 0) + 1;
     if (pokusy >= MAX_POKUSOV) {
       await kv.delete(kodKluc(email));
@@ -593,9 +622,19 @@ export async function handleUcetHraPutRoute(request, env, hra) {
   const straz = strazSecretu(request, env);
   if (straz) return straz;
   if (!HRA_PATTERN.test(hra || '')) return jsonOdpoved(request, env, { error: 'bad_hra' }, 400);
+  const limit = await strazLimitu(request, env);
+  if (limit) return limit;
 
   const { ucet, chyba } = await autentifikuj(request, env);
   if (chyba) return jsonOdpoved(request, env, { error: 'unauthorized' }, 401);
+
+  // Zoznam hier účtu drží strop HRA_MAX_POCET. Je to nové pole; staršie účty
+  // ho nemajú a doplní sa pri prvom zápise, takže nič netreba migrovať.
+  const hry = Array.isArray(ucet.hry) ? ucet.hry : [];
+  const novaHra = !hry.includes(hra);
+  if (novaHra && hry.length >= HRA_MAX_POCET) {
+    return jsonOdpoved(request, env, { error: 'too_many_games', max_games: HRA_MAX_POCET }, 409);
+  }
 
   const deklarovana = Number(request.headers.get('content-length'));
   if (Number.isFinite(deklarovana) && deklarovana > HRA_MAX_BYTES) {
@@ -617,6 +656,10 @@ export async function handleUcetHraPutRoute(request, env, hra) {
   }
 
   await env.ASISTENT_CACHE.put(hraKluc(hra, ucet.email), JSON.stringify(stav));
+  if (novaHra) {
+    ucet.hry = [...hry, hra];
+    await ulozUcet(env.ASISTENT_CACHE, ucet);
+  }
   return jsonOdpoved(request, env, { ok: true }, 200);
 }
 

@@ -25,6 +25,8 @@
  * testable without any network access (see tests/feed.test.mjs).
  */
 
+import { isPrivateHost } from './tenants.js';
+
 export const MAX_PRODUCTS = 5000;
 
 // ---------------------------------------------------------------------------
@@ -466,6 +468,68 @@ export function parseFeed(rawText, feedUrl, options = {}) {
 const FEED_FETCH_HEADERS = { 'user-agent': 'ARLingAsistentBot/1.0 (+https://arling.sk/asistent/)' };
 
 // ---------------------------------------------------------------------------
+// SSRF pri sťahovaní feedu
+//
+// feed_url zadáva ktokoľvek z internetu. validateTenantInput (tenants.js) ju
+// pri zakladaní nájomcu prekontroluje, lenže kontrola adresy pred stiahnutím
+// nestačí: verejná adresa smie odpovedať presmerovaním na http://127.0.0.1/
+// alebo na 169.254.169.254 a `fetch` ho ticho nasleduje. Preto sa tu
+// presmerovania nesledujú automaticky (`redirect: 'manual'`), ale ručne, a
+// KAŽDÝ skok prejde tou istou kontrolou ako pôvodná adresa.
+//
+// Počet skokov je zámerne malý: skutočné feedy presmerúvajú nanajvýš raz či
+// dvakrát (http -> https, doména -> www).
+// ---------------------------------------------------------------------------
+
+export const MAX_FEED_REDIRECTS = 3;
+
+/** Adresa feedu, ktorú worker odmietol stiahnuť. Vyhodená pred akýmkoľvek volaním siete. */
+export class FeedUrlNotAllowedError extends Error {
+  constructor(reason) {
+    super(reason);
+    this.name = 'FeedUrlNotAllowedError';
+    this.reason = reason;
+  }
+}
+
+/** Vráti URL objekt, alebo vyhodí FeedUrlNotAllowedError: len http(s) a len verejný hostiteľ. */
+export function assertFetchableUrl(rawUrl, { base } = {}) {
+  let u;
+  try {
+    u = base ? new URL(rawUrl, base) : new URL(rawUrl);
+  } catch (e) {
+    throw new FeedUrlNotAllowedError('feed_url_invalid');
+  }
+  if (!/^https?:$/.test(u.protocol)) throw new FeedUrlNotAllowedError('feed_url_scheme');
+  if (isPrivateHost(u.hostname)) throw new FeedUrlNotAllowedError('feed_url_private_host');
+  return u;
+}
+
+/** Hlavička Location z odpovede, ak ju odpoveď vôbec má (testovacie dvojníky hlavičky nemajú). */
+function locationHeader(res) {
+  const headers = res && res.headers;
+  if (!headers || typeof headers.get !== 'function') return '';
+  return headers.get('location') || headers.get('Location') || '';
+}
+
+/**
+ * fetch s ručným sledovaním presmerovaní, kde každý skok prejde
+ * assertFetchableUrl. Odpoveď vracia rovnako ako obyčajný fetch, takže
+ * volajúci sa nemení.
+ */
+export async function guardedFetch(rawUrl, fetchImpl, init = {}) {
+  let current = assertFetchableUrl(rawUrl).toString();
+  for (let hop = 0; hop <= MAX_FEED_REDIRECTS; hop++) {
+    const res = await fetchImpl(current, { ...init, redirect: 'manual' });
+    const status = res && res.status;
+    const location = locationHeader(res);
+    if (!(Number.isFinite(status) && status >= 300 && status < 400 && location)) return res;
+    current = assertFetchableUrl(location, { base: current }).toString();
+  }
+  throw new FeedUrlNotAllowedError('feed_too_many_redirects');
+}
+
+// ---------------------------------------------------------------------------
 // Pagination for feed formats that page their JSON instead of returning the
 // whole catalogue in one response.
 //
@@ -516,7 +580,7 @@ async function fetchPaginatedJsonList(feedUrl, fetchImpl, { sizeParam, pageSize,
     pageUrl.searchParams.set(sizeParam, String(pageSize));
     pageUrl.searchParams.set('page', String(page));
 
-    const res = await fetchImpl(pageUrl.toString(), { headers: FEED_FETCH_HEADERS });
+    const res = await guardedFetch(pageUrl.toString(), fetchImpl, { headers: FEED_FETCH_HEADERS });
     if (!res.ok) {
       if (page === 1) throw new Error(`feed_fetch_failed_${res.status}`);
       break; // stop on non-200: keep whatever was already fetched
@@ -564,7 +628,7 @@ export async function fetchFeed(feedUrl, { fetchImpl = fetch, ...options } = {})
     return parseFeed(JSON.stringify(products), feedUrl, options);
   }
 
-  const res = await fetchImpl(feedUrl, { headers: FEED_FETCH_HEADERS });
+  const res = await guardedFetch(feedUrl, fetchImpl, { headers: FEED_FETCH_HEADERS });
   if (!res.ok) {
     throw new Error(`feed_fetch_failed_${res.status}`);
   }

@@ -15,6 +15,45 @@
  */
 
 // ---------------------------------------------------------------------------
+// Porovnanie tajomstiev a spoločné bezpečnostné hlavičky
+// ---------------------------------------------------------------------------
+
+/**
+ * Porovnanie dvoch reťazcov v konštantnom čase.
+ *
+ * Používa sa všade, kde sa porovnáva tajomstvo, ktoré poslal volajúci
+ * (X-Admin-Token, prihlasovací kód účtu). Obyčajné `===` prestane porovnávať
+ * na prvom rozdielnom znaku, takže čas odpovede nesie informáciu o tom, koľko
+ * znakov už sedí. Cez internet je to slabý kanál, ale oprava nestojí nič a
+ * modul ucet.js ten istý vzor už používal na podpis tokenu.
+ *
+ * Dĺžka sa porovnáva zvlášť a pri rozdiele sa vracia false hneď: dĺžka
+ * tajomstva nie je to, čo chránime.
+ */
+export function bezpecnePorovnaj(a, b) {
+  const bytesA = new TextEncoder().encode(String(a == null ? '' : a));
+  const bytesB = new TextEncoder().encode(String(b == null ? '' : b));
+  if (bytesA.length !== bytesB.length) return false;
+  let diff = 0;
+  for (let i = 0; i < bytesA.length; i++) diff |= bytesA[i] ^ bytesB[i];
+  return diff === 0;
+}
+
+/**
+ * Hlavičky, ktoré patria na každú odpoveď tohto workera.
+ *
+ * nosniff: odpovede sú JSON, ale niektoré nesú text od tretej strany (názov
+ * produktu z feedu, chybová hláška). Bez tejto hlavičky si starší prehliadač
+ * vie obsah preinterpretovať ako HTML a spustiť z neho skript.
+ * referrer-policy: adresy tohto API nosia session_id platby a id nájomcu;
+ * nemajú odísť v hlavičke Referer na cudzí server.
+ */
+export const SECURITY_HEADERS = {
+  'x-content-type-options': 'nosniff',
+  'referrer-policy': 'no-referrer',
+};
+
+// ---------------------------------------------------------------------------
 // CORS
 // ---------------------------------------------------------------------------
 
@@ -81,9 +120,15 @@ export function corsHeaders(origin, allowedDomains) {
 export const RATE_LIMIT_DEFAULT = 30; // requests
 export const RATE_LIMIT_WINDOW_SECONDS = 60;
 
-function rateLimitKey(ip, windowSeconds, now) {
+/**
+ * `name` oddeľuje počítadlá s rôznym oknom. Bez neho by minútové počítadlo
+ * chatu a hodinové počítadlo zakladania nájomcov mohli pre tú istú IP trafiť
+ * ten istý kľúč (číslo okna je len delenie času, nie je zaručene odlišné).
+ * Prázdny názov je predvolený, takže kľúč existujúcich volajúcich sa nemení.
+ */
+function rateLimitKey(ip, windowSeconds, now, name = '') {
   const bucket = Math.floor(now / (windowSeconds * 1000));
-  return `ratelimit:${ip}:${bucket}`;
+  return `ratelimit:${name ? `${name}:` : ''}${ip}:${bucket}`;
 }
 
 /**
@@ -100,9 +145,9 @@ function rateLimitKey(ip, windowSeconds, now) {
  * the 429 path above is unaffected and still applies whenever KV itself
  * works but the counter is over the limit.
  */
-export async function checkRateLimit(kv, ip, { limit = RATE_LIMIT_DEFAULT, windowSeconds = RATE_LIMIT_WINDOW_SECONDS, now = Date.now() } = {}) {
+export async function checkRateLimit(kv, ip, { limit = RATE_LIMIT_DEFAULT, windowSeconds = RATE_LIMIT_WINDOW_SECONDS, now = Date.now(), name = '' } = {}) {
   const safeIp = ip || 'unknown';
-  const key = rateLimitKey(safeIp, windowSeconds, now);
+  const key = rateLimitKey(safeIp, windowSeconds, now, name);
   try {
     const current = parseInt((await kv.get(key)) || '0', 10);
     if (current >= limit) {

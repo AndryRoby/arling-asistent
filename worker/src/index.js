@@ -74,7 +74,7 @@ import {
   handleUcetHraPutRoute,
   handleUcetOdhlasitRoute,
 } from './ucet.js';
-import { parseAllowedOrigins, corsHeaders, InputTooLargeError } from './security.js';
+import { parseAllowedOrigins, corsHeaders, InputTooLargeError, SECURITY_HEADERS } from './security.js';
 import { ValidationError } from './tenants.js';
 import widgetSource from './widget-src.js';
 import scheduledHandler from './cron.js';
@@ -88,7 +88,10 @@ function corsFor(request, env) {
 }
 
 function jsonResponse(obj, status = 200, headers = {}) {
-  return new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json', ...headers } });
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...SECURITY_HEADERS, ...headers },
+  });
 }
 
 /**
@@ -155,6 +158,9 @@ function handleWidgetJs() {
     headers: {
       'content-type': 'application/javascript; charset=utf-8',
       'cache-control': 'public, max-age=3600',
+      // Widget sa načítava z cudzej domény ako <script src>; nosniff bráni
+      // tomu, aby si ho prehliadač preložil ako iný typ obsahu.
+      'x-content-type-options': 'nosniff',
       // Loaded as a <script src>, from any e-shop's own domain: this is
       // static, tenant-agnostic code (the tenant id is just a data
       // attribute), so a wildcard is correct here, unlike the JSON API

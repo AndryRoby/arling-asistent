@@ -29,7 +29,8 @@ import {
 } from './tenants.js';
 import { fetchFeed } from './feed.js';
 import { embedAndUpsertProducts, embedTexts } from './embed.js';
-import { parseAllowedOrigins, corsHeaders } from './security.js';
+import { parseAllowedOrigins, corsHeaders, bezpecnePorovnaj, checkRateLimit, SECURITY_HEADERS } from './security.js';
+import { hasBudget, spend, NEURONS } from './budget.js';
 
 export const TENANT_STATUS = {
   PENDING: 'pending',
@@ -114,11 +115,40 @@ export async function waitForQueryableIndex(env, tenantId, products, opts = {}) 
   return { probed: true, queryable: false, attempts };
 }
 
-/** Download the tenant's feed, embed every product, and flip status to ready/error. Safe to call again (re-ingestion on cron). */
-export async function ingestFeedForTenant(env, tenant) {
+/**
+ * Koľko neurónov musí ostať v dennom strope, než sa pustí načítanie feedu,
+ * ktoré si objednal niekto z internetu. Malý feed stojí rádovo desiatky,
+ * feed s 5 000 produktmi tisíce (embed.js robí jeden vektor na kus textu,
+ * budget.js NEURONS.embedPerText), takže bez tejto brány vie ktokoľvek
+ * formulárom minúť celú dennú dávku Workers AI a umlčať asistenta všetkým
+ * zákazníkom.
+ */
+export const INGEST_MIN_NEURONS = 200;
+
+/**
+ * Download the tenant's feed, embed every product, and flip status to
+ * ready/error. Safe to call again (re-ingestion on cron).
+ *
+ * `samoobsluzne` je true len pri načítaní, ktoré spustil formulár z internetu
+ * (POST /v1/tenants). Vtedy sa pred prácou pozrie na denný strop neurónov;
+ * denný cron a admin cesta sú naše vlastné a nekontrolujú sa, aby sa
+ * pravidelná obnova katalógu nikdy nezastavila.
+ */
+export async function ingestFeedForTenant(env, tenant, { samoobsluzne = false } = {}) {
+  if (samoobsluzne) {
+    const rozpocet = await hasBudget(env, INGEST_MIN_NEURONS);
+    if (!rozpocet.ok) {
+      console.warn('[arling-asistent] denny strop neuronov vycerpany, samoobsluzne nacitanie feedu odlozene:', rozpocet);
+      await setTenantStatus(env.DB, tenant.id, TENANT_STATUS.ERROR);
+      return { ok: false, error: 'ai_budget_exhausted' };
+    }
+  }
   try {
     const { products, type, truncated } = await fetchFeed(tenant.feed_url, { fetchImpl: env.fetchImpl || fetch });
     const summary = await embedAndUpsertProducts(env, tenant.id, products);
+    // Spotreba sa zapisuje vždy, aj pri cron obnove: je to najväčší žrút
+    // neurónov v tejto službe a strop, ktorý ho nevidí, nechráni pred ničím.
+    await spend(env, summary.chunkCount * NEURONS.embedPerText);
     await setProductCount(env.DB, tenant.id, summary.productCount);
     // Stav sa prepina ako prvy a bez podmienok. Zakaznik, ktory ma produkty
     // nacitane, nesmie ostat visiet na pending len preto, ze nam nieco
@@ -135,8 +165,8 @@ export async function ingestFeedForTenant(env, tenant) {
 }
 
 /** Kick off ingestion via ctx.waitUntil when available; otherwise await it inline (e.g. in tests, with no Workers ctx). */
-async function startIngestion(env, tenant, waitUntil) {
-  const ingestion = ingestFeedForTenant(env, tenant);
+async function startIngestion(env, tenant, waitUntil, opts = {}) {
+  const ingestion = ingestFeedForTenant(env, tenant, opts);
   if (typeof waitUntil === 'function') {
     waitUntil(ingestion);
   } else {
@@ -159,6 +189,26 @@ async function startIngestion(env, tenant, waitUntil) {
  * a separate code path. The stored contact_email of the existing tenant is
  * never part of the return value, since the caller resubmitting the form is
  * not necessarily the shop's original owner.
+ *
+ * KTO SMIE MENIŤ FEED UŽ EXISTUJÚCEHO OBCHODU (oprava z 21. 9. 2026)
+ *
+ * Presne to posledné bolo dovtedy dierou: cesta vyššie prepísala feed_url a
+ * spustila načítanie KOMUKOĽVEK, kto poslal cudziu doménu. Jedna anonymná
+ * požiadavka
+ *
+ *   POST /v1/tenants {"domain":"obchod-zakaznika.sk",
+ *                     "feed_url":"https://utocnik.example/feed.xml",
+ *                     "email":"ktokolvek@example.com"}
+ *
+ * teda vymenila katalóg platiaceho zákazníka za útočníkov a asistent na jeho
+ * e-shope začal zákazníkom ponúkať cudzie "produkty" aj odkazy. Odteraz sa
+ * feed_url zmení a načítanie spustí len vtedy, keď sa odoslaný e-mail zhoduje
+ * s contact_email uloženým pri založení obchodu. Pre poctivého majiteľa sa
+ * nič nemení (formulár aj WordPress plugin posielajú jeho vlastnú adresu),
+ * pre každého iného je odpoveď rovnaká ako doteraz, len bez zásahu do
+ * katalógu, takže cudzí človek sa z odpovede ani nedozvie, kto obchod
+ * vlastní. Pravidelnú obnovu feedu naďalej robí denný cron, ten na nikoho
+ * nečaká.
  */
 export async function createTenantFromRequest(env, { feedUrl, domain, email }, { waitUntil, now = new Date() } = {}) {
   let tenant;
@@ -170,14 +220,18 @@ export async function createTenantFromRequest(env, { feedUrl, domain, email }, {
     const existing = await getTenantByDomain(env.DB, domain);
     if (!existing) throw err; // should not happen (the row that caused the conflict must exist), but never swallow silently
 
+    const poslanyEmail = String(email || '').trim().toLowerCase();
+    const majitelEmail = String(existing.contact_email || '').trim().toLowerCase();
+    const jeMajitel = !!poslanyEmail && bezpecnePorovnaj(poslanyEmail, majitelEmail);
+
     const cleanFeedUrl = String(feedUrl || '').trim();
-    const feedUrlChanged = cleanFeedUrl && cleanFeedUrl !== existing.feed_url;
+    const feedUrlChanged = jeMajitel && cleanFeedUrl && cleanFeedUrl !== existing.feed_url;
     if (feedUrlChanged) {
       await setFeedUrl(env.DB, existing.id, cleanFeedUrl);
       existing.feed_url = cleanFeedUrl;
     }
-    if (feedUrlChanged || isIngestionStale(existing, now)) {
-      await startIngestion(env, existing, waitUntil);
+    if (jeMajitel && (feedUrlChanged || isIngestionStale(existing, now))) {
+      await startIngestion(env, existing, waitUntil, { samoobsluzne: true });
     }
 
     return {
@@ -190,7 +244,7 @@ export async function createTenantFromRequest(env, { feedUrl, domain, email }, {
     };
   }
 
-  await startIngestion(env, tenant, waitUntil);
+  await startIngestion(env, tenant, waitUntil, { samoobsluzne: true });
   return tenant;
 }
 
@@ -247,8 +301,24 @@ export async function tenantStatusResponse(env, tenantId, { now = new Date(), in
 // ---------------------------------------------------------------------------
 
 function jsonResponse(obj, status, headers = {}) {
-  return new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json', ...headers } });
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...SECURITY_HEADERS, ...headers },
+  });
 }
+
+/**
+ * Koľko obchodov smie jedna adresa založiť či obnoviť za hodinu.
+ *
+ * Do 21. 9. 2026 tu limit nebol vôbec: POST /v1/tenants stiahne cudzí feed a
+ * pošle ho po kusoch do modelu na vektory, takže jedna požiadavka s feedom na
+ * 5 000 produktov minie tisíce neurónov z dennej dávky. Bez limitu stačilo
+ * volať to v cykle a asistent všetkých zákazníkov stíchol (a pri platenom
+ * pláne by prišla faktúra). Desať za hodinu je nad rámec toho, čo poctivý
+ * majiteľ e-shopu pri vypĺňaní formulára potrebuje.
+ */
+export const TENANT_CREATE_LIMIT_PER_HOUR = 10;
+export const TENANT_CREATE_WINDOW_SECONDS = 3600;
 
 /**
  * CORS headers for one of this module's responses, using the same allowlist
@@ -267,6 +337,16 @@ function corsHeadersForRequest(request, env, extraAllowedDomains = []) {
 }
 
 export async function handleCreateTenantRoute(request, env, ctx) {
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const rate = await checkRateLimit(env.ASISTENT_CACHE, ip, {
+    limit: TENANT_CREATE_LIMIT_PER_HOUR,
+    windowSeconds: TENANT_CREATE_WINDOW_SECONDS,
+    name: 'tenants',
+  });
+  if (!rate.allowed) {
+    return jsonResponse({ error: 'rate_limited' }, 429, corsHeadersForRequest(request, env));
+  }
+
   let body;
   try {
     body = JSON.parse(await request.text());
@@ -332,7 +412,8 @@ export async function handleTenantStatusRoute(request, env, tenantId) {
 export async function handleReingestRoute(request, env, tenantId) {
   const headers = corsHeadersForRequest(request, env);
   const providedToken = request.headers.get('X-Admin-Token') || '';
-  if (!env.ADMIN_TOKEN || providedToken !== env.ADMIN_TOKEN) {
+  // Porovnanie v konstantnom case, rovnako ako isAdmin v upload.js.
+  if (!env.ADMIN_TOKEN || !bezpecnePorovnaj(providedToken, env.ADMIN_TOKEN)) {
     return jsonResponse({ error: 'unauthorized' }, 401, headers);
   }
 
@@ -368,7 +449,8 @@ const VALID_PLANS = new Set([PLANS.FREE, PLANS.STARTER, PLANS.PRO]);
 export async function handleSetPlanRoute(request, env, tenantId) {
   const headers = corsHeadersForRequest(request, env);
   const providedToken = request.headers.get('X-Admin-Token') || '';
-  if (!env.ADMIN_TOKEN || providedToken !== env.ADMIN_TOKEN) {
+  // Porovnanie v konstantnom case, rovnako ako isAdmin v upload.js.
+  if (!env.ADMIN_TOKEN || !bezpecnePorovnaj(providedToken, env.ADMIN_TOKEN)) {
     return jsonResponse({ error: 'unauthorized' }, 401, headers);
   }
 
