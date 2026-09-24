@@ -27,7 +27,7 @@ import {
   usagePercent,
   publicPlanName,
 } from './tenants.js';
-import { fetchFeed } from './feed.js';
+import { fetchFeed, FeedUrlNotAllowedError } from './feed.js';
 import { embedAndUpsertProducts, embedTexts } from './embed.js';
 import { parseAllowedOrigins, corsHeaders, bezpecnePorovnaj, checkRateLimit, SECURITY_HEADERS } from './security.js';
 import { hasBudget, spend, NEURONS } from './budget.js';
@@ -140,11 +140,39 @@ export async function ingestFeedForTenant(env, tenant, { samoobsluzne = false } 
     if (!rozpocet.ok) {
       console.warn('[arling-asistent] denny strop neuronov vycerpany, samoobsluzne nacitanie feedu odlozene:', rozpocet);
       await setTenantStatus(env.DB, tenant.id, TENANT_STATUS.ERROR);
-      return { ok: false, error: 'ai_budget_exhausted' };
+      await zapisChybuNacitania(env, tenant.id, INGEST_ERRORS.AI_BUDGET);
+      return { ok: false, error: 'ai_budget_exhausted', code: INGEST_ERRORS.AI_BUDGET };
     }
   }
+
+  // Stiahnutie feedu má vlastný try: jeho chyby sú chyby obchodu (firewall,
+  // prihlasovanie, vypnuté REST API) a majiteľ ich vie opraviť, preto dostanú
+  // vlastný kód. Chyba až pri vektoroch je naša a hlási sa ako internal.
+  let feed;
   try {
-    const { products, type, truncated } = await fetchFeed(tenant.feed_url, { fetchImpl: env.fetchImpl || fetch });
+    feed = await fetchFeed(tenant.feed_url, { fetchImpl: env.fetchImpl || fetch });
+  } catch (err) {
+    const code = classifyFeedError(err);
+    await setTenantStatus(env.DB, tenant.id, TENANT_STATUS.ERROR);
+    await zapisChybuNacitania(env, tenant.id, code);
+    return { ok: false, error: String((err && err.message) || err), code };
+  }
+
+  // Prázdny katalóg: nový obchod bez produktov (typický prvý test pluginu)
+  // dostal doteraz stav ready a asistent potom na všetko odpovedal „neviem“.
+  // Človek, ktorý to vidí, plugin zmaže. Poctivé je povedať mu, že nemáme čo
+  // čítať. Obchod, ktorý už bežal, sa pri dennej obnove kvôli jednej prázdnej
+  // odpovedi nevypína: vo Vectorize ostávajú jeho produkty a asistent nimi
+  // odpovedá ďalej.
+  if (feed.products.length === 0 && (samoobsluzne || tenant.status !== TENANT_STATUS.READY)) {
+    await setProductCount(env.DB, tenant.id, 0);
+    await setTenantStatus(env.DB, tenant.id, TENANT_STATUS.ERROR);
+    await zapisChybuNacitania(env, tenant.id, INGEST_ERRORS.NO_PRODUCTS);
+    return { ok: false, error: INGEST_ERRORS.NO_PRODUCTS, code: INGEST_ERRORS.NO_PRODUCTS, feedType: feed.type };
+  }
+
+  try {
+    const { products, type, truncated } = feed;
     const summary = await embedAndUpsertProducts(env, tenant.id, products);
     // Spotreba sa zapisuje vždy, aj pri cron obnove: je to najväčší žrút
     // neurónov v tejto službe a strop, ktorý ho nevidí, nechráni pred ničím.
@@ -154,13 +182,94 @@ export async function ingestFeedForTenant(env, tenant, { samoobsluzne = false } 
     // nacitane, nesmie ostat visiet na pending len preto, ze nam nieco
     // spadlo alebo trvalo prilis dlho.
     await setTenantStatus(env.DB, tenant.id, TENANT_STATUS.READY);
+    await zmazChybuNacitania(env, tenant.id);
     // Dopyt je uz len zistenie, ako dlho index potrebuje, nez zacne
     // odpovedat. Nic neblokuje a jeho vysledok ide do summary.
     const probe = await waitForQueryableIndex(env, tenant.id, products);
     return { ok: true, feedType: type, truncated, ...summary, indexProbe: probe };
   } catch (err) {
+    const code = isAiCapacityMessage(err) ? INGEST_ERRORS.AI_BUDGET : INGEST_ERRORS.INTERNAL;
     await setTenantStatus(env.DB, tenant.id, TENANT_STATUS.ERROR);
-    return { ok: false, error: String((err && err.message) || err) };
+    await zapisChybuNacitania(env, tenant.id, code);
+    return { ok: false, error: String((err && err.message) || err), code };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Prečo sa katalóg nenačítal (kód pre majiteľa obchodu)
+//
+// Do verzie pluginu 0.2.1 videl majiteľ pri chybe len vetu „There was a
+// problem processing your product feed“ a tlačidlo, ktoré chybu len znova
+// prečítalo. Nevedel, či ho blokuje firewall, heslo na stránke alebo prázdny
+// obchod, a nemal čo opraviť. Kód sa ukladá do KV (nie do D1, aby netreba
+// meniť schému) a verejný GET /v1/tenants/:id/status ho vracia ako
+// last_error, len kým je stav error. Kódy sú stabilné, plugin ich prekladá
+// na vety s návodom.
+// ---------------------------------------------------------------------------
+
+export const INGEST_ERRORS = {
+  NO_PRODUCTS: 'no_products',
+  NOT_READABLE: 'feed_not_readable',
+  UNREACHABLE: 'feed_unreachable',
+  AI_BUDGET: 'ai_budget_exhausted',
+  INTERNAL: 'internal',
+};
+
+export const INGEST_ERROR_TTL_SECONDS = 30 * 24 * 60 * 60;
+
+export function ingestErrorKey(tenantId) {
+  return `ingest-error:${tenantId}`;
+}
+
+function isAiCapacityMessage(err) {
+  const message = String((err && err.message) || err || '');
+  return /daily free allocation/i.test(message) && /neurons/i.test(message);
+}
+
+/**
+ * Chyba z fetchFeed -> stabilný kód:
+ *   feed_url_private_host, feed_url_scheme, feed_url_invalid,
+ *   feed_too_many_redirects  (adresu sme odmietli ešte pred stiahnutím)
+ *   feed_http_NNN            (obchod odpovedal chybovým kódom HTTP)
+ *   feed_not_readable        (odpoveď nie je JSON ani známy XML feed,
+ *                             typicky HTML stránka firewallu či prihlásenia)
+ *   feed_unreachable         (sieťová chyba, DNS, spojenie zlyhalo)
+ */
+export function classifyFeedError(err) {
+  if (err instanceof FeedUrlNotAllowedError) return err.reason || 'feed_url_invalid';
+  const message = String((err && err.message) || err || '');
+  const http = message.match(/^feed_fetch_failed_(\d{3})$/);
+  if (http) return `feed_http_${http[1]}`;
+  if (message === 'unrecognised_feed_format' || err instanceof SyntaxError) return INGEST_ERRORS.NOT_READABLE;
+  return INGEST_ERRORS.UNREACHABLE;
+}
+
+async function zapisChybuNacitania(env, tenantId, code) {
+  if (!env || !env.ASISTENT_CACHE) return;
+  try {
+    await env.ASISTENT_CACHE.put(ingestErrorKey(tenantId), String(code), { expirationTtl: INGEST_ERROR_TTL_SECONDS });
+  } catch (e) {
+    console.warn('[arling-asistent] kod chyby nacitania sa nepodarilo zapisat:', (e && e.message) || e);
+  }
+}
+
+async function zmazChybuNacitania(env, tenantId) {
+  if (!env || !env.ASISTENT_CACHE || typeof env.ASISTENT_CACHE.delete !== 'function') return;
+  try {
+    await env.ASISTENT_CACHE.delete(ingestErrorKey(tenantId));
+  } catch (e) {
+    // Stará chyba v KV nevadí: status ju ukazuje len pri stave error.
+  }
+}
+
+/** Posledný kód chyby načítania, alebo null (bez KV, bez záznamu, pri chybe KV). */
+export async function readIngestError(env, tenantId) {
+  if (!env || !env.ASISTENT_CACHE) return null;
+  try {
+    const value = await env.ASISTENT_CACHE.get(ingestErrorKey(tenantId));
+    return value ? String(value) : null;
+  } catch (e) {
+    return null;
   }
 }
 
@@ -231,6 +340,15 @@ export async function createTenantFromRequest(env, { feedUrl, domain, email }, {
       existing.feed_url = cleanFeedUrl;
     }
     if (jeMajitel && (feedUrlChanged || isIngestionStale(existing, now))) {
+      // Obchod v stave error sa pri novom pokuse prepne na pending hneď,
+      // ešte pred načítaním. Inak by plugin po kliknutí na „Try again“
+      // ďalej ukazoval starú chybu, kým načítanie nedobehne, a majiteľ by
+      // nevedel, či sa vôbec niečo deje. Obchod, ktorý je ready, sa na
+      // pending neprepína nikdy: chat by počas obnovy prestal odpovedať.
+      if (existing.status === TENANT_STATUS.ERROR) {
+        await setTenantStatus(env.DB, existing.id, TENANT_STATUS.PENDING);
+        existing.status = TENANT_STATUS.PENDING;
+      }
       await startIngestion(env, existing, waitUntil, { samoobsluzne: true });
     }
 
@@ -261,7 +379,8 @@ export async function createTenantFromRequest(env, { feedUrl, domain, email }, {
  *     conversations_used (current UTC calendar month), usage_percent
  *     (integer 0..100), period_start ("YYYY-MM-01"), period_end (first day
  *     of next month), product_count, valid_until (or null), last_ingest
- *     (ISO or null) }
+ *     (ISO or null), last_error (stable code while status is "error",
+ *     otherwise null) }
  * `used_this_month` and `last_ingested_at` are kept as aliases of
  * conversations_used / last_ingest for the WordPress plugin and the Shopify
  * admin page, which still read the older names.
@@ -287,6 +406,11 @@ export async function tenantStatusResponse(env, tenantId, { now = new Date(), in
     // handleSetPlanRoute below): a free/never-upgraded tenant has no expiry.
     valid_until: tenant.valid_until || null,
     last_ingest: lastIngest,
+    // Stabilný kód, prečo sa katalóg nenačítal (INGEST_ERRORS a
+    // classifyFeedError vyššie), len kým je stav error; inak null. Nie je v
+    // ňom nič citlivé: je to to isté, čo o obchode vidí ktokoľvek, kto si
+    // jeho verejnú adresu produktov otvorí sám.
+    last_error: tenant.status === TENANT_STATUS.ERROR ? await readIngestError(env, tenant.id) : null,
     used_this_month: conversationsUsed,
     last_ingested_at: lastIngest,
   };

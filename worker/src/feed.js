@@ -556,10 +556,26 @@ export function isShopifyProductsJsonUrl(feedUrl) {
   }
 }
 
-/** True when the feed URL's path is WooCommerce's public Store API products list. */
+/**
+ * True when the feed URL is WooCommerce's public Store API products list.
+ *
+ * Tri tvary tej istej adresy, všetky tri posiela plugin 0.3.0+ cez
+ * get_rest_url():
+ *   - bežné pekné odkazy: /wp-json/wc/store/v1/products
+ *   - vlastná predpona REST (filter rest_url_prefix): /api/wc/store/v1/products
+ *   - „Jednoduché“ trvalé odkazy bez prepisovania adries:
+ *     /?rest_route=/wc/store/v1/products
+ * Do verzie 0.2.1 plugin skladal /wp-json/ natvrdo, takže obchod s
+ * jednoduchými odkazmi dostal 404 a asistent sa nikdy nezapol. Rozpoznanie
+ * tu rozhoduje o stránkovaní; bez neho by sa z obchodu načítala len prvá
+ * stovka produktov.
+ */
 export function isWooCommerceStoreApiUrl(feedUrl) {
   try {
-    return /\/wp-json\/wc\/store\/v1\/products\/?$/i.test(new URL(feedUrl).pathname);
+    const u = new URL(feedUrl);
+    if (/\/wc\/store\/v1\/products\/?$/i.test(u.pathname)) return true;
+    const route = u.searchParams.get('rest_route');
+    return !!route && /^\/wc\/store\/v1\/products\/?$/i.test(route);
   } catch (e) {
     return false;
   }

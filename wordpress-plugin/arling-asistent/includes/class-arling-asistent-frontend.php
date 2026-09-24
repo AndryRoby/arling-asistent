@@ -3,7 +3,10 @@
  * Front-end: enqueues the ARLing Shopping Assistant widget script, and only that
  * script. Nothing is loaded from ARLing's servers anywhere on the site
  * until a store owner has connected on the settings page; this class is
- * the only place in the plugin that touches the public front end.
+ * the only place in the plugin that touches the public front end. The same
+ * script is also loaded on the plugin's own settings page once the
+ * assistant is ready, for the "Try it now" preview (see
+ * Arling_Asistent_Admin::enqueue_admin_assets()).
  *
  * @package Arling_Asistent
  */
@@ -32,6 +35,8 @@ class Arling_Asistent_Frontend {
 	/**
 	 * Enqueue the widget script, but only when:
 	 *  - a tenant id exists (the store has connected), and
+	 *  - the last known setup state is not "error" (a bubble that cannot
+	 *    answer anything only tells shoppers the shop is broken), and
 	 *  - the widget has not been switched off, and
 	 *  - the current page matches the configured display scope.
 	 */
@@ -45,7 +50,28 @@ class Arling_Asistent_Frontend {
 			return;
 		}
 
+		// Stored by the settings page and the twice-daily status check; read
+		// locally, never fetched from here.
+		$last_status = get_option( 'arling_asistent_status' );
+		if ( is_array( $last_status ) && isset( $last_status['status'] ) && 'error' === $last_status['status'] ) {
+			return;
+		}
+
 		if ( ! $this->should_show_on_current_page() ) {
+			return;
+		}
+
+		$this->enqueue_widget_script();
+	}
+
+	/**
+	 * Enqueue the widget script itself, with no page checks. Used by
+	 * maybe_enqueue_widget() on the storefront and by the settings page's
+	 * "Try it now" preview (Arling_Asistent_Admin::enqueue_admin_assets()).
+	 * Its data attributes are added by add_data_attributes() below.
+	 */
+	public function enqueue_widget_script() {
+		if ( '' === (string) get_option( 'arling_asistent_tenant_id', '' ) ) {
 			return;
 		}
 
@@ -82,7 +108,7 @@ class Arling_Asistent_Frontend {
 	 * @return bool
 	 */
 	private function should_show_on_current_page() {
-		$scope = get_option( 'arling_asistent_display_scope', 'shop' );
+		$scope = get_option( 'arling_asistent_display_scope', 'all' );
 
 		if ( 'disabled' === $scope ) {
 			return false;
@@ -156,9 +182,11 @@ class Arling_Asistent_Frontend {
 			return $tag;
 		}
 
-		$color    = get_option( 'arling_asistent_color', 'auto' );
-		$position = get_option( 'arling_asistent_position', 'bottom-right' );
-		$gift     = get_option( 'arling_asistent_gift', '0' );
+		$color       = get_option( 'arling_asistent_color', 'auto' );
+		$position    = get_option( 'arling_asistent_position', 'bottom-right' );
+		$gift        = get_option( 'arling_asistent_gift', '0' );
+		$lang_option = get_option( 'arling_asistent_lang', 'auto' );
+		$lang        = $this->resolve_lang();
 
 		// The settings screen stores 'bottom-right' / 'bottom-left', the widget
 		// reads data-position as 'right' / 'left' (see widget.js). Without this
@@ -169,11 +197,23 @@ class Arling_Asistent_Frontend {
 		$attributes = sprintf(
 			' data-tenant="%1$s" data-lang="%2$s" data-color="%3$s" data-position="%4$s" data-endpoint="%5$s"',
 			esc_attr( $tenant_id ),
-			esc_attr( $this->resolve_lang() ),
+			esc_attr( $lang ),
 			esc_attr( $color ),
 			esc_attr( $position ),
 			esc_url( untrailingslashit( $endpoint ) )
 		);
+
+		/*
+		 * A site whose language is not one of the widget's four (a French,
+		 * Polish or Spanish shop, most of the wordpress.org audience) used to
+		 * get English answers for every shopper. With "Automatic" language,
+		 * such a site now keeps English chat buttons but lets the assistant
+		 * answer each shopper in the language they write in (the widget's
+		 * data-answer-lang="auto", see widget/widget.js).
+		 */
+		if ( 'auto' === $lang_option && ! in_array( $lang, array( 'sk', 'cs', 'en', 'de' ), true ) ) {
+			$attributes .= ' data-answer-lang="auto"';
+		}
 
 		/*
 		 * data-gift is added only when the merchant switched the gift finder

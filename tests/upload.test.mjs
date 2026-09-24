@@ -456,12 +456,37 @@ test('a cs_live_ session is read with the live key', async () => {
 test('status says paid but not uploaded before the file arrives, and uploaded after it', async () => {
   const env = makeEnv();
   const before = await (await worker.fetch(statusRequest(), env, makeCtx())).json();
-  assert.deepEqual(before, { paid: true, uploaded: false, amount_total: 14900, amount_subtotal: 14900, currency: 'eur', livemode: true, email_masked: 'z***@firma.sk', delivered: false, delivered_at: null });
+  assert.deepEqual(before, { paid: true, uploaded: false, amount_total: 14900, amount_subtotal: 14900, currency: 'eur', livemode: true, created: 1757500000, email_masked: 'z***@firma.sk', delivered: false, delivered_at: null });
 
   await worker.fetch(uploadRequest(XML), env, makeCtx());
 
   const after = await (await worker.fetch(statusRequest(), env, makeCtx())).json();
-  assert.deepEqual(after, { paid: true, uploaded: true, amount_total: 14900, amount_subtotal: 14900, currency: 'eur', livemode: true, email_masked: 'z***@firma.sk', delivered: false, delivered_at: null });
+  assert.deepEqual(after, { paid: true, uploaded: true, amount_total: 14900, amount_subtotal: 14900, currency: 'eur', livemode: true, created: 1757500000, email_masked: 'z***@firma.sk', delivered: false, delivered_at: null });
+});
+
+/* Netesniaca brana e-faktury (ops/stripe/zmena-cien-2026-09-22.md, cast 6):
+ * stranka ratala 24 hodin a 30 dni od okamihu OVERENIA, takze kazde otvorenie
+ * navratoveho odkazu platnost obnovilo. Worker preto vracia cas vzniku session
+ * zo Stripe (created, sekundy od 1970) a stranka pocita platnost od neho. */
+test('status vracia created zo Stripe, aby stranka pocitala platnost od platby, nie od overenia', async () => {
+  const env = makeEnv({ amount: 290 });
+  const st = await (await worker.fetch(statusRequest(), env, makeCtx())).json();
+  assert.equal(st.paid, true);
+  assert.equal(st.created, 1757500000);
+});
+
+test('status bez pola created zo Stripe vrati created null, nie vymysleny cas', async () => {
+  const env = makeEnv({ amount: 290 });
+  const inner = env.fetchImpl;
+  env.fetchImpl = async (url, opts) => {
+    const r = await inner(url, opts);
+    if (!String(url).includes('/v1/checkout/sessions/')) return r;
+    const body = await r.json();
+    delete body.created;
+    return { ok: true, status: 200, json: async () => body };
+  };
+  const st = await (await worker.fetch(statusRequest(), env, makeCtx())).json();
+  assert.equal(st.created, null);
 });
 
 test('status carries amount_subtotal (price before a promotion code) so a discounted pack still unlocks', async () => {
@@ -656,7 +681,7 @@ test('consent never appears in the upload or status response body: it is a recor
   const up = await (await worker.fetch(uploadRequest(XML, { consent: '1' }), env, makeCtx())).json();
   assert.equal('consent' in up, false);
   const st = await (await worker.fetch(statusRequest(), env, makeCtx())).json();
-  assert.deepEqual(Object.keys(st).sort(), ['amount_subtotal', 'amount_total', 'currency', 'delivered', 'delivered_at', 'email_masked', 'livemode', 'paid', 'uploaded']);
+  assert.deepEqual(Object.keys(st).sort(), ['amount_subtotal', 'amount_total', 'created', 'currency', 'delivered', 'delivered_at', 'email_masked', 'livemode', 'paid', 'uploaded']);
 });
 
 test('status and upload share the per-IP rate limit used by chat, so nobody can burn our Stripe quota', async () => {
