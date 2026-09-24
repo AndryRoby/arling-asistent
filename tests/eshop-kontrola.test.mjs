@@ -75,8 +75,9 @@ test('vzorka 01: vzorný e-shop, formulár na odstúpenie, zásady s Google, Coo
   assert.match(vysledok.riadky.find((r) => r.id === 'cookies').text, /Cookiebot/);
   assert.deepEqual(vysledok.sluzby.map((s) => s.id), ['ga4']);
   assert.equal(vysledok.adresa, 'https://cajovna-lipa.sk/');
-  // Úvod a najviac 2 ďalšie stránky, nič viac.
-  assert.equal(siet.volania.length, 3);
+  // Úvod a najviac 3 ďalšie stránky (zásady, odstúpenie, podmienky), nič viac. Obchodné podmienky
+  // vzorka nemá, preto štvrté volanie skončí 404 a riadok RSO ostáva „nevieme“.
+  assert.equal(siet.volania.length, 4);
   for (const v of siet.volania) assert.equal(v.init.headers['user-agent'], KONTROLA_USER_AGENT);
   assert.match(KONTROLA_USER_AGENT, /https:\/\/arling\.sk\/kontrola-eshopu\//);
 });
