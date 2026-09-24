@@ -5,7 +5,7 @@
  *
  * Bezplatná kontrola e-shopu pre stránku https://arling.sk/kontrola-eshopu/
  * (bod 2, F-N15, v ops/strategia/2026-09-24/napady/top-10.md). Worker načíta
- * úvodnú stránku zadanej adresy a najviac 2 ďalšie stránky tej istej domény,
+ * úvodnú stránku zadanej adresy a najviac 3 ďalšie stránky tej istej domény,
  * na ktoré úvodná stránka odkazuje (zásady ochrany osobných údajov,
  * odstúpenie od zmluvy, prípadne obchodné podmienky). Bez prehliadača a bez
  * AI: len HTML a pravidlá nižšie. Výsledok je sedem riadkov, každý so stavom
@@ -42,7 +42,7 @@ export const LIMIT_PODSTRANKA_BAJTOV = 1.5 * 1024 * 1024;
 export const CAS_NA_STRANKU_MS = 8000;
 export const CAS_SPOLU_MS = 20000;
 export const MAX_TELO_POZIADAVKY = 2048;
-export const MAX_DALSICH_STRANOK = 2;
+export const MAX_DALSICH_STRANOK = 3;
 
 /** Chyba, ktorú vidí návštevník: kód pre stránku a HTTP stav. */
 export class KontrolaChyba extends Error {
