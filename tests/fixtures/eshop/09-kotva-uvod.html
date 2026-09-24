@@ -1,0 +1,34 @@
+<!doctype html>
+<!-- Vymyslený e-shop pre testy kontroly: formulár na odstúpenie priamo na úvodnej stránke (kotva), Stripe a Ecomail. -->
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<title>Plátenné tašky Vak</title>
+<script src="https://js.stripe.com/v3/"></script>
+<script src="https://ecomailapp.cz/ecm.js" async></script>
+</head>
+<body>
+<main>
+  <h1>Plátenné tašky a vaky</h1>
+  <a href="/tasky/">Tašky</a> <a href="/vaky/">Vaky</a> <a href="/ruksaky/">Ruksaky</a>
+  <a href="/doplnky/">Doplnky</a> <a href="/o-nas/">O nás</a> <a href="/blog/">Blog</a>
+  <form action="/newsletter" method="post"><input type="email" name="email"><button>Prihlásiť na novinky</button></form>
+  <section id="odstupenie">
+    <h2>Odstúpiť od zmluvy</h2>
+    <form action="/odstupenie" method="post">
+      <input type="text" name="meno" aria-label="Meno a priezvisko">
+      <input type="text" name="cislo_objednavky" aria-label="Číslo objednávky">
+      <input type="email" name="email" aria-label="E-mail">
+      <button type="submit">Potvrdiť odstúpenie</button>
+    </form>
+  </section>
+</main>
+<footer>
+  <a href="/obchodne-podmienky/">Obchodné podmienky</a>
+  <a href="/reklamacie/">Reklamácie</a>
+  <a href="/gdpr/">Ochrana osobných údajov</a>
+  <a href="#odstupenie">Odstúpiť od zmluvy tu</a>
+  <p>Vak s. r. o., Plátenná 2, 080 01 Prešov, IČO 33322211, +421 911 222 333</p>
+</footer>
+</body>
+</html>

@@ -74,15 +74,18 @@ class Arling_Asistent_Api {
 	}
 
 	/**
-	 * GET /v1/tenants/:id/status -> { id, domain, status, plan, monthly_quota, used_this_month, last_ingested_at }
+	 * GET /v1/tenants/:id/status -> { id, domain, status, plan, monthly_quota,
+	 * conversations_used, usage_percent, period_start, period_end,
+	 * product_count, last_ingest, last_error, used_this_month, last_ingested_at }
 	 *
 	 * @param string $tenant_id Tenant id returned by create_tenant().
+	 * @param int    $timeout   Seconds to wait (shorter for the background check).
 	 * @return array{ok:bool,data?:array,error?:string,message?:string} Normalised result.
 	 */
-	public static function get_status( $tenant_id ) {
+	public static function get_status( $tenant_id, $timeout = 15 ) {
 		$response = wp_remote_get(
 			self::base_url() . '/v1/tenants/' . rawurlencode( $tenant_id ) . '/status',
-			array( 'timeout' => 15 )
+			array( 'timeout' => (int) $timeout )
 		);
 
 		return self::parse_response( $response, array( 200 ) );

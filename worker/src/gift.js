@@ -43,6 +43,7 @@ import {
   capWords,
   retrieveCandidates,
   topCategoryNames,
+  PUBLIC_ERROR_CORS,
 } from './chat.js';
 import { checkAndRecordConversation } from './tenants.js';
 import { maybeNotifyQuota } from './notify.js';
@@ -353,35 +354,40 @@ export async function handleGiftRoute(request, env, ctx, deps = {}) {
   const bodyText = await request.text();
   securityMod.assertBodySize(bodyText, MAX_GIFT_BODY_BYTES);
 
+  // Chybové odpovede s CORS, z toho istého dôvodu ako v chat.js: inak ich
+  // prehliadač widgetu nedá prečítať a z vyčerpaného limitu je sieťová chyba.
+  const origin = request.headers.get('Origin') || '';
+  const chybaCors = origin ? PUBLIC_ERROR_CORS : {};
+
   let body;
   try {
     body = JSON.parse(bodyText);
   } catch (e) {
-    return jsonResponse({ error: 'invalid_json' }, 400);
+    return jsonResponse({ error: 'invalid_json' }, 400, chybaCors);
   }
 
   const { tenant: tenantId, recipient, budget_min, budget_max, interests, session } = body || {};
   // Rovnako ako pri /v1/chat: chybajuci jazyk znamena 'auto', nie anglictinu.
   const lang = (body && body.lang) || 'auto';
   if (!tenantId) {
-    return jsonResponse({ error: 'tenant is required' }, 400);
+    return jsonResponse({ error: 'tenant is required' }, 400, chybaCors);
   }
 
   const tenant = await tenantsMod.getTenantById(env.DB, tenantId);
   if (!tenant || tenant.status !== 'ready') {
-    return jsonResponse({ error: 'unknown_or_not_ready_tenant' }, 404);
+    return jsonResponse({ error: 'unknown_or_not_ready_tenant' }, 404, chybaCors);
   }
 
-  const origin = request.headers.get('Origin') || '';
   const allowed = securityMod.parseAllowedOrigins(env.ALLOWED_ORIGINS);
   if (origin && !securityMod.isOriginAllowed(origin, [tenant.domain, ...allowed])) {
-    return jsonResponse({ error: 'origin_not_allowed' }, 403);
+    return jsonResponse({ error: 'origin_not_allowed' }, 403, chybaCors);
   }
+  const headers = origin ? securityMod.corsHeaders(origin, [tenant.domain, ...allowed]) || {} : {};
 
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
   const rate = await securityMod.checkRateLimit(env.ASISTENT_CACHE, ip);
   if (!rate.allowed) {
-    return jsonResponse({ error: 'rate_limited' }, 429);
+    return jsonResponse({ error: 'rate_limited' }, 429, headers);
   }
 
   // Same session-deduped conversation counter as chat.js: one gift search is
@@ -389,7 +395,7 @@ export async function handleGiftRoute(request, env, ctx, deps = {}) {
   // who both chats and searches for a gift in the same tab (see tenants.js).
   const quota = await checkAndRecordConversation(env.DB, tenant.id, { session, kv: env.ASISTENT_CACHE });
   if (!quota.allowed) {
-    return jsonResponse({ error: 'quota_exceeded' }, 429);
+    return jsonResponse({ error: 'quota_exceeded' }, 429, headers);
   }
 
   if (quota.counted) {
@@ -400,8 +406,6 @@ export async function handleGiftRoute(request, env, ctx, deps = {}) {
       await notification;
     }
   }
-
-  const headers = origin ? securityMod.corsHeaders(origin, [tenant.domain, ...allowed]) : {};
 
   // Poradie ako v chat.js, a to je celý zmysel: do 21. 9. 2026 sa tu model
   // volal PRED kontrolou stropu a pred isOurTest, takže denný strop neurónov

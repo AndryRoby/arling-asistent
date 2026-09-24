@@ -678,11 +678,20 @@ export async function handleChatRoute(request, env, ctx, deps = {}) {
   const bodyText = await request.text();
   securityMod.assertBodySize(bodyText);
 
+  // Chybové odpovede tejto verejnej cesty nesú Access-Control-Allow-Origin.
+  // Bez neho prehliadač odpoveď widgetu nedal prečítať: z 429 quota_exceeded
+  // (vyčerpaných 100 bezplatných rozhovorov) sa stala sieťová chyba a
+  // zákazník e-shopu videl „odpoveď sa nepodarilo načítať“, akoby bol
+  // asistent pokazený. Telo chyby je len kód, nič citlivé; preflight tejto
+  // cesty už hviezdičku posiela (index.js, VEREJNE_CESTY).
+  const origin = request.headers.get('Origin') || '';
+  const chybaCors = origin ? PUBLIC_ERROR_CORS : {};
+
   let body;
   try {
     body = JSON.parse(bodyText);
   } catch (e) {
-    return jsonResponse({ error: 'invalid_json' }, 400);
+    return jsonResponse({ error: 'invalid_json' }, 400, chybaCors);
   }
 
   const { tenant: tenantId, messages, session } = body || {};
@@ -692,27 +701,27 @@ export async function handleChatRoute(request, env, ctx, deps = {}) {
   // 'auto', teda model odpovie v jazyku, v ktorom sa clovek spytal.
   const lang = (body && body.lang) || 'auto';
   if (!tenantId || !Array.isArray(messages)) {
-    return jsonResponse({ error: 'tenant and messages are required' }, 400);
+    return jsonResponse({ error: 'tenant and messages are required' }, 400, chybaCors);
   }
   if (messages.length > MAX_MESSAGES_GUARD) {
-    return jsonResponse({ error: 'too_many_messages' }, 400);
+    return jsonResponse({ error: 'too_many_messages' }, 400, chybaCors);
   }
 
   const tenant = await tenantsMod.getTenantById(env.DB, tenantId);
   if (!tenant || tenant.status !== 'ready') {
-    return jsonResponse({ error: 'unknown_or_not_ready_tenant' }, 404);
+    return jsonResponse({ error: 'unknown_or_not_ready_tenant' }, 404, chybaCors);
   }
 
-  const origin = request.headers.get('Origin') || '';
   const allowed = securityMod.parseAllowedOrigins(env.ALLOWED_ORIGINS);
   if (origin && !securityMod.isOriginAllowed(origin, [tenant.domain, ...allowed])) {
-    return jsonResponse({ error: 'origin_not_allowed' }, 403);
+    return jsonResponse({ error: 'origin_not_allowed' }, 403, chybaCors);
   }
+  const headers = origin ? securityMod.corsHeaders(origin, [tenant.domain, ...allowed]) || {} : {};
 
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
   const rate = await securityMod.checkRateLimit(env.ASISTENT_CACHE, ip);
   if (!rate.allowed) {
-    return jsonResponse({ error: 'rate_limited' }, 429);
+    return jsonResponse({ error: 'rate_limited' }, 429, headers);
   }
 
   // One conversation = one widget session (see tenants.js): the session id
@@ -720,7 +729,7 @@ export async function handleChatRoute(request, env, ctx, deps = {}) {
   // in KV; an older embed that sends no session counts once per request.
   const quota = await checkAndRecordConversation(env.DB, tenant.id, { session, kv: env.ASISTENT_CACHE });
   if (!quota.allowed) {
-    return jsonResponse({ error: 'quota_exceeded' }, 429);
+    return jsonResponse({ error: 'quota_exceeded' }, 429, headers);
   }
 
   // Owner notification at 80 % / 100 % of the month's quota (notify.js):
@@ -735,8 +744,6 @@ export async function handleChatRoute(request, env, ctx, deps = {}) {
       await notification;
     }
   }
-
-  const headers = origin ? securityMod.corsHeaders(origin, [tenant.domain, ...allowed]) : {};
 
   // Nase vlastne testy nesmu mrhat dennou davkou neuronov: odpovedia bez
   // volania modelu (viac v budget.js).
@@ -756,6 +763,9 @@ export async function handleChatRoute(request, env, ctx, deps = {}) {
 }
 
 const MAX_MESSAGES_GUARD = 20;
+
+/** CORS pre chybové odpovede verejných ciest widgetu (/v1/chat, /v1/gift). Zdieľa ho aj gift.js. */
+export const PUBLIC_ERROR_CORS = Object.freeze({ 'Access-Control-Allow-Origin': '*' });
 
 function jsonResponse(obj, status, extraHeaders = {}) {
   return new Response(JSON.stringify(obj), {

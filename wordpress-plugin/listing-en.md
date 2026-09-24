@@ -1,28 +1,29 @@
-# ARLing Asistent for WooCommerce - listing copy (English)
+# ARLing Shopping Assistant for WooCommerce - listing copy (English)
 
-Short block of English marketing copy for the wordpress.org plugin page, arling.sk, or any other listing that wants a quick pitch rather than the full readme.txt. This is not part of the plugin zip; it is reference copy for whoever manages the listing.
+Short block of English copy for the wordpress.org plugin page, arling.sk, or any other listing that wants a quick pitch rather than the full readme.txt. Not part of the plugin zip. Updated 24. 9. 2026 for 0.3.0; readme.txt is the source of truth.
 
 ## Tagline
 
-AI shopping assistant for WooCommerce. Answers customer questions from your own product catalogue. No conversation storage.
+AI chatbot for WooCommerce: answers shoppers from your own product catalogue. Live in about a minute, no account or API key. 100 free chats a month.
 
 ## Short pitch (about 60 words)
 
-ARLing Asistent adds an AI chat widget to your WooCommerce store that answers shopping questions in plain language, using only your own products. Connect in a few minutes from the WooCommerce menu: no coding, no manual catalogue upload. The assistant refreshes itself daily, speaks Slovak, Czech, English and German, and never stores what customers ask.
+ARLing Shopping Assistant adds an AI chatbot to your WooCommerce store that answers shopping questions in plain language, using only your own products, with a link and price for each match. You switch it on inside WordPress in about a minute: no account elsewhere, no API key, no card. Try it on the settings page before shoppers see it. 100 conversations a month are free.
 
 ## Feature bullets
 
-- Answers shopper questions directly from your live product feed, no manual setup of a knowledge base.
-- Shows up to three matching products with price and a link alongside every answer.
-- Supports Slovak, Czech, English and German, auto-detected from your site language.
-- Refreshes product knowledge automatically once a day.
-- Stores no conversation content, only anonymous daily counters used to enforce your plan's quota.
-- Nothing loads on your storefront until you explicitly connect from the settings page.
-- Free during the beta for up to 100 conversations a month; plans from 19 EUR/month afterwards.
+- Answers shopper questions from your live product catalogue (WooCommerce Store API), no knowledge base to write.
+- Shows up to three matching products with price and a link next to every answer.
+- Try it on the settings page with example questions built from your own categories and products.
+- If setup fails, the settings page says why (firewall, password protection, coming soon page, no products) and offers Try again.
+- Slovak, Czech, English and German built in; on other sites it answers in the shopper's language.
+- Stores no conversation content, only anonymous daily counters for the monthly limit.
+- Free for 100 conversations a month; 19 EUR a month for 1,000, 39 EUR a month for 3,000. Warned at 80 % and 100 %.
+- Does not add to cart or place orders: it answers and links to the product.
 
 ## One-line elevator pitch
 
-A WooCommerce chat widget that knows your catalogue and answers customer questions about it, without storing a single conversation.
+A WooCommerce chatbot that knows your catalogue, works a minute after you install it, and never stores a conversation.
 
 ## About ARLing
 

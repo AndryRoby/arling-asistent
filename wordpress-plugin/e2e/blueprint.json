@@ -1,0 +1,11 @@
+{
+  "preferredVersions": { "php": "7.4", "wp": "latest" },
+  "steps": [
+    { "step": "installPlugin", "pluginData": { "resource": "wordpress.org/plugins", "slug": "woocommerce" }, "options": { "activate": true } },
+    { "step": "activatePlugin", "pluginPath": "arling-asistent/arling-asistent.php" },
+    {
+      "step": "runPHP",
+      "code": "<?php require '/wordpress/wp-load.php'; delete_transient('_wc_activation_redirect'); update_option('woocommerce_onboarding_profile', array('skipped' => true)); update_option('woocommerce_coming_soon', 'no'); update_option('woocommerce_currency', 'EUR'); $t = wp_insert_term('Kitchen', 'product_cat'); $cat = is_wp_error($t) ? 0 : $t['term_id']; foreach (array(array('Cast iron pot 4 l', '44.90'), array('Frying pan 28 cm', '34.90'), array('Knife set', '59.00')) as $x) { $p = new WC_Product_Simple(); $p->set_name($x[0]); $p->set_regular_price($x[1]); $p->set_status('publish'); if ($cat) { $p->set_category_ids(array($cat)); } $p->save(); } echo 'seeded';"
+    }
+  ]
+}

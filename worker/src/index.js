@@ -18,6 +18,8 @@
  *   GET  /v1/kontrola/admin/uploads  -> upload.js (admin only, X-Admin-Token)
  *   GET  /v1/kontrola/admin/upload   -> upload.js (admin only)
  *   PUT  /v1/kontrola/admin/deliver  -> upload.js (admin only)
+ *   POST /v1/eshop/kontrola          -> eshop-kontrola.js (free public-page
+ *                                        check of an e-shop, no AI, no storage)
  *   POST /v1/ucet/kod                -> ucet.js (e-mail login: send a 6-digit code)
  *   POST /v1/ucet/over               -> ucet.js (verify the code, returns a Bearer token)
  *   GET  /v1/ucet/ja                 -> ucet.js (Bearer; account, purchases, subscriptions)
@@ -33,6 +35,10 @@
  *   PATCH/POST /v1/tenants/:id/plan  -> onboarding.js (admin only, X-Admin-Token;
  *                                        this is what a paid Stripe plan actually
  *                                        changes, see licence-service/app.py)
+ *   POST /v1/tiktok/{start,session,upload,status,cancel}
+ *                                    -> tiktok-share.js (Puzzle video maker: a
+ *                                        creator's own video to their own
+ *                                        TikTok inbox; CORS only arling.sk)
  *   GET  /widget.js                  -> the embeddable widget, served from
  *                                        this worker's own origin
  *   GET  /health                     -> static ok
@@ -76,7 +82,9 @@ import {
 } from './ucet.js';
 import { parseAllowedOrigins, corsHeaders, InputTooLargeError, SECURITY_HEADERS } from './security.js';
 import { ValidationError } from './tenants.js';
+import { handleEshopKontrolaRoute } from './eshop-kontrola.js';
 import widgetSource from './widget-src.js';
+import { handleTiktokRoute } from './tiktok-share.js';
 import scheduledHandler from './cron.js';
 
 /** CORS headers for a router-level response (no tenant context available here: ALLOWED_ORIGINS only). */
@@ -174,6 +182,13 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
+    // Puzzle video maker, zdieľanie do TikTok inboxu tvorcu (tiktok-share.js).
+    // Vlastný preflight, CORS len https://arling.sk, vlastné chyby; preto pred OPTIONS a try.
+    if (url.pathname.startsWith('/v1/tiktok/')) {
+      const tiktok = await handleTiktokRoute(request, env);
+      if (tiktok) return tiktok;
+    }
+
     if (request.method === 'OPTIONS') {
       return handleOptions(request, env);
     }
@@ -224,6 +239,11 @@ export default {
 
       if (url.pathname === '/v1/kontrola/admin/deliver' && request.method === 'PUT') {
         return await handleKontrolaAdminDeliverRoute(request, env);
+      }
+
+      // Bezplatná kontrola e-shopu pre arling.sk/kontrola-eshopu/ (eshop-kontrola.js).
+      if (url.pathname === '/v1/eshop/kontrola' && request.method === 'POST') {
+        return await handleEshopKontrolaRoute(request, env);
       }
 
       if (url.pathname === '/v1/ucet/kod' && request.method === 'POST') {

@@ -154,8 +154,10 @@ Tenant id je v embed skripte každej stránky obchodu, takže je verejné. Odpov
 ```json
 { "id": "...", "domain": "shop.sk", "plan": "free", "status": "ready", "monthly_quota": 100,
   "conversations_used": 37, "usage_percent": 37, "period_start": "2026-09-01", "period_end": "2026-10-01",
-  "product_count": 294, "valid_until": null, "last_ingest": "2026-09-05T08:00:05.564Z" }
+  "product_count": 294, "valid_until": null, "last_ingest": "2026-09-05T08:00:05.564Z", "last_error": null }
 ```
+
+- `last_error` (od 24. 9. 2026) je stabilný kód, prečo sa katalóg nenačítal, len kým je `status` `error`, inak `null`: `no_products`, `feed_http_NNN` (napr. `feed_http_403` pri firewalle), `feed_not_readable` (HTML namiesto feedu, napr. coming soon alebo prihlasovanie), `feed_unreachable`, `feed_url_private_host` / `feed_url_scheme` / `feed_url_invalid` / `feed_too_many_redirects`, `ai_budget_exhausted`, `internal`. Uložený je v KV `ingest-error:{tenant}` (30 dní), úspešné načítanie ho zmaže. WordPress plugin 0.3.0 ho prekladá na vetu s návodom. Nový obchod s prázdnym feedom končí v `error` / `no_products` (nie `ready`); už bežiaci obchod sa pri dennej obnove kvôli jednej prázdnej odpovedi nevypína. Opakované `POST /v1/tenants` od majiteľa (zhodný e-mail) prepne obchod v `error` hneď na `pending`.
 
 - `plan` je vždy `free`, `starter` alebo `pro` (staršie riadky s hodnotou `trial` sa hlásia ako `free`, uložená hodnota sa nemení).
 - `conversations_used` je počet rozhovorov v aktuálnom kalendárnom mesiaci (UTC); po prelome mesiaca bez jediného chatu je 0, aj keď riadok v D1 ešte drží minulomesačné číslo.

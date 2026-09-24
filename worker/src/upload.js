@@ -482,6 +482,12 @@ export async function handleKontrolaStatusRoute(request, env) {
     currency: session.currency || null,
     // false for a Stripe test-mode session (rehearsal with a test card).
     livemode: session.livemode !== false,
+    // Kedy session vznikla (sekundy od 1970, pole created zo Stripe). Stranky
+    // s odomknutim na cas (e-faktura: 24 hodin, 30 dni) z neho pocitaju
+    // platnost; do 24. 9. 2026 ju pocitali od okamihu overenia, takze kazde
+    // otvorenie navratoveho odkazu ju obnovilo donekonecna
+    // (ops/stripe/zmena-cien-2026-09-22.md, cast 6). Bez pola null, nie odhad.
+    created: Number.isFinite(session.created) ? session.created : null,
     email_masked: maskEmail(session.customer_details && session.customer_details.email),
     delivered: !!delivery,
     delivered_at: delivery ? delivery.delivered_at || null : null,

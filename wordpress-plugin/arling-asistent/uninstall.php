@@ -32,6 +32,7 @@ $arling_asistent_options = array(
 	'arling_asistent_position',
 	'arling_asistent_display_scope',
 	'arling_asistent_gift',
+	'arling_asistent_status',
 );
 
 foreach ( $arling_asistent_options as $arling_asistent_option ) {
@@ -39,6 +40,12 @@ foreach ( $arling_asistent_options as $arling_asistent_option ) {
 	// Multisite: also clean up per-site options if this was network-activated.
 	delete_site_option( $arling_asistent_option );
 }
+
+// The twice-daily status check (0.3.0+), the one-minute activation marker,
+// and every user's list of hidden notices.
+wp_clear_scheduled_hook( 'arling_asistent_status_check' );
+delete_transient( 'arling_asistent_activation_redirect' );
+delete_metadata( 'user', 0, 'arling_asistent_dismissed', '', true );
 
 /*
  * The status transient is keyed by tenant id (arling_asistent_status_{id}),
