@@ -39,8 +39,24 @@
  *                                    -> tiktok-share.js (Puzzle video maker: a
  *                                        creator's own video to their own
  *                                        TikTok inbox; CORS only arling.sk)
+ *   POST /v1/tenants/:id/udalost     -> zivotny-cyklus.js (admin; licence-service
+ *                                        hlási zrušené predplatné)
+ *   DELETE /v1/tenants/:id?potvrd=<doména>
+ *                                    -> zivotny-cyklus.js (ASISTENT_ADMIN_ZAPIS; výmaz účtu)
+ *   GET/POST /v1/tenants/:id/emaily/stop?k=
+ *                                    -> zivotny-cyklus.js (zastavenie všetkých
+ *                                        ďalších e-mailov, voľba „nevytváral
+ *                                        som“, HMAC odkaz, RFC 8058)
+ *   POST /v1/tenants/:id/overenie    -> zivotny-cyklus.js (Bearer z /v1/ucet/over;
+ *                                        overenie e-mailu účtu)
+ *   GET  /v1/admin/asistent/udalosti -> zivotny-cyklus.js (ADMIN_TOKEN alebo
+ *                                        ASISTENT_ADMIN_CITANIE; zdroj pre Twenty)
+ *   POST /v1/admin/asistent/doplnit  -> zivotny-cyklus.js (ASISTENT_ADMIN_ZAPIS; spätné udalosti)
+ *   POST /v1/admin/asistent/uvitaci-email
+ *                                    -> zivotny-cyklus.js (ASISTENT_ADMIN_ZAPIS; ručné E1)
  *   GET  /widget.js                  -> the embeddable widget, served from
- *                                        this worker's own origin
+ *                                        this worker's own origin (a Referer
+ *                                        z domény obchodu zapíše zapojenie)
  *   GET  /health                     -> static ok
  *   *    (anything else)             -> 404
  *
@@ -86,6 +102,16 @@ import { handleEshopKontrolaRoute } from './eshop-kontrola.js';
 import widgetSource from './widget-src.js';
 import { handleTiktokRoute } from './tiktok-share.js';
 import scheduledHandler from './cron.js';
+import {
+  poWidgetJs,
+  handleAdminUdalostiRoute,
+  handleAdminDoplnitRoute,
+  handleAdminUvitaciEmailRoute,
+  handleTenantUdalostRoute,
+  handleDeleteTenantRoute,
+  handleEmailyStopRoute,
+  handleOverenieRoute,
+} from './zivotny-cyklus.js';
 
 /** CORS headers for a router-level response (no tenant context available here: ALLOWED_ORIGINS only). */
 function corsFor(request, env) {
@@ -199,7 +225,49 @@ export default {
       }
 
       if (url.pathname === '/widget.js' && request.method === 'GET') {
+        // Zapojenie na webe obchodu z hlavičky Referer (zivotny-cyklus.js).
+        // Mimo odpovede cez waitUntil; poWidgetJs nikdy nevyhodí, takže
+        // skript sa doručí vždy rovnaký.
+        const zapojenie = poWidgetJs(env, request);
+        if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(zapojenie);
+        else await zapojenie;
         return handleWidgetJs();
+      }
+
+      // Životný cyklus Asistenta: chránený zdroj udalostí pre Twenty CRM a
+      // jednorazové admin cesty (všetko X-Admin-Token), zastavenie e-mailov.
+      if (url.pathname === '/v1/admin/asistent/udalosti' && request.method === 'GET') {
+        return await handleAdminUdalostiRoute(request, env);
+      }
+      if (url.pathname === '/v1/admin/asistent/doplnit' && request.method === 'POST') {
+        return await handleAdminDoplnitRoute(request, env);
+      }
+      if (url.pathname === '/v1/admin/asistent/uvitaci-email' && request.method === 'POST') {
+        return await handleAdminUvitaciEmailRoute(request, env);
+      }
+      const stopMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/emaily\/stop$/);
+      if (stopMatch && (request.method === 'GET' || request.method === 'POST')) {
+        // Chybné percentové kódovanie (napr. %E0) je chyba volajúceho: 400, nie 500.
+        let stopId;
+        try {
+          stopId = decodeURIComponent(stopMatch[1]);
+        } catch (e) {
+          return jsonResponse({ error: 'bad_request' }, 400, corsFor(request, env));
+        }
+        return await handleEmailyStopRoute(request, env, stopId);
+      }
+      // Overenie e-mailu účtu kódom z /v1/ucet/kod (formulár na arling.sk).
+      const overenieMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/overenie$/);
+      if (overenieMatch && request.method === 'POST') {
+        return await handleOverenieRoute(request, env, overenieMatch[1], ctx);
+      }
+      const udalostMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/udalost$/);
+      if (udalostMatch && request.method === 'POST') {
+        return await handleTenantUdalostRoute(request, env, udalostMatch[1]);
+      }
+      const deleteMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)$/);
+      if (deleteMatch && request.method === 'DELETE') {
+        return await handleDeleteTenantRoute(request, env, deleteMatch[1]);
       }
 
       if (url.pathname === '/v1/chat' && request.method === 'POST') {

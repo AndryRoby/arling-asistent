@@ -27,7 +27,13 @@ CREATE TABLE IF NOT EXISTS tenants (
   created_at TEXT NOT NULL,
   last_ingested_at TEXT,
   billing_ref TEXT,
-  valid_until TEXT
+  valid_until TEXT,
+  -- Zivotny cyklus (src/zivotny-cyklus.js, migrations/0001_zivotny_cyklus.sql):
+  -- jazyk e-mailov (sk|cs|en|de, NULL = podla domeny), odkial ucet vznikol
+  -- (formular|wordpress|shopify|api) a cas zastavenia volitelnych e-mailov.
+  jazyk TEXT,
+  zdroj TEXT,
+  emaily_stop_at TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_tenants_domain ON tenants (domain);
@@ -40,5 +46,43 @@ CREATE TABLE IF NOT EXISTS counters (
   day TEXT NOT NULL,
   conversations INTEGER NOT NULL DEFAULT 0,
   product_clicks INTEGER NOT NULL DEFAULT 0,
+  -- Rozhovory z webu samotneho obchodu (nie z arling.sk, nie z nahladu v
+  -- administracii WordPressu); z nich sa pocita udalost "aktivny".
+  web_conversations INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (tenant_id, day)
+);
+
+-- Udalosti uctu (vytvoreny, ready, chyba, zapojeny, prva_otazka, aktivny,
+-- limit_80, limit_100, plan, zruseny, email:E0 az email:E4, emaily_stop).
+-- Len fakty o ucte, nic o navstevnikoch e-shopu. UNIQUE (tenant_id, kluc) je
+-- zaroven zamok: INSERT OR IGNORE jednorazovej udalosti spusti e-mail ci
+-- ping len vtedy, ked riadok naozaj pribudol.
+CREATE TABLE IF NOT EXISTS tenant_udalosti (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tenant_id TEXT NOT NULL,
+  typ TEXT NOT NULL,
+  kluc TEXT NOT NULL,
+  kedy TEXT NOT NULL,
+  data TEXT,
+  UNIQUE (tenant_id, kluc)
+);
+
+-- Globalny denny strop automatickych e-mailov (migrations/0002).
+CREATE TABLE IF NOT EXISTS asistent_strop (
+  den TEXT NOT NULL,
+  poradie INTEGER NOT NULL,
+  kedy TEXT NOT NULL,
+  PRIMARY KEY (den, poradie)
+);
+
+-- Hash adries, ktore povedali „nevytvaral som“: nikdy ziadny e-mail.
+CREATE TABLE IF NOT EXISTS asistent_potlacene (
+  hash TEXT PRIMARY KEY,
+  kedy TEXT NOT NULL
+);
+
+-- Zmazane ucty (len id a cas), aby CRM zmazalo svoj zaznam.
+CREATE TABLE IF NOT EXISTS tenant_zmazane (
+  tenant_id TEXT PRIMARY KEY,
+  kedy TEXT NOT NULL
 );

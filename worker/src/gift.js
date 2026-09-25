@@ -48,6 +48,7 @@ import {
 import { checkAndRecordConversation } from './tenants.js';
 import { maybeNotifyQuota } from './notify.js';
 import { hasBudget, spend, isOurTest, NEURONS } from './budget.js';
+import { poRozhovore } from './zivotny-cyklus.js';
 
 // Re-exported so existing callers (and tests) that import topCategoryNames
 // from gift.js keep working: the function itself now lives in chat.js,
@@ -405,6 +406,14 @@ export async function handleGiftRoute(request, env, ctx, deps = {}) {
     } else {
       await notification;
     }
+  }
+
+  // Životný cyklus, rovnako ako v chat.js (zivotny-cyklus.js poRozhovore).
+  const zivotnyCyklus = poRozhovore(env, tenant, { origin, surface: body && body.surface === 'admin' ? 'admin' : 'web', quota });
+  if (ctx && typeof ctx.waitUntil === 'function') {
+    ctx.waitUntil(zivotnyCyklus);
+  } else {
+    await zivotnyCyklus;
   }
 
   // Poradie ako v chat.js, a to je celý zmysel: do 21. 9. 2026 sa tu model

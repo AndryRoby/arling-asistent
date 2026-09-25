@@ -277,7 +277,8 @@
     fetch(ENDPOINT + '/v1/tenants', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ feed_url: feedUrl, domain: domain, email: email }),
+      // lang: jazyk e-mailov (auto = worker podla domeny), zdroj: odkial ucet vznikol.
+      body: JSON.stringify({ feed_url: feedUrl, domain: domain, email: email, lang: lang, zdroj: 'formular' }),
     })
       .then(function (res) {
         if (!res.ok) return res.json().then(function (body) { throw body; });

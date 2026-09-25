@@ -125,7 +125,11 @@ export class D1ConstraintError extends Error {
 // Validation
 // ---------------------------------------------------------------------------
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Len holá adresa: žiadne zobrazované meno, lomené zátvorky ani čiarky, ktoré
+// by Resend mohol čítať ako „Meno <adresa>“ alebo zoznam adries (adverzárna
+// kontrola 25. 9. 2026). Porovnáva sa bez ohľadu na veľkosť písmen, uloží sa
+// malými písmenami (validateTenantInput nižšie).
+const EMAIL_RE = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i;
 
 /** Extract and lowercase a hostname from a domain string, which may be a bare domain or a full URL. */
 export function normaliseDomain(input) {

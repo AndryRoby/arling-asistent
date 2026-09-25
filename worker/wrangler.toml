@@ -10,6 +10,16 @@ compatibility_date = "2026-09-01"
 [observability]
 enabled = true
 
+# Invocation logs (Request, Response a metadáta každej požiadavky, teda aj
+# Referer stránky návštevníka a IP) vypnuté: zásady Asistenta sľubujú, že o
+# návštevníkoch nič neukladáme. Ostávajú len naše console.warn/error (bez
+# e-mailov a obsahu rozhovorov). Voľba podľa
+# https://developers.cloudflare.com/workers/observability/logs/workers-logs/
+# („invocation_logs = false“), uchovanie logov 3 dni Free, 7 dní Paid.
+[observability.logs]
+enabled = true
+invocation_logs = false
+
 # Comma-separated list of hostnames allowed to call the API without a known
 # tenant match yet (the demo page, and any admin UI). Tenant domains are
 # always allowed automatically once created (see src/security.js).
@@ -23,6 +33,22 @@ STRIPE_PORTAL_URL = "https://billing.stripe.com/p/login/3cIaER9M63hNeFcg8B4ko00"
 # nad ramec pausalu 5 USD nezaplatime nic. Pri prvom platiacom zakaznikovi
 # zvysit a zapisat zmenu do company/finances.md.
 AI_DAILY_NEURON_BUDGET = "9500"
+# Zivotny cyklus Asistenta (src/zivotny-cyklus.js, navrh
+# ops/asistent/zivotny-cyklus.md). Vsetky tri su zamerne vypnute: deploy sam
+# nic neposle. Udalosti v D1 sa zapisuju vzdy. Zapnut hodnotou "zapnute" az
+# podla README "Zivotny cyklus", krok po kroku.
+#   ASISTENT_EMAILY: e-maily majitelom obchodov cez Resend (E0 az E4).
+#     Zapnut az po novej casti zasad sukromia a zapise v ops/ai/rozhodnutia.md.
+#   ASISTENT_NTFY: pingy udalosti (asistent_*) na subscribe-service. Zapnut az
+#     ked subscribe-service pozna nove udalosti a nechava bodky v parametri t.
+#   ASISTENT_MAZANIE: automaticke zmazanie bezplatneho uctu bez jedineho
+#     rozhovoru za 12 mesiacov (denny cron). Zapnut az ked to budu slubovat zasady sukromia.
+ASISTENT_EMAILY = "vypnute"
+ASISTENT_NTFY = "vypnute"
+ASISTENT_MAZANIE = "vypnute"
+# Globálny denný strop automatických e-mailov (UTC deň). Nad ním nejde nič a
+# príde jeden ping „Asistent: denný strop e-mailov dosiahnutý (nie platba)“.
+ASISTENT_DENNY_STROP = "30"
 
 # Workers AI: @cf/baai/bge-m3 (embeddings) and the chat model.
 [ai]
@@ -68,9 +94,12 @@ id = "848dd3f27004468c9003db53bbc48b94"
 binding = "KONTROLA"
 id = "230a9baa3bd1444a99788fa0024106d6"
 
-# Daily feed refresh, 03:00 UTC.
+# Daily feed refresh, 03:00 UTC (plus daily lifecycle upkeep), and the
+# 10-minute lifecycle catch-up ("dobeh", src/zivotny-cyklus.js): unsent
+# e-mails, delayed E0 and WordPress E1, E2, the 72-hour E3, "aktivny".
+# src/cron.js tells them apart by event.cron.
 [triggers]
-crons = ["0 3 * * *"]
+crons = ["0 3 * * *", "*/10 * * * *"]
 
 # Secret (not a [vars] entry, never committed): required by
 # POST /v1/tenants/:id/reingest and PATCH/POST /v1/tenants/:id/plan
@@ -121,3 +150,16 @@ crons = ["0 3 * * *"]
 # records before Resend will actually deliver (see ops/spec-ucet.md, časť C).
 # Set with:
 #   wrangler secret put RESEND_API_KEY
+# Secret (not a [vars] entry, never committed): ASISTENT_ADMIN_ZAPIS, samostatne
+# tajomstvo pre DELETE /v1/tenants/:id, POST /v1/admin/asistent/doplnit a
+# /uvitaci-email (src/zivotny-cyklus.js strazZapisu). Nepozna ho licence-service
+# ani CRM skript; bez neho su tieto tri cesty zatvorene (503). Set with:
+#   wrangler secret put ASISTENT_ADMIN_ZAPIS
+# Secret (VOLITELNE): ASISTENT_ADMIN_CITANIE, len na citanie
+# GET /v1/admin/asistent/udalosti (ops/crm/asistent.mjs), aby CRM nemalo ADMIN_TOKEN.
+#   wrangler secret put ASISTENT_ADMIN_CITANIE
+#
+# Ten isty kluc pouziva aj zivotny cyklus Asistenta (src/zivotny-cyklus.js,
+# odosielatel asistent@mail.arling.sk). Bez neho sa ziaden e-mail zivotneho
+# cyklu neposle a nic sa nezapise ako odoslane. Volitelne e-maily E2 az E4
+# potrebuju aj UCET_TAJOMSTVO (podpis odkazu na zastavenie e-mailov).

@@ -64,7 +64,7 @@ export const HRA_MAX_POCET = 32;
 export const DEFAULT_STRIPE_PORTAL_URL = 'https://billing.stripe.com/p/login/3cIaER9M63hNeFcg8B4ko00';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const JAZYKY = new Set(['sk', 'en', 'de']);
+const JAZYKY = new Set(['sk', 'cs', 'en', 'de']);
 
 // ---------------------------------------------------------------------------
 // Malé pomocné funkcie: e-mail, KV kľúče, base64url, JSON odpoveď, CORS
@@ -259,6 +259,23 @@ async function autentifikuj(request, env) {
   return { ucet };
 }
 
+/**
+ * Overená e-mailová adresa z hlavičky Authorization: Bearer <token z POST
+ * /v1/ucet/over>, alebo null. Pre životný cyklus Asistenta
+ * (zivotny-cyklus.js): automatický e-mail ide len na adresu, ktorú majiteľ
+ * potvrdil 6-miestnym kódom. Bez UCET_TAJOMSTVO vždy null. Nikdy nehádže.
+ */
+export async function overenyEmailZBearer(request, env) {
+  try {
+    if (!env || !env.UCET_TAJOMSTVO || !env.ASISTENT_CACHE) return null;
+    const { ucet, chyba } = await autentifikuj(request, env);
+    if (chyba || !ucet || ucet.zmazane) return null;
+    return normalizujEmail(ucet.email) || null;
+  } catch (e) {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Limity (počet kódov za hodinu, na e-mail aj na IP)
 // ---------------------------------------------------------------------------
@@ -296,21 +313,28 @@ function vygenerujKod() {
 // C. E-mail cez Resend
 // ---------------------------------------------------------------------------
 
+// Päta ako pri e-mailoch Asistenta: kto píše a prečo e-mail prišiel. Kód si
+// vyžiadal ten, kto zadal adresu na arling.sk (účet alebo formulár Asistenta).
 const TEXTY_KODU = {
   sk: {
     predmet: (kod) => `Váš kód: ${kod}`,
-    text: (kod, odkaz) => `Váš kód: ${kod}\n\nAlebo kliknite na odkaz: ${odkaz}\n\nAk ste kód nepýtali, tento e-mail ignorujte. Platí 15 minút.`,
-    html: (kod, odkaz) => `<p>Váš kód: <strong style="font-size:24px">${kod}</strong></p><p>Alebo kliknite na odkaz: <a href="${odkaz}">${odkaz}</a></p><p>Ak ste kód nepýtali, tento e-mail ignorujte. Platí 15 minút.</p>`,
+    text: (kod, odkaz) => `Váš kód: ${kod}\n\nAlebo kliknite na odkaz: ${odkaz}\n\nPlatí 15 minút. Ak ste kód nepýtali, tento e-mail ignorujte.\n\n--\nTento kód ste si vyžiadali na arling.sk. ARLing s. r. o., Bratislava.`,
+    html: (kod, odkaz) => `<p>Váš kód: <strong style="font-size:24px">${kod}</strong></p><p>Alebo kliknite na odkaz: <a href="${odkaz}">${odkaz}</a></p><p>Platí 15 minút. Ak ste kód nepýtali, tento e-mail ignorujte.</p><p style="font-size:13px;color:#555555">Tento kód ste si vyžiadali na arling.sk. ARLing s. r. o., Bratislava.</p>`,
+  },
+  cs: {
+    predmet: (kod) => `Váš kód: ${kod}`,
+    text: (kod, odkaz) => `Váš kód: ${kod}\n\nNebo klikněte na odkaz: ${odkaz}\n\nPlatí 15 minut. Pokud jste o kód nežádali, tento e-mail ignorujte.\n\n--\nO tento kód jste požádali na arling.sk. ARLing s. r. o., Bratislava, Slovensko.`,
+    html: (kod, odkaz) => `<p>Váš kód: <strong style="font-size:24px">${kod}</strong></p><p>Nebo klikněte na odkaz: <a href="${odkaz}">${odkaz}</a></p><p>Platí 15 minut. Pokud jste o kód nežádali, tento e-mail ignorujte.</p><p style="font-size:13px;color:#555555">O tento kód jste požádali na arling.sk. ARLing s. r. o., Bratislava, Slovensko.</p>`,
   },
   en: {
     predmet: (kod) => `Your code: ${kod}`,
-    text: (kod, odkaz) => `Your code: ${kod}\n\nOr click this link: ${odkaz}\n\nIf you did not request this code, ignore this e-mail. Valid for 15 minutes.`,
-    html: (kod, odkaz) => `<p>Your code: <strong style="font-size:24px">${kod}</strong></p><p>Or click this link: <a href="${odkaz}">${odkaz}</a></p><p>If you did not request this code, ignore this e-mail. Valid for 15 minutes.</p>`,
+    text: (kod, odkaz) => `Your code: ${kod}\n\nOr click this link: ${odkaz}\n\nValid for 15 minutes. If you did not request this code, ignore this e-mail.\n\n--\nYou requested this code at arling.sk. ARLing s. r. o., Bratislava, Slovakia.`,
+    html: (kod, odkaz) => `<p>Your code: <strong style="font-size:24px">${kod}</strong></p><p>Or click this link: <a href="${odkaz}">${odkaz}</a></p><p>Valid for 15 minutes. If you did not request this code, ignore this e-mail.</p><p style="font-size:13px;color:#555555">You requested this code at arling.sk. ARLing s. r. o., Bratislava, Slovakia.</p>`,
   },
   de: {
     predmet: (kod) => `Ihr Code: ${kod}`,
-    text: (kod, odkaz) => `Ihr Code: ${kod}\n\nOder klicken Sie auf den Link: ${odkaz}\n\nWenn Sie diesen Code nicht angefordert haben, ignorieren Sie diese E-Mail. 15 Minuten gültig.`,
-    html: (kod, odkaz) => `<p>Ihr Code: <strong style="font-size:24px">${kod}</strong></p><p>Oder klicken Sie auf den Link: <a href="${odkaz}">${odkaz}</a></p><p>Wenn Sie diesen Code nicht angefordert haben, ignorieren Sie diese E-Mail. 15 Minuten gültig.</p>`,
+    text: (kod, odkaz) => `Ihr Code: ${kod}\n\nOder klicken Sie auf den Link: ${odkaz}\n\n15 Minuten gültig. Wenn Sie diesen Code nicht angefordert haben, ignorieren Sie diese E-Mail.\n\n--\nSie haben diesen Code auf arling.sk angefordert. ARLing s. r. o., Bratislava, Slowakei.`,
+    html: (kod, odkaz) => `<p>Ihr Code: <strong style="font-size:24px">${kod}</strong></p><p>Oder klicken Sie auf den Link: <a href="${odkaz}">${odkaz}</a></p><p>15 Minuten gültig. Wenn Sie diesen Code nicht angefordert haben, ignorieren Sie diese E-Mail.</p><p style="font-size:13px;color:#555555">Sie haben diesen Code auf arling.sk angefordert. ARLing s. r. o., Bratislava, Slowakei.</p>`,
   },
 };
 

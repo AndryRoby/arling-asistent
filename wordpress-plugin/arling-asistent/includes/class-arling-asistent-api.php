@@ -47,26 +47,61 @@ class Arling_Asistent_Api {
 	}
 
 	/**
-	 * POST /v1/tenants { feed_url, domain, email } -> { id, domain, status, plan, monthly_quota }
+	 * Language of ARLing's e-mails to the shop owner, from a WordPress locale:
+	 * one of sk, cs, en, de (the four languages the service writes in), any
+	 * other locale becomes en. Examples: sk_SK -> sk, cs_CZ -> cs,
+	 * de_AT -> de, fr_FR -> en.
+	 *
+	 * @param string $locale WordPress locale, e.g. "sk_SK".
+	 * @return string Two-letter language code.
+	 */
+	public static function language_from_locale( $locale ) {
+		$supported = array( 'sk', 'cs', 'en', 'de' );
+		$code      = strtolower( substr( (string) $locale, 0, 2 ) );
+		return in_array( $code, $supported, true ) ? $code : 'en';
+	}
+
+	/**
+	 * Language of the administrator who clicks "Connect" (their own profile
+	 * language, not the storefront's), for ARLing's setup e-mails.
+	 *
+	 * @return string Two-letter language code.
+	 */
+	public static function email_language() {
+		$locale = function_exists( 'get_user_locale' ) ? get_user_locale() : get_locale();
+		return self::language_from_locale( $locale );
+	}
+
+	/**
+	 * POST /v1/tenants { feed_url, domain, email, lang, zdroj } -> { id, domain, status, plan, monthly_quota }
+	 *
+	 * "lang" is the language of ARLing's e-mails to the shop owner (setup
+	 * instructions and at most three service messages), "zdroj" tells the
+	 * service the account comes from this plugin, so the e-mail says there is
+	 * nothing to paste.
 	 *
 	 * @param string $feed_url Public WooCommerce Store API product feed URL.
 	 * @param string $domain   Site domain (host only, no scheme).
 	 * @param string $email    Admin contact e-mail.
+	 * @param string $lang     E-mail language (sk, cs, en, de); empty means the service decides.
 	 * @return array{ok:bool,data?:array,error?:string,message?:string} Normalised result.
 	 */
-	public static function create_tenant( $feed_url, $domain, $email ) {
+	public static function create_tenant( $feed_url, $domain, $email, $lang = '' ) {
+		$payload = array(
+			'feed_url' => $feed_url,
+			'domain'   => $domain,
+			'email'    => $email,
+			'zdroj'    => 'wordpress',
+		);
+		if ( '' !== (string) $lang ) {
+			$payload['lang'] = self::language_from_locale( $lang );
+		}
 		$response = wp_remote_post(
 			self::base_url() . '/v1/tenants',
 			array(
 				'timeout' => 20,
 				'headers' => array( 'Content-Type' => 'application/json' ),
-				'body'    => wp_json_encode(
-					array(
-						'feed_url' => $feed_url,
-						'domain'   => $domain,
-						'email'    => $email,
-					)
-				),
+				'body'    => wp_json_encode( $payload ),
 			)
 		);
 

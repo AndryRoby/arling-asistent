@@ -548,7 +548,7 @@ class Arling_Asistent_Admin {
 		$feed_url = $this->default_feed_url();
 		$domain   = $this->default_domain();
 
-		$result = Arling_Asistent_Api::create_tenant( $feed_url, $domain, $email );
+		$result = Arling_Asistent_Api::create_tenant( $feed_url, $domain, $email, Arling_Asistent_Api::email_language() );
 		if ( empty( $result['ok'] ) ) {
 			$this->redirect_with_notice( 'error', $this->connect_error_message( $result ) );
 		}
@@ -612,7 +612,7 @@ class Arling_Asistent_Admin {
 			$this->redirect_with_notice( 'error', __( 'This store is not connected yet.', 'arling-asistent' ) );
 		}
 
-		$result = Arling_Asistent_Api::create_tenant( $this->default_feed_url(), $this->default_domain(), $email );
+		$result = Arling_Asistent_Api::create_tenant( $this->default_feed_url(), $this->default_domain(), $email, Arling_Asistent_Api::email_language() );
 		delete_transient( 'arling_asistent_status_' . $tenant_id );
 		if ( empty( $result['ok'] ) ) {
 			$this->redirect_with_notice( 'error', $this->connect_error_message( $result ) );
@@ -857,7 +857,7 @@ class Arling_Asistent_Admin {
 								<?php
 								printf(
 									/* translators: 1: opening link tag to the terms page, 2: opening link tag to the DPA, 3: closing link tag. */
-									esc_html__( 'I agree to send the product list URL, site domain and e-mail address above to ARLing s. r. o. (Bratislava, Slovakia) to set up my assistant, and I have read the %1$sTerms%3$s and %2$sData Processing Agreement%3$s.', 'arling-asistent' ),
+									esc_html__( 'I agree to send the product list URL, site domain and e-mail address above to ARLing s. r. o. (Bratislava, Slovakia) to set up my assistant. To that address ARLing may send the setup instructions and at most three service messages about this assistant, each with a link that stops them. Instructions go only to an address on the domain of this site; other addresses get nothing automatically. I have read the %1$sTerms%3$s and %2$sData Processing Agreement%3$s.', 'arling-asistent' ),
 									'<a href="' . esc_url( 'https://arling.sk/podmienky/' ) . '" target="_blank" rel="noopener noreferrer">',
 									'<a href="' . esc_url( 'https://arling.sk/asistent/#gdpr' ) . '" target="_blank" rel="noopener noreferrer">',
 									'</a>'

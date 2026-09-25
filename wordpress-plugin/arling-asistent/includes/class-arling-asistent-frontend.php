@@ -138,8 +138,9 @@ class Arling_Asistent_Frontend {
 	/**
 	 * Map the site's active locale to one of the widget's four supported
 	 * languages (sk/cs/en/de). Anything else is passed through as-is: the
-	 * widget's own normaliseLang() already falls back to Slovak for an
-	 * unrecognised code, so there is no need to duplicate that list here.
+	 * widget's own normaliseLang() already falls back to English for an
+	 * unrecognised code (widget/widget.js and the worker's chat.js
+	 * normaliseLang), so there is no need to duplicate that list here.
 	 *
 	 * @return string Two-letter language code.
 	 */

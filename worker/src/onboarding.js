@@ -31,6 +31,8 @@ import { fetchFeed, FeedUrlNotAllowedError } from './feed.js';
 import { embedAndUpsertProducts, embedTexts } from './embed.js';
 import { parseAllowedOrigins, corsHeaders, bezpecnePorovnaj, checkRateLimit, SECURITY_HEADERS } from './security.js';
 import { hasBudget, spend, NEURONS } from './budget.js';
+import { poVytvoreni, poNacitani, poZmenePlanu, nastavJazyk, jazykZoVstupu, zdrojZoVstupu, poOvereniMajitela, zapamatajVektory } from './zivotny-cyklus.js';
+import { overenyEmailZBearer } from './ucet.js';
 
 export const TENANT_STATUS = {
   PENDING: 'pending',
@@ -134,7 +136,17 @@ export const INGEST_MIN_NEURONS = 200;
  * denný cron a admin cesta sú naše vlastné a nekontrolujú sa, aby sa
  * pravidelná obnova katalógu nikdy nezastavila.
  */
-export async function ingestFeedForTenant(env, tenant, { samoobsluzne = false } = {}) {
+export async function ingestFeedForTenant(env, tenant, opts = {}) {
+  // Životný cyklus (zivotny-cyklus.js): udalosť ready alebo chyba, e-mail E1
+  // a ping. Stav pred načítaním rozhoduje, či ide o prvé ready (e-mail),
+  // alebo o nočnú obnovu obchodu, ktorý bol ready už predtým (bez e-mailu).
+  const bolReady = !!tenant && tenant.status === TENANT_STATUS.READY;
+  const result = await nacitajFeed(env, tenant, opts);
+  await poNacitani(env, tenant, result, { bolReady });
+  return result;
+}
+
+async function nacitajFeed(env, tenant, { samoobsluzne = false } = {}) {
   if (samoobsluzne) {
     const rozpocet = await hasBudget(env, INGEST_MIN_NEURONS);
     if (!rozpocet.ok) {
@@ -173,7 +185,11 @@ export async function ingestFeedForTenant(env, tenant, { samoobsluzne = false } 
 
   try {
     const { products, type, truncated } = feed;
-    const summary = await embedAndUpsertProducts(env, tenant.id, products);
+    const idsVektorov = [];
+    const summary = await embedAndUpsertProducts(env, tenant.id, products, { ids: idsVektorov });
+    // Zoznam id vektorov pre úplný výmaz účtu (zivotny-cyklus.js zmazTenanta):
+    // Vectorize nevie vypísať vektory podľa metadát. Chyba zápisu nič nezhodí.
+    await zapamatajVektory(env, tenant.id, idsVektorov);
     // Spotreba sa zapisuje vždy, aj pri cron obnove: je to najväčší žrút
     // neurónov v tejto službe a strop, ktorý ho nevidí, nechráni pred ničím.
     await spend(env, summary.chunkCount * NEURONS.embedPerText);
@@ -319,7 +335,15 @@ async function startIngestion(env, tenant, waitUntil, opts = {}) {
  * vlastní. Pravidelnú obnovu feedu naďalej robí denný cron, ten na nikoho
  * nečaká.
  */
-export async function createTenantFromRequest(env, { feedUrl, domain, email }, { waitUntil, now = new Date() } = {}) {
+export async function createTenantFromRequest(env, { feedUrl, domain, email, lang, zdroj, userAgent, overenyEmail = null }, { waitUntil, now = new Date() } = {}) {
+  // Jazyk e-mailov a odkiaľ účet vznikol (návrh ops/asistent/zivotny-cyklus.md 1.3).
+  const jazyk = jazykZoVstupu(lang);
+  const zdrojUctu = zdrojZoVstupu(zdroj, userAgent);
+  // Adresa potvrdená 6-miestnym kódom (Bearer z /v1/ucet/over). Len vtedy
+  // smú ísť automatické e-maily E0 a E1 bez ďalších podmienok
+  // (zivotny-cyklus.js mozeIst, adverzárna kontrola 25. 9. 2026).
+  const poslanyNorm = String(email || '').trim().toLowerCase();
+  const overeny = !!overenyEmail && !!poslanyNorm && bezpecnePorovnaj(String(overenyEmail).trim().toLowerCase(), poslanyNorm);
   let tenant;
   try {
     tenant = await createTenant(env.DB, { domain, feedUrl, contactEmail: email });
@@ -339,6 +363,13 @@ export async function createTenantFromRequest(env, { feedUrl, domain, email }, {
       await setFeedUrl(env.DB, existing.id, cleanFeedUrl);
       existing.feed_url = cleanFeedUrl;
     }
+    // Len overený majiteľ smie zmeniť jazyk našich e-mailov.
+    if (jeMajitel && jazyk) {
+      await nastavJazyk(env, existing.id, jazyk);
+      existing.jazyk = jazyk;
+    }
+    // Majiteľ, ktorý adresu práve potvrdil kódom: zapísať overenie.
+    if (jeMajitel && overeny) await poOvereniMajitela(env, existing, { now, waitUntil });
     if (jeMajitel && (feedUrlChanged || isIngestionStale(existing, now))) {
       // Obchod v stave error sa pri novom pokuse prepne na pending hneď,
       // ešte pred načítaním. Inak by plugin po kliknutí na „Try again“
@@ -359,10 +390,15 @@ export async function createTenantFromRequest(env, { feedUrl, domain, email }, {
       plan: existing.plan,
       monthly_quota: existing.monthly_quota,
       existing: true,
+      overeny: !!(jeMajitel && overeny),
     };
   }
 
+  // Najprv udalosť vytvoreny (a jazyk, zdroj), až potom načítanie: E1 po
+  // prvom ready sa pozerá práve na ňu.
+  await poVytvoreni(env, tenant, { jazyk, zdroj: zdrojUctu, overeny, now, waitUntil });
   await startIngestion(env, tenant, waitUntil, { samoobsluzne: true });
+  tenant.overeny = overeny;
   return tenant;
 }
 
@@ -480,7 +516,15 @@ export async function handleCreateTenantRoute(request, env, ctx) {
   try {
     const tenant = await createTenantFromRequest(
       env,
-      { feedUrl: body && body.feed_url, domain: body && body.domain, email: body && body.email },
+      {
+        feedUrl: body && body.feed_url,
+        domain: body && body.domain,
+        email: body && body.email,
+        lang: body && body.lang,
+        zdroj: body && body.zdroj,
+        userAgent: request.headers.get('User-Agent') || '',
+        overenyEmail: await overenyEmailZBearer(request, env),
+      },
       { waitUntil: ctx && ctx.waitUntil ? ctx.waitUntil.bind(ctx) : undefined }
     );
     const headers = corsHeadersForRequest(request, env, [tenant.domain]);
@@ -489,9 +533,9 @@ export async function handleCreateTenantRoute(request, env, ctx) {
     // error: it comes back here as the existing tenant with `existing: true`
     // set, and gets 200 instead of 201, same shape otherwise.
     if (tenant.existing) {
-      return jsonResponse({ id: tenant.id, domain: tenant.domain, status: tenant.status, plan: tenant.plan, monthly_quota: tenant.monthly_quota, existing: true }, 200, headers);
+      return jsonResponse({ id: tenant.id, domain: tenant.domain, status: tenant.status, plan: tenant.plan, monthly_quota: tenant.monthly_quota, existing: true, overeny: !!tenant.overeny }, 200, headers);
     }
-    return jsonResponse({ id: tenant.id, domain: tenant.domain, status: tenant.status, plan: tenant.plan, monthly_quota: tenant.monthly_quota }, 201, headers);
+    return jsonResponse({ id: tenant.id, domain: tenant.domain, status: tenant.status, plan: tenant.plan, monthly_quota: tenant.monthly_quota, overeny: !!tenant.overeny }, 201, headers);
   } catch (err) {
     const headers = corsHeadersForRequest(request, env);
     if (err instanceof ValidationError) {
@@ -600,6 +644,8 @@ export async function handleSetPlanRoute(request, env, tenantId) {
   const validUntil = body && body.valid_until != null ? String(body.valid_until) : null;
 
   await setTenantPlan(env.DB, tenantId, { plan, monthlyQuota, billingRef, validUntil });
+  // Udalosť plan (a zruseny pri páde z plateného na free) pre Twenty CRM.
+  await poZmenePlanu(env, tenant, { plan, billingRef, validUntil });
 
   // Admin caller (licence-service webhook): echo billing_ref back so it can
   // confirm what was stored. The public status route never includes it.
