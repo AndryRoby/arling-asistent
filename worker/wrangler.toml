@@ -44,7 +44,7 @@ AI_DAILY_NEURON_BUDGET = "9500"
 #   ASISTENT_MAZANIE: automaticke zmazanie bezplatneho uctu bez jedineho
 #     rozhovoru za 12 mesiacov (denny cron). Zapnut az ked to budu slubovat zasady sukromia.
 ASISTENT_EMAILY = "vypnute"
-ASISTENT_NTFY = "vypnute"
+ASISTENT_NTFY = "zapnute"
 ASISTENT_MAZANIE = "vypnute"
 # Globálny denný strop automatických e-mailov (UTC deň). Nad ním nejde nič a
 # príde jeden ping „Asistent: denný strop e-mailov dosiahnutý (nie platba)“.
