@@ -159,3 +159,30 @@ test('state-changing admin actions check a nonce and the manage_woocommerce capa
   assert.match(dismiss, /current_user_can\(\s*'manage_woocommerce'\s*\)/);
   assert.match(dismiss, /check_admin_referer\(\s*'arling_asistent_dismiss'\s*\)/);
 });
+
+// Životný cyklus (ops/asistent/zivotny-cyklus.md, test 30). PHP tu nie je,
+// preto sa mapovanie jazyka overuje tak, že sa z PHP vyberie zoznam jazykov a
+// pravidlo (prvé dve písmená, inak en) a zopakuje sa v JS na vzorových
+// locale. Ak sa PHP funkcia zmení inak, test to zachytí na texte.
+test('create_tenant posiela lang a zdroj "wordpress"; locale sk_SK, cs_CZ, de_AT, fr_FR mapuje na sk, cs, de, en', () => {
+  const api = read(join(ROOT, 'includes', 'class-arling-asistent-api.php'));
+  const admin = read(join(ROOT, 'includes', 'class-arling-asistent-admin.php'));
+  assert.match(api, /'zdroj'\s*=>\s*'wordpress'/);
+  assert.match(api, /\$payload\['lang'\]\s*=\s*self::language_from_locale\(\s*\$lang\s*\)/);
+  const volania = admin.match(/Arling_Asistent_Api::create_tenant\([^;]+;/g) || [];
+  assert.ok(volania.length >= 2);
+  for (const v of volania) assert.match(v, /Arling_Asistent_Api::email_language\(\)/);
+  assert.match(api, /get_user_locale\(\)/);
+
+  const telo = api.slice(api.indexOf('function language_from_locale'), api.indexOf('function email_language'));
+  const zoznam = (telo.match(/\$supported\s*=\s*array\(([^)]*)\)/) || [])[1];
+  assert.ok(zoznam, 'zoznam jazykov chýba');
+  const jazyky = zoznam.split(',').map((s) => s.trim().replace(/'/g, ''));
+  assert.deepEqual(jazyky, ['sk', 'cs', 'en', 'de']);
+  assert.match(telo, /strtolower\(\s*substr\(\s*\(string\)\s*\$locale,\s*0,\s*2\s*\)\s*\)/);
+  assert.match(telo, /\?\s*\$code\s*:\s*'en'/);
+  const mapuj = (locale) => (jazyky.includes(locale.slice(0, 2).toLowerCase()) ? locale.slice(0, 2).toLowerCase() : 'en');
+  assert.deepEqual(['sk_SK', 'cs_CZ', 'de_AT', 'fr_FR', 'en_US'].map(mapuj), ['sk', 'cs', 'de', 'en', 'en']);
+
+  assert.match(admin, /at most three service messages about this assistant/);
+});

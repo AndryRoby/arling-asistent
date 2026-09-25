@@ -826,3 +826,41 @@ test('widget.js gift recipient free-text input (no chip) is sent as-is, e.g. "ba
 
   assert.equal(sentBodies[0].recipient, 'babka');
 });
+
+// ---------------------------------------------------------------------------
+// surface: "admin" len v administrácii WordPressu (zivotny-cyklus, test 29)
+// ---------------------------------------------------------------------------
+
+async function prvyChatBody(location) {
+  const sentBodies = [];
+  const fetchImpl = async (url, opts) => {
+    sentBodies.push(JSON.parse(opts.body));
+    return { status: 200, ok: true, json: async () => ({ answer: 'ok', products: [] }) };
+  };
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument({ sessionStorage: makeSessionStorage() });
+  windowStub.location = location;
+  runWidget(documentStub, windowStub, fetchImpl);
+  const root = body.children[0].shadowRoot;
+  root.getElementById('input').value = 'Hello';
+  root.getElementById('form')._listeners.submit[0]({ preventDefault() {} });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  return sentBodies[0];
+}
+
+test('widget.js sends surface "admin" only on /wp-admin/ pages; elsewhere the field is absent', async () => {
+  const admin = await prvyChatBody({ href: 'https://shop.sk/wp-admin/admin.php?page=arling-asistent', pathname: '/wp-admin/admin.php' });
+  assert.equal(admin.surface, 'admin');
+  const hrefOnly = await prvyChatBody({ href: 'https://shop.sk/wp-admin/admin.php?page=arling-asistent' });
+  assert.equal(hrefOnly.surface, 'admin');
+  const web = await prvyChatBody({ href: 'https://shop.sk/produkt/wp-admin-navod/', pathname: '/produkt/wp-admin-navod/' });
+  assert.equal('surface' in web, false);
+  const home = await prvyChatBody({ href: 'https://shop.sk/', pathname: '/' });
+  assert.equal('surface' in home, false);
+});
+
+test('npm run build:widget output is current: worker/src/widget-src.js and demo/widget.js match widget/widget.js', async () => {
+  const demo = fs.readFileSync(path.join(__dirname, '../demo/widget.js'), 'utf8');
+  assert.equal(demo, widgetSource);
+  const { default: servirovany } = await import('../worker/src/widget-src.js');
+  assert.equal(servirovany, widgetSource);
+});

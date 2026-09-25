@@ -37,6 +37,7 @@ import { wrapUntrustedBlock, scanForInjection, detectInjection, SECURITY_HEADERS
 import { checkAndRecordConversation } from './tenants.js';
 import { maybeNotifyQuota } from './notify.js';
 import { hasBudget, spend, isOurTest, NEURONS } from './budget.js';
+import { poRozhovore } from './zivotny-cyklus.js';
 
 export const CHAT_MODEL_DEFAULT = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 export const TOP_K = 8;
@@ -743,6 +744,17 @@ export async function handleChatRoute(request, env, ctx, deps = {}) {
     } else {
       await notification;
     }
+  }
+
+  // Životný cyklus (zivotny-cyklus.js): zapojenie na webe obchodu, prvá
+  // otázka, rozhovory z webu, limit 80 %. Z tela berie len `surface`
+  // ("admin" posiela widget v náhľade administrácie WordPressu); z Origin len
+  // hostiteľa. Mimo cesty zákazníka, chyba nič nezhodí.
+  const zivotnyCyklus = poRozhovore(env, tenant, { origin, surface: body && body.surface === 'admin' ? 'admin' : 'web', quota });
+  if (ctx && typeof ctx.waitUntil === 'function') {
+    ctx.waitUntil(zivotnyCyklus);
+  } else {
+    await zivotnyCyklus;
   }
 
   // Nase vlastne testy nesmu mrhat dennou davkou neuronov: odpovedia bez

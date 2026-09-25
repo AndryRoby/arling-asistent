@@ -4,7 +4,7 @@ Tags: ai chatbot, chatbot, woocommerce chatbot, product search, shopping assista
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.3.0
+Stable tag: 0.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -59,8 +59,11 @@ This plugin relies on the ARLing Shopping Assistant service to work. Provider: A
 * Your store's public WooCommerce Store API product list URL (for example `https://your-site/wp-json/wc/store/v1/products?per_page=100`, or the `?rest_route=` form on sites with plain permalinks), which is data your store already serves publicly to any visitor's browser.
 * Your site's domain name.
 * The contact e-mail address you enter on that screen.
+* The language of your own WordPress profile as a two-letter code (sk, cs, en or de), so ARLing's e-mails to you are in that language, and the fact that the account comes from this plugin.
 
 No customer data and no order data is ever sent. Nothing is sent before you connect.
+
+**E-mails to the address you enter:** ARLing sends the setup instructions once the products are read (or one message explaining why they could not be read), and at most three service messages about this assistant: a confirmation when it first loads on your site, one offer of help if it does not, and a notice at 80 % of the free monthly limit. Each e-mail says why it was sent and has a one-click link to stop the optional ones. Nothing else, no newsletters.
 
 **While connected:**
 
@@ -153,6 +156,11 @@ Click "Disconnect" on the settings page to immediately stop the widget from appe
 
 == Changelog ==
 
+= 0.4.0 =
+* When you connect, the plugin also sends the language of your own WordPress profile (Slovak, Czech, English or German, anything else as English), so the setup e-mail from ARLing is in your language, and marks the account as coming from this plugin, so the e-mail does not ask you to paste any code.
+* The consent text now says what ARLing sends to your e-mail address: the setup instructions and at most three service messages about this assistant, each with a link that stops them. They are sent only to an address on the site's own domain.
+* Chats in the "Try it now" preview on the settings page are marked as a preview by the widget ARLing serves, so they are not counted as questions from your shoppers in ARLing's own statistics. They still count towards the monthly limit, as before.
+
 = 0.3.0 =
 * Activating the plugin now opens the setup screen, and the Plugins screen has a "Set up" link. Before, nothing pointed to the setup screen.
 * The setup screen says up front what is free, and warns before you connect when the site cannot work: a local or staging address, WordPress Playground, or a shop with no published products.
@@ -183,6 +191,9 @@ Click "Disconnect" on the settings page to immediately stop the widget from appe
 * Initial release: connect flow, status polling, language/colour/position/display-scope settings, front-end widget loader.
 
 == Upgrade Notice ==
+
+= 0.4.0 =
+Setup e-mails in your own language and a clearer consent text. No change on your storefront.
 
 = 0.3.0 =
 Guided setup, a "Try it now" preview, a clear reason and a Try again button when setup fails, and usage warnings. Recommended for every install.

@@ -7,6 +7,7 @@
 // and easy to audit.
 
 import { SQL } from '../../worker/src/tenants.js';
+import { ZC_SQL } from '../../worker/src/zivotny-cyklus.js';
 
 export function createMockD1() {
   const tenants = new Map(); // id -> row
@@ -21,11 +22,161 @@ export function createMockD1() {
   // statement in real SQLite, so each gets its own independent flag.
   let hasBillingRefColumn = false;
   let hasValidUntilColumn = false;
+  // Životný cyklus (worker/src/zivotny-cyklus.js zabezpecSchemu): nová
+  // tabuľka a štyri stĺpce, každý so svojím príznakom, presne ako databáza
+  // nasadená pred touto zmenou.
+  let hasUdalosti = false;
+  const zcStlpce = { jazyk: false, zdroj: false, emaily_stop_at: false, web_conversations: false };
+  const udalosti = []; // {id, tenant_id, typ, kluc, kedy, data}
+  // Tabuľky z opravy 25. 9. 2026: denný strop e-mailov, potlačené adresy, zmazané účty.
+  const zcTabulky = { asistent_strop: false, asistent_potlacene: false, tenant_zmazane: false };
+  const strop = new Map(); // `${den}::${poradie}` -> {den, poradie, kedy}
+  const potlacene = new Map(); // hash -> kedy
+  const zmazane = new Map(); // tenant_id -> kedy
+  function potrebujTabulku(nazov) {
+    if (!zcTabulky[nazov]) throw new Error(`D1_ERROR: no such table: ${nazov}`);
+  }
+  let dalsieId = 1;
+  const calls = []; // každý vykonaný príkaz, pre testy „žiadny dopyt do D1“
 
   const clone = (row) => (row ? { ...row } : row);
 
+  function potrebujUdalosti() {
+    if (!hasUdalosti) throw new Error('D1_ERROR: no such table: tenant_udalosti');
+  }
+  function potrebujStlpec(nazov) {
+    if (!zcStlpce[nazov]) throw new Error(`D1_ERROR: no such column: ${nazov}`);
+  }
+  function pridajStlpec(nazov, tabulka, predvolena) {
+    if (zcStlpce[nazov]) throw new Error(`duplicate column name: ${nazov}`);
+    zcStlpce[nazov] = true;
+    for (const row of tabulka.values()) if (row[nazov] === undefined) row[nazov] = predvolena;
+    return { success: true, meta: { changes: 0 } };
+  }
+
   function run(sql, args) {
+    calls.push(sql);
     switch (sql) {
+      case ZC_SQL.CREATE_UDALOSTI:
+        hasUdalosti = true;
+        return { success: true, meta: { changes: 0 } };
+      case ZC_SQL.CREATE_STROP:
+        zcTabulky.asistent_strop = true;
+        return { success: true, meta: { changes: 0 } };
+      case ZC_SQL.CREATE_POTLACENE:
+        zcTabulky.asistent_potlacene = true;
+        return { success: true, meta: { changes: 0 } };
+      case ZC_SQL.CREATE_ZMAZANE:
+        zcTabulky.tenant_zmazane = true;
+        return { success: true, meta: { changes: 0 } };
+      case ZC_SQL.INSERT_STROP: {
+        potrebujTabulku('asistent_strop');
+        const [den, poradie, kedy] = args;
+        const k = `${den}::${poradie}`;
+        if (strop.has(k)) return { success: true, meta: { changes: 0 } };
+        strop.set(k, { den, poradie, kedy });
+        return { success: true, meta: { changes: 1 } };
+      }
+      case ZC_SQL.DELETE_STARY_STROP: {
+        potrebujTabulku('asistent_strop');
+        let n = 0;
+        for (const [k, r] of strop) if (r.den < args[0]) { strop.delete(k); n += 1; }
+        return { success: true, meta: { changes: n } };
+      }
+      case ZC_SQL.INSERT_POTLACENA: {
+        potrebujTabulku('asistent_potlacene');
+        const [hash, kedy] = args;
+        if (potlacene.has(hash)) return { success: true, meta: { changes: 0 } };
+        potlacene.set(hash, kedy);
+        return { success: true, meta: { changes: 1 } };
+      }
+      case ZC_SQL.INSERT_ZMAZANY: {
+        potrebujTabulku('tenant_zmazane');
+        const [tenantId, kedy] = args;
+        if (zmazane.has(tenantId)) return { success: true, meta: { changes: 0 } };
+        zmazane.set(tenantId, kedy);
+        return { success: true, meta: { changes: 1 } };
+      }
+      case ZC_SQL.ADD_JAZYK:
+        return pridajStlpec('jazyk', tenants, null);
+      case ZC_SQL.ADD_ZDROJ:
+        return pridajStlpec('zdroj', tenants, null);
+      case ZC_SQL.ADD_EMAILY_STOP:
+        return pridajStlpec('emaily_stop_at', tenants, null);
+      case ZC_SQL.ADD_WEB_CONVERSATIONS:
+        return pridajStlpec('web_conversations', counters, 0);
+      case ZC_SQL.INSERT_UDALOST: {
+        potrebujUdalosti();
+        const [tenant_id, typ, kluc, kedy, data] = args;
+        if (udalosti.some((u) => u.tenant_id === tenant_id && u.kluc === kluc)) return { success: true, meta: { changes: 0 } };
+        udalosti.push({ id: dalsieId++, tenant_id, typ, kluc, kedy, data });
+        return { success: true, meta: { changes: 1, last_row_id: dalsieId - 1 } };
+      }
+      case ZC_SQL.SET_UDALOST_DATA: {
+        potrebujUdalosti();
+        const [data, tenantId, kluc] = args;
+        const u = udalosti.find((x) => x.tenant_id === tenantId && x.kluc === kluc);
+        if (u) u.data = data;
+        return { success: true, meta: { changes: u ? 1 : 0 } };
+      }
+      case ZC_SQL.CAS_UDALOST_DATA: {
+        potrebujUdalosti();
+        const [data, tenantId, kluc, stare] = args;
+        const u = udalosti.find((x) => x.tenant_id === tenantId && x.kluc === kluc && x.data === stare);
+        if (u) u.data = data;
+        return { success: true, meta: { changes: u ? 1 : 0 } };
+      }
+      case ZC_SQL.SET_JAZYK_ZDROJ: {
+        potrebujStlpec('jazyk');
+        potrebujStlpec('zdroj');
+        const [jazyk, zdroj, id] = args;
+        const row = tenants.get(id);
+        if (row) { row.jazyk = jazyk; row.zdroj = zdroj; }
+        return { success: true, meta: { changes: row ? 1 : 0 } };
+      }
+      case ZC_SQL.SET_JAZYK: {
+        potrebujStlpec('jazyk');
+        const [jazyk, id] = args;
+        const row = tenants.get(id);
+        if (row) row.jazyk = jazyk;
+        return { success: true, meta: { changes: row ? 1 : 0 } };
+      }
+      case ZC_SQL.SET_EMAILY_STOP: {
+        potrebujStlpec('emaily_stop_at');
+        const [kedy, id] = args;
+        const row = tenants.get(id);
+        const zmena = !!row && row.emaily_stop_at == null;
+        if (zmena) row.emaily_stop_at = kedy;
+        return { success: true, meta: { changes: zmena ? 1 : 0 } };
+      }
+      case ZC_SQL.INC_WEB_CONVERSATIONS: {
+        potrebujStlpec('web_conversations');
+        const [tenantId, day] = args;
+        const row = counters.get(`${tenantId}::${day}`);
+        if (row) row.web_conversations = (row.web_conversations || 0) + 1;
+        return { success: true, meta: { changes: row ? 1 : 0 } };
+      }
+      case ZC_SQL.DELETE_TENANT: {
+        const existed = tenants.delete(args[0]);
+        return { success: true, meta: { changes: existed ? 1 : 0 } };
+      }
+      case ZC_SQL.DELETE_COUNTERS: {
+        let n = 0;
+        for (const [k, row] of counters) if (row.tenant_id === args[0]) { counters.delete(k); n += 1; }
+        return { success: true, meta: { changes: n } };
+      }
+      case ZC_SQL.DELETE_UDALOSTI: {
+        potrebujUdalosti();
+        const pred = udalosti.length;
+        for (let i = udalosti.length - 1; i >= 0; i--) if (udalosti[i].tenant_id === args[0]) udalosti.splice(i, 1);
+        return { success: true, meta: { changes: pred - udalosti.length } };
+      }
+      case ZC_SQL.DELETE_STARE_UDALOSTI: {
+        potrebujUdalosti();
+        const pred = udalosti.length;
+        for (let i = udalosti.length - 1; i >= 0; i--) if (udalosti[i].kedy < args[0]) udalosti.splice(i, 1);
+        return { success: true, meta: { changes: pred - udalosti.length } };
+      }
       case SQL.INSERT_TENANT: {
         const [id, domain, feed_url, contact_email, plan, status, quota_month, monthly_quota, used_this_month, created_at] = args;
         // Mirrors real D1/SQLite's constraint checks (schema.sql: id PRIMARY
@@ -53,6 +204,9 @@ export function createMockD1() {
         if (hasProductCountColumn) row.product_count = 0;
         if (hasBillingRefColumn) row.billing_ref = null;
         if (hasValidUntilColumn) row.valid_until = null;
+        if (zcStlpce.jazyk) row.jazyk = null;
+        if (zcStlpce.zdroj) row.zdroj = null;
+        if (zcStlpce.emaily_stop_at) row.emaily_stop_at = null;
         tenants.set(id, row);
         return { success: true, meta: { changes: 1 } };
       }
@@ -130,7 +284,7 @@ export function createMockD1() {
       case SQL.UPSERT_COUNTER_CONVERSATION: {
         const [tenantId, day] = args;
         const key = `${tenantId}::${day}`;
-        const row = counters.get(key) || { tenant_id: tenantId, day, conversations: 0, product_clicks: 0 };
+        const row = counters.get(key) || { tenant_id: tenantId, day, conversations: 0, product_clicks: 0, ...(zcStlpce.web_conversations ? { web_conversations: 0 } : {}) };
         row.conversations += 1;
         counters.set(key, row);
         return { success: true, meta: { changes: 1 } };
@@ -138,7 +292,7 @@ export function createMockD1() {
       case SQL.UPSERT_COUNTER_CLICK: {
         const [tenantId, day] = args;
         const key = `${tenantId}::${day}`;
-        const row = counters.get(key) || { tenant_id: tenantId, day, conversations: 0, product_clicks: 0 };
+        const row = counters.get(key) || { tenant_id: tenantId, day, conversations: 0, product_clicks: 0, ...(zcStlpce.web_conversations ? { web_conversations: 0 } : {}) };
         row.product_clicks += 1;
         counters.set(key, row);
         return { success: true, meta: { changes: 1 } };
@@ -149,6 +303,7 @@ export function createMockD1() {
   }
 
   function first(sql, args) {
+    calls.push(sql);
     switch (sql) {
       case SQL.GET_TENANT_BY_ID:
         return clone(tenants.get(args[0])) || null;
@@ -156,15 +311,66 @@ export function createMockD1() {
         for (const row of tenants.values()) if (row.domain === args[0]) return clone(row);
         return null;
       }
+      case ZC_SQL.POCET_STROP: {
+        potrebujTabulku('asistent_strop');
+        let n = 0;
+        for (const r of strop.values()) if (r.den === args[0] && r.poradie > 0) n += 1;
+        return { n };
+      }
+      case ZC_SQL.JE_POTLACENA: {
+        potrebujTabulku('asistent_potlacene');
+        return potlacene.has(args[0]) ? { hash: args[0] } : null;
+      }
       default:
         throw new Error(`mock-d1: unhandled statement in first(): ${sql}`);
     }
   }
 
-  function all(sql) {
+  function all(sql, args) {
+    calls.push(sql);
     switch (sql) {
       case SQL.LIST_TENANTS:
         return { results: Array.from(tenants.values()).map(clone) };
+      case ZC_SQL.LIST_UDALOSTI_TENANTA:
+        potrebujUdalosti();
+        return { results: udalosti.filter((u) => u.tenant_id === args[0]).sort((a, b) => a.id - b.id).map(clone) };
+      case ZC_SQL.LIST_UDALOSTI_PO: {
+        potrebujUdalosti();
+        const [po, limit] = args;
+        return { results: udalosti.filter((u) => u.id > po).sort((a, b) => a.id - b.id).slice(0, limit).map(clone) };
+      }
+      case ZC_SQL.COUNTERS_OD: {
+        const [tenantId, od] = args;
+        return {
+          results: Array.from(counters.values())
+            .filter((r) => r.tenant_id === tenantId && r.day >= od)
+            .map((r) => ({ day: r.day, conversations: r.conversations, web_conversations: r.web_conversations || 0 })),
+        };
+      }
+      case ZC_SQL.TENANTY_PODLA_DOMEN: {
+        const hladane = new Set(args);
+        return { results: Array.from(tenants.values()).filter((r) => hladane.has(r.domain)).map((r) => ({ id: r.id, domain: r.domain, status: r.status })) };
+      }
+      case ZC_SQL.TENANTY_S_PRACOU: {
+        potrebujUdalosti();
+        const [od] = args;
+        const maxId = new Map();
+        for (const u of udalosti) {
+          const cakajuci = u.typ === 'email' && typeof u.data === 'string' && (u.data.includes('"stav":"zlyhal"') || u.data.includes('"stav":"odosiela"'));
+          if (u.kedy > od || cakajuci) maxId.set(u.tenant_id, Math.max(maxId.get(u.tenant_id) || 0, u.id));
+        }
+        return { results: [...maxId.entries()].sort((a, b) => b[1] - a[1]).map(([tenant_id]) => ({ tenant_id })) };
+      }
+      case ZC_SQL.ZAPOJENE_BEZ_AKTIVNEHO: {
+        potrebujUdalosti();
+        const aktivne = new Set(udalosti.filter((u) => u.typ === 'aktivny').map((u) => u.tenant_id));
+        const ids = [...new Set(udalosti.filter((u) => u.typ === 'zapojeny' && !aktivne.has(u.tenant_id)).map((u) => u.tenant_id))];
+        return { results: ids.map((tenant_id) => ({ tenant_id })) };
+      }
+      case ZC_SQL.LIST_ZMAZANE: {
+        potrebujTabulku('tenant_zmazane');
+        return { results: [...zmazane.entries()].map(([tenant_id, kedy]) => ({ tenant_id, kedy })).sort((a, b) => (a.kedy < b.kedy ? -1 : 1)) };
+      }
       default:
         throw new Error(`mock-d1: unhandled statement in all(): ${sql}`);
     }
@@ -185,5 +391,12 @@ export function createMockD1() {
     },
     _tenants: tenants,
     _counters: counters,
+    _udalosti: udalosti,
+    _calls: calls,
+    _zcStlpce: zcStlpce,
+    _hasUdalosti: () => hasUdalosti,
+    _strop: strop,
+    _potlacene: potlacene,
+    _zmazane: zmazane,
   };
 }

@@ -92,7 +92,7 @@ export async function embedTexts(ai, texts) {
  * single AI.run/Vectorize.upsert call never carries too many vectors.
  * Returns a small summary used by onboarding.js/cron.js for status reporting.
  */
-export async function embedAndUpsertProducts(env, tenantId, products, { batchSize = EMBED_BATCH_SIZE } = {}) {
+export async function embedAndUpsertProducts(env, tenantId, products, { batchSize = EMBED_BATCH_SIZE, ids = null } = {}) {
   const allChunks = [];
   for (const product of products) {
     for (const chunk of buildProductChunks(product)) {
@@ -112,6 +112,8 @@ export async function embedAndUpsertProducts(env, tenantId, products, { batchSiz
     }));
     await env.VECTORIZE.upsert(toUpsert);
     upserted += toUpsert.length;
+    // Voliteľne zbiera id zapísaných vektorov (zivotny-cyklus.js zapamatajVektory, výmaz účtu).
+    if (Array.isArray(ids)) for (const v of toUpsert) ids.push(v.id);
   }
 
   return { productCount: products.length, chunkCount: allChunks.length, upserted };

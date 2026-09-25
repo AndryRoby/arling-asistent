@@ -92,8 +92,12 @@ export function createMockKV() {
   const store = new Map();
   const puts = [];
   return {
-    async get(key) {
-      return store.has(key) ? store.get(key) : null;
+    async get(key, type) {
+      if (!store.has(key)) return null;
+      const value = store.get(key);
+      // Ako skutočné KV: get(key, 'json') vráti rozparsovaný objekt.
+      if (type === 'json' || (type && type.type === 'json')) return JSON.parse(value);
+      return value;
     },
     async put(key, value, options) {
       store.set(key, value);

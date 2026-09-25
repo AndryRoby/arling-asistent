@@ -648,6 +648,25 @@
 
     var SESSION_ID = getSessionId();
 
+    // Náhľad „Try it now“ v administrácii WordPressu beží na doméne obchodu,
+    // ale nepíše tam zákazník. Worker takýto chat ráta do zapojenia, nie do
+    // prvej otázky ani aktívneho používania (worker/src/zivotny-cyklus.js).
+    // Posiela sa len "admin" a len na /wp-admin/; inde pole v tele chýba.
+    var SURFACE = (function () {
+      try {
+        var loc = window.location || {};
+        var path = loc.pathname || (loc.href ? new URL(loc.href).pathname : '');
+        return String(path || '').indexOf('/wp-admin/') !== -1 ? 'admin' : '';
+      } catch (e) {
+        return '';
+      }
+    })();
+
+    function withSurface(body) {
+      if (SURFACE) body.surface = SURFACE;
+      return body;
+    }
+
     // t starts as the plain per-language strings object, then gets a
     // shallow copy with data-title/data-greeting overrides applied on top
     // when present, so every other string (placeholder, send, thinking...)
@@ -949,7 +968,7 @@
         fetch(ENDPOINT + '/v1/gift', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+          body: JSON.stringify(withSurface({
             tenant: TENANT,
             lang: API_LANG,
             recipient: giftRecipientValue,
@@ -957,7 +976,7 @@
             budget_max: giftBudgetMax,
             interests: interests,
             session: SESSION_ID,
-          }),
+          })),
         }).then(function (res) {
           // 503 is Cloudflare's own Workers AI daily capacity limit (account-wide,
           // not this tenant's usage); same wording as the per-tenant 429
@@ -1093,7 +1112,7 @@
         var res = await fetch(ENDPOINT + '/v1/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tenant: TENANT, messages: conversation, lang: API_LANG, session: SESSION_ID }),
+          body: JSON.stringify(withSurface({ tenant: TENANT, messages: conversation, lang: API_LANG, session: SESSION_ID })),
         });
 
         removeThinking();
