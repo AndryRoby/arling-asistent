@@ -4,7 +4,7 @@
 <script src="/style/vzhlad.js?v=8a4019ae"></script>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://homelab.tailbf8f27.ts.net 'sha256-SVdcrlZGwn6K+d0Q4tnapMiWuCqUculasQIm24OVUYo=' 'sha256-9vHO9jCaOn7O7T30q70jMPRRW6SYNSLzSoKdCZhgU/A='; connect-src 'self' https://homelab.tailbf8f27.ts.net; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://homelab.tailbf8f27.ts.net 'sha256-mw+PyGHrXyr4Q41GDpv7uKsd/Hu6O9JGc/sFgmjyuGU=' 'sha256-HhfoeFfQE8g/OVeJm5zVHg6WP1SIwtgtOb3Un09uAD4='; connect-src 'self' https://homelab.tailbf8f27.ts.net; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
 <meta name="color-scheme" content="dark">
 <link rel="preconnect" href="https://homelab.tailbf8f27.ts.net" crossorigin>
 <meta name="theme-color" content="#0a0908">
@@ -42,8 +42,8 @@
   "inLanguage": ["de", "sk", "en"],
   "offers": [
     { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/de/#preise" },
-    { "@type": "Offer", "name": "Starter", "price": "19", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/de/#preise" },
-    { "@type": "Offer", "name": "Pro", "price": "39", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/de/#preise" }
+    { "@type": "Offer", "name": "Starter", "price": "19", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/de/#preise", "priceSpecification": { "@type": "UnitPriceSpecification", "price": "19", "priceCurrency": "EUR", "billingDuration": "P1M", "unitCode": "MON" } },
+    { "@type": "Offer", "name": "Pro", "price": "39", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/de/#preise", "priceSpecification": { "@type": "UnitPriceSpecification", "price": "39", "priceCurrency": "EUR", "billingDuration": "P1M", "unitCode": "MON" } }
   ],
   "author": {
     "@type": "Organization",
@@ -88,7 +88,7 @@
     {
       "@type": "Question",
       "name": "Funktioniert das mit WooCommerce, Shopify oder anderen Shopsystemen?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Der Script-Tag funktioniert sofort in jedem Shop, Sie fügen ihn in der Administration oder im Theme ein. Das eigene WooCommerce-Plugin ist bei wordpress.org eingereicht und wartet auf die Freigabe (bis dahin wird es als ZIP von GitHub installiert), die Shopify-App ist in Vorbereitung." }
+      "acceptedAnswer": { "@type": "Answer", "text": "Der Script-Tag funktioniert sofort in jedem Shop, Sie fügen ihn in der Administration oder im Theme ein. Das eigene WooCommerce-Plugin ist auf wordpress.org freigegeben, Sie finden es in der WordPress-Administration unter Plugins, Installieren, Suche nach ARLing. Bei Shopify wird der Assistent auf dieselbe Weise per Script-Tag im Theme eingebunden, eine App im Shopify App Store gibt es nicht." }
     },
     {
       "@type": "Question",
@@ -428,7 +428,7 @@
       </details>
       <details>
         <summary>Funktioniert das mit WooCommerce, Shopify oder anderen Shopsystemen?</summary>
-        <p>Der Script-Tag funktioniert sofort in jedem Shop, Sie fügen ihn in der Administration oder im Theme ein. Das eigene <a href="../woocommerce/" hreflang="en">WooCommerce-Plugin</a> ist bei wordpress.org eingereicht und wartet auf die Freigabe (bis dahin wird es als ZIP von GitHub installiert), die <a href="../shopify/" hreflang="en">Shopify-App</a> ist in Vorbereitung. Beide Seiten sind auf Englisch.</p>
+        <p>Der Script-Tag funktioniert sofort in jedem Shop, Sie fügen ihn in der Administration oder im Theme ein. Das eigene <a href="../woocommerce/" hreflang="en">WooCommerce-Plugin</a> ist auf wordpress.org freigegeben, Sie finden es in der WordPress-Administration unter Plugins, Installieren, Suche nach ARLing. Bei <a href="../shopify/" hreflang="en">Shopify</a> wird der Assistent auf dieselbe Weise per Script-Tag im Theme eingebunden, eine App im Shopify App Store gibt es nicht. Beide Seiten sind auf Englisch.</p>
       </details>
       <details>
         <summary>Was ist kostenlos?</summary>
@@ -444,7 +444,7 @@
       </details>
 
       <div class="subscribe-ask">
-        <p class="sub" style="margin-bottom:14px">Möchten Sie benachrichtigt werden, wenn das WooCommerce-Plugin auf wordpress.org freigegeben ist oder die Shopify-App erscheint?</p>
+        <p class="sub" style="margin-bottom:14px">Möchten Sie per E-Mail erfahren, wenn neue Funktionen von ARLing Assistent erscheinen?</p>
         <form class="subscribe-form" data-subscribe data-source="asistent-de" data-lang="de" data-thanks="subscribe-thanks" data-error="subscribe-error">
           <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off">
           <input type="email" name="email" placeholder="sie@ihr-shop.de" required>

@@ -4,7 +4,7 @@
 <script src="/style/vzhlad.js?v=8a4019ae"></script>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://homelab.tailbf8f27.ts.net 'sha256-GZxHa0LIInFElW3iexbGIdTIXa6oHvBB9hZ7VaXr1a0=' 'sha256-wR4FELNdfrpX5mFukW0VlzJGLQvsp+zpxSXivNjfJW4='; connect-src 'self' https://homelab.tailbf8f27.ts.net; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://homelab.tailbf8f27.ts.net 'sha256-GypLP+Nkecn6+D7y1KlcrZgnHy/u3ByQJVIROuxxG80=' 'sha256-aLqW/JJwYpzJYx4qafAaJwWDuFUPkJB3I8oOUaoSwWc='; connect-src 'self' https://homelab.tailbf8f27.ts.net; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
 <meta name="color-scheme" content="dark">
 <link rel="preconnect" href="https://homelab.tailbf8f27.ts.net" crossorigin>
 <meta name="theme-color" content="#0a0908">
@@ -12,10 +12,10 @@
 <link rel="icon" href="../../favicon.ico" sizes="48x48">
 <link rel="apple-touch-icon" href="../../icon-180.png">
 <title>ARLing Asistent for Shopify: AI shopping assistant</title>
-<meta name="description" content="AI shopping assistant for Shopify stores, added with one script tag while the full app listing is in preparation. Runs on Cloudflare Workers, stores no customer conversations. Free up to 100 conversations a month, then from 19 EUR a month." />
+<meta name="description" content="AI shopping assistant for Shopify stores, added with one script tag in the theme. Runs on Cloudflare Workers, stores no customer conversations. Free up to 100 conversations a month, then from 19 EUR a month." />
 <meta property="og:type" content="website" />
 <meta property="og:title" content="ARLing Asistent for Shopify: AI shopping assistant" />
-<meta property="og:description" content="AI shopping assistant for Shopify stores, added with one script tag while the full app listing is in preparation. Runs on Cloudflare Workers, stores no customer conversations. Free up to 100 conversations a month, then from 19 EUR a month." />
+<meta property="og:description" content="AI shopping assistant for Shopify stores, added with one script tag in the theme. Runs on Cloudflare Workers, stores no customer conversations. Free up to 100 conversations a month, then from 19 EUR a month." />
 <meta property="og:url" content="https://arling.sk/asistent/shopify/" />
 <meta property="og:locale" content="en_US" />
 <link rel="canonical" href="https://arling.sk/asistent/shopify/" />
@@ -31,9 +31,9 @@
   "@type": "SoftwareApplication",
   "name": "ARLing Asistent for Shopify",
   "url": "https://arling.sk/asistent/shopify/",
-  "description": "AI shopping assistant for Shopify stores: reads your store's public /products.json feed and answers customer questions from your own catalogue, with links to matching products. A one-click Shopify app listing is in preparation; today the widget is added with one script tag in the theme. No conversation content stored, only daily aggregate counters.",
+  "description": "AI shopping assistant for Shopify stores: reads your store's public /products.json feed and answers customer questions from your own catalogue, with links to matching products. The widget is added with one script tag in the theme; there is no separate app in the Shopify App Store. No conversation content stored, only daily aggregate counters.",
   "applicationCategory": "BusinessApplication",
-  "operatingSystem": "Shopify (theme script tag today; app-store listing in preparation)",
+  "operatingSystem": "Shopify (added with one script tag in the theme)",
   "inLanguage": ["en"],
   "offers": [
     { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/shopify/#pricing" },
@@ -57,14 +57,13 @@
   "mainEntity": [
     {
       "@type": "Question",
-      "name": "Is there a Shopify app yet?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Not yet listed in the Shopify App Store. The app (one-click install, embedded settings page, OAuth) is in preparation; the underlying Worker and theme extension already exist and are being finished before submission to Shopify's app review." }
+      "name": "Is there a Shopify app?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. There is no ARLing app in the Shopify App Store, and none is in the works right now. On Shopify the assistant is added the same way as on any other e-shop platform: one script tag in the theme (theme.liquid)." }
     },
     {
       "@type": "Question",
-      "name": "How do I use it today, before the app is live?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Fill in the trial form on the main ARLing Asistent page with your store's product feed URL (https://your-store.myshopify.com/products.json) and your e-mail to get a tenant ID, then add the widget script tag with that tenant ID to your theme, just before the closing <script src="/style/prepinac.js?v=668e98c9" defer></script>
-</body> tag in theme.liquid." }
+      "name": "How do I add it on Shopify?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Fill in the trial form on the main ARLing Asistent page with your store's product feed URL (https://your-store.myshopify.com/products.json) and your e-mail to get a tenant ID, then add the widget script tag with that tenant ID to your theme, just before the closing </body> tag in theme.liquid." }
     },
     {
       "@type": "Question",
@@ -80,11 +79,6 @@
       "@type": "Question",
       "name": "What data leaves my store?",
       "acceptedAnswer": { "@type": "Answer", "text": "Only your public product feed data, your store's domain, and the e-mail address you enter in the trial form when you request a tenant ID. No customer or order data is sent." }
-    },
-    {
-      "@type": "Question",
-      "name": "What will change once the app is live?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Installing from the Shopify App Store, an embedded settings page, and automatic theme-block setup, no manual script tag or theme edit. This page will be updated to reflect that install path once the listing is approved." }
     }
   ]
 }
@@ -237,7 +231,7 @@
   <div class="hero">
     <div class="wrap">
       <h1>AI shopping assistant for Shopify, add the widget in minutes.</h1>
-      <p class="lead">The one-click Shopify app is in preparation. Meanwhile, get a tenant ID from the trial form on the main page and add one script tag to your theme: it already reads your store's public <code>/products.json</code> feed and answers shoppers from your real catalogue. Free up to 100 conversations a month, no card.</p>
+      <p class="lead">On Shopify the assistant is added with one script tag in the theme, we do not have an app in the Shopify App Store. Get a tenant ID from the trial form on the main page and add one script tag to your theme: it already reads your store's public <code>/products.json</code> feed and answers shoppers from your real catalogue. Free up to 100 conversations a month, no card.</p>
       <a class="btn btn-solid" href="#install" data-umami-event="trial_click" data-umami-event-place="hero">See how to add it</a><a class="btn btn-line" href="../#playground" data-umami-event="demo_click" data-umami-event-place="hero">Try the live demo first</a>
       <ul class="facts">
         <li><b>0</b> conversations stored</li>
@@ -252,7 +246,7 @@
     <div class="wrap">
       <p class="kicker">01</p>
       <h2>How to add it today</h2>
-      <p class="sub">Honest status: the Shopify app listing (one-click install, embedded settings) is in preparation, not yet in the Shopify App Store. Until then, the widget is added by hand with one script tag, the same underlying assistant either way.</p>
+      <p class="sub">Honest status: we do not have an app in the Shopify App Store, and none is planned right now. The widget is added by hand with one script tag in the theme, the same underlying assistant either way.</p>
       <ol class="rules">
         <li>
           <b>Get a tenant ID.</b>
@@ -261,10 +255,6 @@
         <li>
           <b>Add the widget to your theme.</b>
           <p>In the Shopify admin, go to <b>Online Store &gt; Themes &gt; Edit code</b>, open <code>theme.liquid</code>, and add the script tag below just before <code>&lt;/body&gt;</code>, replacing <code>TENANT_ID</code> with the id from step 1.</p>
-        </li>
-        <li>
-          <b>What is coming.</b>
-          <p>A Shopify app (OAuth install, embedded settings page, theme-block widget, no code) is in preparation. This page will switch to "Install from the Shopify App Store" once that listing is approved.</p>
         </li>
       </ol>
       <p class="sub" style="margin-top:26px; margin-bottom:8px;">Script tag to add before <code>&lt;/body&gt;</code> in <code>theme.liquid</code>:</p>
@@ -326,7 +316,7 @@
         </details>
         <details>
           <summary>What if I do not want to edit theme code?</summary>
-          <p>Editing one line in <code>theme.liquid</code> is the only manual step while the Shopify app is in preparation. Once the app is live, install will be one click from the Shopify App Store, with no code and an embedded settings page instead.</p>
+          <p>There is no other way right now: we do not have an app in the Shopify App Store, so editing one line in <code>theme.liquid</code> is the only method.</p>
         </details>
       </div>
     </div>
@@ -354,11 +344,11 @@
       <h2>FAQ</h2>
 
       <details>
-        <summary>Is there a Shopify app yet?</summary>
-        <p>Not yet listed in the Shopify App Store. The app (one-click install, embedded settings page, OAuth) is in preparation; the underlying Worker and theme extension already exist and are being finished before submission to Shopify's app review.</p>
+        <summary>Is there a Shopify app?</summary>
+        <p>No. There is no ARLing app in the Shopify App Store, and none is in the works right now. On Shopify the assistant is added the same way as on any other e-shop platform: one script tag in the theme (<code>theme.liquid</code>).</p>
       </details>
       <details>
-        <summary>How do I use it today, before the app is live?</summary>
+        <summary>How do I add it on Shopify?</summary>
         <p>Fill in the <a href="../#playground">trial form on the main ARLing Asistent page</a> with your store's product feed URL (<code>https://your-store.myshopify.com/products.json</code>) and your e-mail to get a tenant ID, then add the widget script tag with that tenant ID to your theme, just before the closing <code>&lt;/body&gt;</code> tag in <code>theme.liquid</code>.</p>
       </details>
       <details>
@@ -373,13 +363,8 @@
         <summary>What data leaves my store?</summary>
         <p>Only your public product feed data, your store's domain, and the e-mail address you enter in the trial form when you request a tenant ID. No customer or order data is sent.</p>
       </details>
-      <details>
-        <summary>What will change once the app is live?</summary>
-        <p>Installing from the Shopify App Store, an embedded settings page, and automatic theme-block setup, no manual script tag or theme edit. This page will be updated to reflect that install path once the listing is approved.</p>
-      </details>
-
       <div class="subscribe-ask">
-        <p class="sub" style="margin-bottom:14px">Want an e-mail when the Shopify app goes live?</p>
+        <p class="sub" style="margin-bottom:14px">Want an e-mail when new ARLing Asistent features for Shopify arrive?</p>
         <form class="subscribe-form" data-subscribe data-source="asistent-shopify" data-lang="en" data-thanks="subscribe-thanks" data-error="subscribe-error">
           <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off">
           <input type="email" name="email" placeholder="you@email.com" required>

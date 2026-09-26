@@ -4,7 +4,7 @@
 <script src="/style/vzhlad.js?v=8a4019ae"></script>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://homelab.tailbf8f27.ts.net 'sha256-gy2Q+fVXJFFecCZJWLomDdTKt0EceKg4D4on6ssGc2c=' 'sha256-mOLxVb0781CiviL5dJLE1yxfg0xhkNhqkdoSOG12DBA='; connect-src 'self' https://homelab.tailbf8f27.ts.net https://arling-asistent.arling.workers.dev; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://homelab.tailbf8f27.ts.net 'sha256-VS4/aVpfOmfqicmyb24XuQ79M4c+7L5p8bI3LXNF/wQ=' 'sha256-V6p5S1dRaM0GtExQqfRtyBHoAWprgayGvAeFHLvr/yE='; connect-src 'self' https://homelab.tailbf8f27.ts.net https://arling-asistent.arling.workers.dev; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
 <meta name="color-scheme" content="dark">
 <link rel="preconnect" href="https://homelab.tailbf8f27.ts.net" crossorigin>
 <meta name="theme-color" content="#0a0908">
@@ -41,8 +41,8 @@
   "inLanguage": ["sk", "en"],
   "offers": [
     { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/#cennik" },
-    { "@type": "Offer", "name": "Starter", "price": "19", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/#cennik" },
-    { "@type": "Offer", "name": "Pro", "price": "39", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/#cennik" }
+    { "@type": "Offer", "name": "Starter", "price": "19", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/#cennik", "priceSpecification": { "@type": "UnitPriceSpecification", "price": "19", "priceCurrency": "EUR", "billingDuration": "P1M", "unitCode": "MON" } },
+    { "@type": "Offer", "name": "Pro", "price": "39", "priceCurrency": "EUR", "url": "https://arling.sk/asistent/#cennik", "priceSpecification": { "@type": "UnitPriceSpecification", "price": "39", "priceCurrency": "EUR", "billingDuration": "P1M", "unitCode": "MON" } }
   ],
   "author": {
     "@type": "Organization",
@@ -87,7 +87,7 @@
     {
       "@type": "Question",
       "name": "Funguje to aj na Shoptete, WooCommerce alebo Shopify?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Skript funguje na akomkoľvek e-shope hneď, stačí vložiť jeden <script> tag do administrácie alebo šablóny. Samostatný WooCommerce plugin je odoslaný na wordpress.org a čaká na schválenie (dovtedy sa inštaluje zo ZIP súboru z GitHubu), Shopify aplikácia je v príprave. Pre Shoptet a Upgates je samostatný návod (Heureka XML feed z administrácie, script tag cez HTML kód) na arling.sk/asistent/shoptet/. Ako widget vyzerá na slovenskom e-shope, ukazuje ukážkový obchod Dobrá domácnosť na arling.sk/asistent/ukazka/." }
+      "acceptedAnswer": { "@type": "Answer", "text": "Skript funguje na akomkoľvek e-shope hneď, stačí vložiť jeden <script> tag do administrácie alebo šablóny. Samostatný WooCommerce plugin je schválený na wordpress.org, nainštalujete ho priamo v administrácii cez Plugins, Add New, vyhľadaním ARLing. Na Shopify sa asistent pridáva rovnako, jedným script tagom v šablóne; aplikáciu v Shopify App Store nemáme. Pre Shoptet a Upgates je samostatný návod (Heureka XML feed z administrácie, script tag cez HTML kód) na arling.sk/asistent/shoptet/. Ako widget vyzerá na slovenskom e-shope, ukazuje ukážkový obchod Dobrá domácnosť na arling.sk/asistent/ukazka/." }
     },
     {
       "@type": "Question",
@@ -356,14 +356,14 @@
             </tr>
             <tr>
               <td class="plan">Starter</td>
-              <td class="price">19 &euro;<span> / mesiac</span></td>
+              <td class="price">19 &euro;<span data-i18n="pricing.perMonth"> / mesiac</span></td>
               <td data-i18n="pricing.limit.starter">do 1&nbsp;000</td>
               <!-- Paid plans are bought from the tenant page (tenant/?t=ID, linked after trial creation): the Stripe Payment Link needs the tenant id in client_reference_id, so here the button starts the free trial. -->
               <td><a class="btn btn-line" id="btn-plan-starter" href="#playground" data-umami-event="trial_click" data-umami-event-place="pricing-starter" data-i18n="cta.startFree">Začať zadarmo</a></td>
             </tr>
             <tr>
               <td class="plan">Pro</td>
-              <td class="price">39 &euro;<span> / mesiac</span></td>
+              <td class="price">39 &euro;<span data-i18n="pricing.perMonth"> / mesiac</span></td>
               <td data-i18n="pricing.limit.growth">do 3&nbsp;000</td>
               <td><a class="btn btn-line" id="btn-plan-pro" href="#playground" data-umami-event="trial_click" data-umami-event-place="pricing-pro" data-i18n="cta.startFree">Začať zadarmo</a></td>
             </tr>
@@ -493,7 +493,7 @@
       </details>
       <details>
         <summary data-i18n="faq.platforms.q">Funguje to aj na Shoptete, WooCommerce alebo Shopify?</summary>
-        <p data-i18n-html="faq.platforms.a">Skript funguje na akomkoľvek e-shope hneď, stačí vložiť jeden <code>&lt;script&gt;</code> tag do administrácie alebo šablóny. Samostatný <a href="woocommerce/">WooCommerce plugin</a> je odoslaný na wordpress.org a čaká na schválenie (dovtedy sa inštaluje zo ZIP súboru z GitHubu), <a href="shopify/">Shopify aplikácia</a> je v príprave. Pre Shoptet a Upgates je samostatný <a href="shoptet/">návod</a>: Heureka XML feed z administrácie a script tag cez HTML kód. Ako widget vyzerá na slovenskom e-shope, ukazuje <a href="ukazka/">ukážkový obchod Dobrá domácnosť</a>.</p>
+        <p data-i18n-html="faq.platforms.a">Skript funguje na akomkoľvek e-shope hneď, stačí vložiť jeden <code>&lt;script&gt;</code> tag do administrácie alebo šablóny. Samostatný <a href="woocommerce/">WooCommerce plugin</a> je schválený na wordpress.org, nainštalujete ho priamo v administrácii cez Plugins, Add New, vyhľadaním „ARLing“. Na <a href="shopify/">Shopify</a> sa asistent pridáva rovnako, jedným script tagom v šablóne; aplikáciu v Shopify App Store nemáme. Pre Shoptet a Upgates je samostatný <a href="shoptet/">návod</a>: Heureka XML feed z administrácie a script tag cez HTML kód. Ako widget vyzerá na slovenskom e-shope, ukazuje <a href="ukazka/">ukážkový obchod Dobrá domácnosť</a>.</p>
       </details>
       <details>
         <summary data-i18n="faq.free.q">Čo je zadarmo?</summary>
@@ -509,7 +509,7 @@
       </details>
 
       <div class="subscribe-ask">
-        <p class="sub" style="margin-bottom:14px" data-i18n="subscribe.ask">Chcete vedieť, keď WooCommerce plugin prejde schválením na wordpress.org alebo pribudne Shopify aplikácia?</p>
+        <p class="sub" style="margin-bottom:14px" data-i18n="subscribe.ask">Chcete e-mail, keď pribudnú nové funkcie ARLing Asistenta?</p>
         <form class="subscribe-form" data-subscribe data-source="asistent" data-lang="sk" data-thanks="subscribe-thanks" data-error="subscribe-error">
           <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off">
           <input type="email" name="email" placeholder="vas@email.sk" data-i18n-placeholder="subscribe.email.placeholder" required>
