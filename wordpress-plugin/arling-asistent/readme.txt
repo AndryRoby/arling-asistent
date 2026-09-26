@@ -63,7 +63,7 @@ This plugin relies on the ARLing Shopping Assistant service to work. Provider: A
 
 No customer data and no order data is ever sent. Nothing is sent before you connect.
 
-**E-mails to the address you enter:** ARLing sends the setup instructions once the products are read (or one message explaining why they could not be read), and at most three service messages about this assistant: a confirmation when it first loads on your site, one offer of help if it does not, and a notice at 80 % of the free monthly limit. Each e-mail says why it was sent and has a one-click link to stop the optional ones. Nothing else, no newsletters.
+**E-mails to the address you enter:** right now ARLing sends none; the settings page shows everything instead. When this is switched on, ARLing may send the setup instructions once the products are read (or one message explaining why they could not be read), and at most three service messages about this assistant: a confirmation when it first loads on your site, one offer of help if it does not, and a notice at 80 % of the free monthly limit. Each e-mail says why it was sent and has a one-click link to stop the optional ones. Nothing else, no newsletters.
 
 **While connected:**
 
@@ -157,7 +157,7 @@ Click "Disconnect" on the settings page to immediately stop the widget from appe
 == Changelog ==
 
 = 0.4.0 =
-* When you connect, the plugin also sends the language of your own WordPress profile (Slovak, Czech, English or German, anything else as English), so the setup e-mail from ARLing is in your language, and marks the account as coming from this plugin, so the e-mail does not ask you to paste any code.
+* When you connect, the plugin also sends the language of your own WordPress profile (Slovak, Czech, English or German, anything else as English), so any setup e-mail from ARLing is in your language (ARLing does not send these e-mails yet), and marks the account as coming from this plugin, so the e-mail does not ask you to paste any code.
 * The consent text now says what ARLing sends to your e-mail address: the setup instructions and at most three service messages about this assistant, each with a link that stops them. They are sent only to an address on the site's own domain.
 * Chats in the "Try it now" preview on the settings page are marked as a preview by the widget ARLing serves, so they are not counted as questions from your shoppers in ARLing's own statistics. They still count towards the monthly limit, as before.
 
@@ -193,7 +193,7 @@ Click "Disconnect" on the settings page to immediately stop the widget from appe
 == Upgrade Notice ==
 
 = 0.4.0 =
-Setup e-mails in your own language and a clearer consent text. No change on your storefront.
+Prepares setup e-mails in your own language (not sent yet) and a clearer consent text. No change on your storefront.
 
 = 0.3.0 =
 Guided setup, a "Try it now" preview, a clear reason and a Try again button when setup fails, and usage warnings. Recommended for every install.
