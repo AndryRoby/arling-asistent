@@ -90,7 +90,9 @@ export const DOBEH_OKNO_DNI = 11; // E3 najneskôr 10 dní po E1, s rezervou
 export const DOBEH_MAX_DOPYTOV = 800;
 export const DOBEH_REZERVA_NA_UCET = 40;
 export const VEKTORY_MAX = 20000;
-export const ZDROJE = ['formular', 'wordpress', 'shopify', 'api'];
+// 'oslovenie' = ukážka, ktorú Fable založí e-shopu pred písaným oslovením (27. 9. 2026): bez pingu
+// „asistent_novy“ a bez akéhokoľvek automatického e-mailu (mozeIst), kontakt je zverejnená adresa obchodu.
+export const ZDROJE = ['formular', 'wordpress', 'shopify', 'api', 'oslovenie'];
 
 // Verejné poštové domény: zhoda „doména e-mailu = doména obchodu“ pri nich nič
 // nedokazuje (ktokoľvek by si mohol nárokovať obchod gmail.com).
@@ -527,6 +529,7 @@ export function mozeIst(env, tenant, kod, udalosti, { rucne = false } = {}) {
   if (!env.RESEND_API_KEY) return nie('bez_resend_kluca');
   if (!tenant) return nie('bez_uctu');
   if (jeDemo(env, tenant.domain)) return nie('demo');
+  if (tenant.zdroj === 'oslovenie') return nie('oslovenie');
   if (!adresaPovolena(env, tenant.contact_email)) return nie('adresa');
   // Zastavenie platí pre všetko vrátane E0, E1 a E1W: pätička sľubuje, že po
   // kliknutí už nepríde nič (adverzárna kontrola 25. 9. 2026, nález 2).
@@ -790,7 +793,7 @@ export async function poVytvoreni(env, tenant, { jazyk = null, zdroj = 'api', ov
     if (jeDemo(env, tenant.domain)) return;
     const feedHost = feedHostUctu(tenant);
     const nove = await zaznamenaj(env, tenant.id, 'vytvoreny', 'vytvoreny', { zdroj, jazyk, feed_host: feedHost, overeny: !!overeny }, now);
-    if (nove && env.ASISTENT_NTFY === 'zapnute') {
+    if (nove && env.ASISTENT_NTFY === 'zapnute' && zdroj !== 'oslovenie') {
       const over = overeny ? 'kod' : domenaSedi(tenant) ? 'domena' : null;
       if (over || (await pingNovyPovoleny(env, now))) {
         const popisOverenia = over === 'kod' ? 'e-mail overeny kodom' : over === 'domena' ? 'domena e-mailu sedi' : 'e-mail neovereny, automaticke e-maily nejdu';

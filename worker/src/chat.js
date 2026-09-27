@@ -482,14 +482,34 @@ export function polishAnswer(answer, lang, candidates) {
  * candidate metadata, never from the model's text (which could hallucinate
  * a price or a URL that was never in the feed).
  */
+/** URL bez rozdielov, ktoré model rád zmení: schéma, www, veľké písmená hostiteľa, lomka na konci, %-kódovanie, &amp;. */
+export function urlKey(url) {
+  let s = String(url || '').trim().replace(/&amp;/g, '&');
+  if (!s) return '';
+  try { s = decodeURI(s); } catch (e) { /* ponechať */ }
+  s = s.replace(/^https?:\/\//i, '').replace(/^www\./i, '');
+  const i = s.indexOf('/');
+  const host = (i < 0 ? s : s.slice(0, i)).toLowerCase();
+  const rest = i < 0 ? '' : s.slice(i).replace(/[?#].*$/, '').replace(/\/+$/, '');
+  return host + rest;
+}
+
+const titleKey = (t) => String(t || '').normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim();
+
 export function reconcileProducts(modelProducts, candidates) {
   const byUrl = new Map(candidates.filter((c) => c.url).map((c) => [c.url, c]));
+  const byUrlKey = new Map(candidates.filter((c) => c.url).map((c) => [urlKey(c.url), c]));
+  const byTitle = new Map(candidates.filter((c) => c.title).map((c) => [titleKey(c.title), c]));
   const byId = new Map(candidates.map((c) => [c.id, c]));
   const seen = new Set();
   const out = [];
   for (const mp of modelProducts) {
     if (!mp) continue;
-    const candidate = (mp.url && byUrl.get(mp.url)) || (mp.id && byId.get(mp.id)) || null;
+    // presná URL, potom URL bez drobných rozdielov, potom id, nakoniec presný názov z načítaných kandidátov
+    const candidate = (mp.url && (byUrl.get(mp.url) || byUrlKey.get(urlKey(mp.url))))
+      || (mp.id && byId.get(mp.id))
+      || (mp.title && byTitle.get(titleKey(mp.title)))
+      || null;
     if (!candidate || seen.has(candidate.id)) continue;
     seen.add(candidate.id);
     out.push({
