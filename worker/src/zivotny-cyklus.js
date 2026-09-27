@@ -142,6 +142,7 @@ export const ZC_SQL = {
   SET_UDALOST_DATA: `UPDATE tenant_udalosti SET data = ? WHERE tenant_id = ? AND kluc = ?`,
   CAS_UDALOST_DATA: `UPDATE tenant_udalosti SET data = ? WHERE tenant_id = ? AND kluc = ? AND data = ?`,
   SET_JAZYK_ZDROJ: `UPDATE tenants SET jazyk = ?, zdroj = ? WHERE id = ?`,
+  PREVZATIE_UKAZKY: `UPDATE tenants SET feed_url = ?, contact_email = ?, jazyk = ?, zdroj = ? WHERE id = ?`,
   SET_JAZYK: `UPDATE tenants SET jazyk = ? WHERE id = ?`,
   SET_EMAILY_STOP: `UPDATE tenants SET emaily_stop_at = ? WHERE id = ? AND emaily_stop_at IS NULL`,
   INC_WEB_CONVERSATIONS: `UPDATE counters SET web_conversations = web_conversations + 1 WHERE tenant_id = ? AND day = ?`,
@@ -802,6 +803,36 @@ export async function poVytvoreni(env, tenant, { jazyk = null, zdroj = 'api', ov
     }
   } catch (err) {
     varuj('po vytvoreni', err);
+  }
+}
+
+/**
+ * Ukážka k osloveniu (zdroj `oslovenie`) je postavená z našich zozbieraných
+ * dát. Keď sa ten obchod zaregistruje sám (27. 9. 2026): ak nová adresa aj
+ * nový feed patria doméne obchodu (domenaSedi), ukážku prevezme (feed,
+ * adresa, jazyk, zdroj) a vráti true. Inak sa nič nemení, lebo cudzí človek
+ * by inak podstrčil cudzí feed do odkazu, ktorý sme obchodu poslali; príde
+ * len ping, aby sa Fable obchodu ozval sám (s denným stropom ako ostatné
+ * neoverené pingy).
+ */
+export async function prevezmiUkazku(env, tenant, { email, feedUrl, zdroj, jazyk = null, now = new Date(), waitUntil } = {}) {
+  try {
+    if (!domenaSedi({ domain: tenant.domain, contact_email: email, feed_url: feedUrl })) {
+      if (env.ASISTENT_NTFY === 'zapnute' && (await pingNovyPovoleny(env, now))) {
+        await spusti(waitUntil, pingni(env, 'asistent_novy', { domena: tenant.domain, p: 'oslovenie', d: `${tenant.domain}: oslovený obchod sa skúsil zapnúť sám (${email}), ukážka ostáva, ozvi sa mu` }));
+      }
+      return false;
+    }
+    await zabezpecSchemu(env.DB);
+    const novyJazyk = jazyk || tenant.jazyk || null;
+    await env.DB.prepare(ZC_SQL.PREVZATIE_UKAZKY).bind(feedUrl, email, novyJazyk, zdroj, tenant.id).run();
+    Object.assign(tenant, { feed_url: feedUrl, contact_email: email, jazyk: novyJazyk, zdroj });
+    await zaznamenaj(env, tenant.id, 'prevzata', 'prevzata', { zdroj }, now);
+    await spusti(waitUntil, pingni(env, 'asistent_novy', { domena: tenant.domain, p: zdroj, d: `${tenant.domain}: oslovený obchod prevzal ukážku (${email}), načítava sa jeho feed` }));
+    return true;
+  } catch (err) {
+    varuj('prevzatie ukazky', err);
+    return false;
   }
 }
 

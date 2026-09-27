@@ -3,6 +3,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { reconcileProducts, urlKey } from '../worker/src/chat.js';
 import { mozeIst, ZDROJE } from '../worker/src/zivotny-cyklus.js';
+import { createTenantFromRequest } from '../worker/src/onboarding.js';
+import { getTenantById } from '../worker/src/tenants.js';
+import { createMockD1 } from './helpers/mock-d1.mjs';
+import { createMockAI, createMockVectorize } from './helpers/mock-cf.mjs';
 
 const kandidati = [
   { id: 'a', title: 'Čiapočka BARRY', url: 'https://www.svetvlny.sk/ciapocka-barry', price: 3, currency: 'EUR', image: 'x.jpg' },
@@ -33,4 +37,50 @@ test('zdroj oslovenie existuje a nikdy nepustí automatický e-mail', () => {
   for (const kod of ['E0', 'E1', 'E1W', 'E2', 'E3', 'E4']) {
     assert.deepEqual(mozeIst(env, tenant, kod, [], { rucne: true }), { ok: false, dovod: 'oslovenie' }, kod);
   }
+});
+
+// Oslovený obchod sa zaregistruje sám (27. 9. 2026).
+const FEED = `<products><item><id>1</id><name>Čaj</name><price>4.5</price><url>https://obchod.sk/p/1</url><description>Popis.</description></item></products>`;
+function envUkazky() {
+  return {
+    DB: createMockD1(),
+    AI: createMockAI({ embedDim: 4 }),
+    VECTORIZE: createMockVectorize(),
+    ALLOWED_ORIGINS: 'arling.sk',
+    fetchImpl: async () => ({ ok: true, status: 200, text: async () => FEED }),
+  };
+}
+async function ukazka(env) {
+  return createTenantFromRequest(env, { feedUrl: 'https://homelab.example/ukazky/x.json', domain: 'obchod.sk', email: 'info@obchod.sk', zdroj: 'oslovenie' });
+}
+
+test('ukážku prevezme registrácia s adresou aj feedom na doméne obchodu', async () => {
+  const env = envUkazky();
+  const u = await ukazka(env);
+  const t = await createTenantFromRequest(env, { feedUrl: 'https://www.obchod.sk/export/heureka.xml', domain: 'obchod.sk', email: 'jana@obchod.sk', zdroj: 'formular' });
+  assert.equal(t.id, u.id);
+  const r = await getTenantById(env.DB, u.id);
+  assert.equal(r.feed_url, 'https://www.obchod.sk/export/heureka.xml');
+  assert.equal(r.contact_email, 'jana@obchod.sk');
+  assert.equal(r.zdroj, 'formular');
+});
+
+test('ukážku neprevezme adresa mimo domény obchodu ani cudzí feed', async () => {
+  const env = envUkazky();
+  const u = await ukazka(env);
+  await createTenantFromRequest(env, { feedUrl: 'https://obchod.sk/feed.xml', domain: 'obchod.sk', email: 'majitel@gmail.com', zdroj: 'formular' });
+  await createTenantFromRequest(env, { feedUrl: 'https://utocnik.example/feed.xml', domain: 'obchod.sk', email: 'x@obchod.sk', zdroj: 'formular' });
+  const r = await getTenantById(env.DB, u.id);
+  assert.equal(r.feed_url, 'https://homelab.example/ukazky/x.json');
+  assert.equal(r.contact_email, 'info@obchod.sk');
+  assert.equal(r.zdroj, 'oslovenie');
+});
+
+test('náš opakovaný beh so zdrojom oslovenie ukážku nemení', async () => {
+  const env = envUkazky();
+  const u = await ukazka(env);
+  await createTenantFromRequest(env, { feedUrl: 'https://obchod.sk/feed.xml', domain: 'obchod.sk', email: 'ina@obchod.sk', zdroj: 'oslovenie' });
+  const r = await getTenantById(env.DB, u.id);
+  assert.equal(r.zdroj, 'oslovenie');
+  assert.equal(r.contact_email, 'info@obchod.sk');
 });

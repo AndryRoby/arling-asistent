@@ -31,7 +31,7 @@ import { fetchFeed, FeedUrlNotAllowedError } from './feed.js';
 import { embedAndUpsertProducts, embedTexts } from './embed.js';
 import { parseAllowedOrigins, corsHeaders, bezpecnePorovnaj, checkRateLimit, SECURITY_HEADERS } from './security.js';
 import { hasBudget, spend, NEURONS } from './budget.js';
-import { poVytvoreni, poNacitani, poZmenePlanu, nastavJazyk, jazykZoVstupu, zdrojZoVstupu, poOvereniMajitela, zapamatajVektory } from './zivotny-cyklus.js';
+import { poVytvoreni, poNacitani, poZmenePlanu, nastavJazyk, jazykZoVstupu, zdrojZoVstupu, poOvereniMajitela, zapamatajVektory, prevezmiUkazku } from './zivotny-cyklus.js';
 import { overenyEmailZBearer } from './ucet.js';
 
 export const TENANT_STATUS = {
@@ -355,9 +355,20 @@ export async function createTenantFromRequest(env, { feedUrl, domain, email, lan
 
     const poslanyEmail = String(email || '').trim().toLowerCase();
     const majitelEmail = String(existing.contact_email || '').trim().toLowerCase();
-    const jeMajitel = !!poslanyEmail && bezpecnePorovnaj(poslanyEmail, majitelEmail);
+    let jeMajitel = !!poslanyEmail && bezpecnePorovnaj(poslanyEmail, majitelEmail);
 
     const cleanFeedUrl = String(feedUrl || '').trim();
+    // Našu ukážku k osloveniu prevezme skutočná registrácia z domény obchodu
+    // (zivotny-cyklus.js prevezmiUkazku); pri inej adrese ostáva, ako je.
+    let prevzata = false;
+    if (!jeMajitel && existing.zdroj === 'oslovenie' && zdrojUctu !== 'oslovenie' && poslanyEmail && cleanFeedUrl) {
+      const staryFeed = existing.feed_url;
+      prevzata = await prevezmiUkazku(env, existing, { email: poslanyEmail, feedUrl: cleanFeedUrl, zdroj: zdrojUctu, jazyk, now, waitUntil });
+      if (prevzata) {
+        jeMajitel = true;
+        existing.feed_url = staryFeed; // zmena feedu sa zistí nižšie a spustí načítanie
+      }
+    }
     const feedUrlChanged = jeMajitel && cleanFeedUrl && cleanFeedUrl !== existing.feed_url;
     if (feedUrlChanged) {
       await setFeedUrl(env.DB, existing.id, cleanFeedUrl);

@@ -134,6 +134,14 @@ export function createMockD1() {
         if (row) { row.jazyk = jazyk; row.zdroj = zdroj; }
         return { success: true, meta: { changes: row ? 1 : 0 } };
       }
+      case ZC_SQL.PREVZATIE_UKAZKY: {
+        potrebujStlpec('jazyk');
+        potrebujStlpec('zdroj');
+        const [feedUrl, email, jazyk, zdroj, id] = args;
+        const row = tenants.get(id);
+        if (row) Object.assign(row, { feed_url: feedUrl, contact_email: email, jazyk, zdroj });
+        return { success: true, meta: { changes: row ? 1 : 0 } };
+      }
       case ZC_SQL.SET_JAZYK: {
         potrebujStlpec('jazyk');
         const [jazyk, id] = args;
