@@ -32,7 +32,7 @@ STRIPE_PORTAL_URL = "https://billing.stripe.com/p/login/3cIaER9M63hNeFcg8B4ko00"
 # 9500 je zamerne pod bezplatnou dennou davkou 10 000, takze kym to nezvysime,
 # nad ramec pausalu 5 USD nezaplatime nic. Pri prvom platiacom zakaznikovi
 # zvysit a zapisat zmenu do company/finances.md.
-AI_DAILY_NEURON_BUDGET = "9500"
+AI_DAILY_NEURON_BUDGET = "20000"
 # Zivotny cyklus Asistenta (src/zivotny-cyklus.js, navrh
 # ops/asistent/zivotny-cyklus.md). Vsetky tri su zamerne vypnute: deploy sam
 # nic neposle. Udalosti v D1 sa zapisuju vzdy. Zapnut hodnotou "zapnute" az
