@@ -372,6 +372,32 @@ function wordRe(word) {
 }
 
 /**
+ * Surové kódy dostupnosti zo zadania (availability: out_of_stock) model občas
+ * prepíše do textu. Naživo 27. 9. 2026 na ochutnejorech.sk: „ale bohužiaľ sú
+ * momentálne out_of_stock … a sú in_stock“. Zákazník e-shopu ich má čítať vo
+ * svojom jazyku, preto sa kód nahradí slovom (feed.js ich tvorí v tvare
+ * in_stock, out_of_stock a available_in_N_days; instock a outofstock sú tvary
+ * z WooCommerce).
+ */
+function stockSlips(skladom, vypredane, doDni) {
+  return [
+    [/(?<![\p{L}\p{N}])available_in_(\d+)_days(?![\p{L}\p{N}])/gu, (_, n) => doDni(n)],
+    [/(?<![\p{L}\p{N}_])out_?of_?stock(?![\p{L}\p{N}_])/giu, vypredane],
+    [/(?<![\p{L}\p{N}_])in_?stock(?![\p{L}\p{N}_])/giu, skladom],
+  ];
+}
+
+/**
+ * Vypredané produkty idú v zadaní až za tie, ktoré sú skladom (poradie inak
+ * ostáva podľa podobnosti). Model totiž odporúčal ako prvý produkt, ktorý sa
+ * nedá kúpiť (ochutnejorech.sk, 27. 9. 2026).
+ */
+export function skladomNajprv(candidates) {
+  const list = candidates || [];
+  return [...list.filter((c) => c.availability !== 'out_of_stock'), ...list.filter((c) => c.availability === 'out_of_stock')];
+}
+
+/**
  * Known slips of the chat model in the two languages it writes least well,
  * every one of them seen in live answers on a Slovak tenant: the Czech
  * "neznám" for Slovak "neviem", a wrong genitive plural of "hrniec", a
@@ -390,13 +416,22 @@ const SLIPS_BY_LANG = {
     [wordRe('konkrétný'), 'konkrétny'],
     [wordRe('Спросiť'), 'Spýtať'],
     [wordRe('спросiť'), 'spýtať'],
+    // 27. 9. 2026, ukážka pre kvitok.sk: „Máme beberapa balzamov na pery“ (indonézske „niekoľko“), trikrát za sebou.
+    [wordRe('Beberapa'), 'Niekoľko'],
+    [wordRe('beberapa'), 'niekoľko'],
+    ...stockSlips('skladom', 'vypredané', (n) => `dostupné do ${n} dní`),
   ],
   cs: [
     [wordRe('Neviem'), 'Nevím'],
     [wordRe('neviem'), 'nevím'],
     [wordRe('Спросiť'), 'Zeptat'],
     [wordRe('спросiť'), 'zeptat'],
+    [wordRe('Beberapa'), 'Několik'],
+    [wordRe('beberapa'), 'několik'],
+    ...stockSlips('skladem', 'vyprodáno', (n) => `dostupné do ${n} dnů`),
   ],
+  en: stockSlips('in stock', 'out of stock', (n) => `available in ${n} days`),
+  de: stockSlips('vorrätig', 'nicht vorrätig', (n) => `in ${n} Tagen lieferbar`),
 };
 
 /**
@@ -625,7 +660,7 @@ export async function runChat(env, { tenant, messages, lang, model = CHAT_MODEL_
     : { ...noMatchFallback(lang, tenant.contact_email, question), meta });
 
   const [queryVector] = await embedTexts(env.AI, [question]);
-  const candidates = await retrieveCandidates(env, tenant.id, queryVector, { topK: TOP_K });
+  const candidates = skladomNajprv(await retrieveCandidates(env, tenant.id, queryVector, { topK: TOP_K }));
 
   if (candidates.length === 0) {
     return emptyAnswerReply({ candidateCount: 0, flaggedInjection: false });

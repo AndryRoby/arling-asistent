@@ -32,6 +32,7 @@ import { extractModelText,
   TOP_K,
   FALLBACK_TOP_K,
   polishAnswer,
+  skladomNajprv,
   looksLikeProductCode,
   stripProductCodes,
 } from '../worker/src/chat.js';
@@ -548,6 +549,29 @@ test('polishAnswer vymaže skladový kód spolu s ostatnou úpravou textu', () =
   const out = polishAnswer('The KUC-004 panvica costs 32.9 EUR.', 'en', kandidati);
   assert.ok(!out.includes('KUC-004'), out);
   assert.ok(out.includes('32.90 EUR'), out); // cena sa stále dorovnáva na dve desatiny
+});
+
+test('polishAnswer: kód dostupnosti a indonézske slovo sa v odpovedi nahradia slovom zákazníkovho jazyka (27. 9. 2026)', () => {
+  const sk = polishAnswer('Máme beberapa balzamov. Para orechy sú momentálne out_of_stock, makadamové sú in_stock, iné available_in_3_days.', 'sk', []);
+  assert.equal(sk, 'Máme niekoľko balzamov. Para orechy sú momentálne vypredané, makadamové sú skladom, iné dostupné do 3 dní.');
+  assert.equal(polishAnswer('Beberapa čajů je outofstock.', 'cs', []), 'Několik čajů je vyprodáno.');
+  assert.equal(polishAnswer('These nuts are out_of_stock, those are in stock.', 'en', []), 'These nuts are out of stock, those are in stock.');
+  assert.equal(polishAnswer('Diese Nüsse sind out_of_stock.', 'de', []), 'Diese Nüsse sind nicht vorrätig.');
+  // bežné slová, ktoré kód len obsahujú, ostanú: „instinkt“, „stockholmský“
+  assert.equal(polishAnswer('Instinkt a stockholmský štýl.', 'sk', []), 'Instinkt a stockholmský štýl.');
+});
+
+test('skladomNajprv: vypredané produkty idú na koniec, inak poradie ostáva', () => {
+  const k = [
+    { id: 'a', availability: 'out_of_stock' },
+    { id: 'b', availability: 'in_stock' },
+    { id: 'c', availability: 'available_in_3_days' },
+    { id: 'd', availability: 'out_of_stock' },
+    { id: 'e', availability: 'unknown' },
+  ];
+  assert.deepEqual(skladomNajprv(k).map((x) => x.id), ['b', 'c', 'e', 'a', 'd']);
+  assert.deepEqual(skladomNajprv([]), []);
+  assert.deepEqual(skladomNajprv(undefined), []);
 });
 
 // ---------------------------------------------------------------------------
