@@ -162,12 +162,145 @@ export async function checkRateLimit(kv, ip, { limit = RATE_LIMIT_DEFAULT, windo
 }
 
 // ---------------------------------------------------------------------------
+// Denné limity na IP (plán 2.2 bod 3, krok 1, oprava nálezov kontroly)
+//
+// Minútový limit vyššie nezastaví robota, ktorý sa pýta pomaly celý deň.
+// Denné limity sa počítajú atomicky v D1 (pocty.js, rezervácia pred modelom),
+// nie v KV: KV nevie „pripočítaj, ak je pod limitom“, súbežná dávka ho
+// obišla a pri viac ako 1 zápise za sekundu na kľúč zlyháva (nálezy 1, 9).
+//
+// Za UTC deň na dvojicu (obchod, sieť):
+//   - 60 otázok spolu (s modelom aj bez neho), 61. je 429 rate_limited,
+//   - 5 započítaných nových rozhovorov; ďalší nový rozhovor dostane odpoveď
+//     bez modelu a do mesačnej kvóty sa nezapočíta (zákazník chybu nevidí),
+//   - otázky s modelom: bezplatný obchod 10, platený 30 (zlomok denného stropu
+//     obchodu, nález 3); ďalšie odpovedá kód bez modelu.
+// Za UTC deň na IP cez všetky obchody: 30 otázok s modelom (nález B1: tenant id
+// sú verejné, jedna IP by inak minula strop cez viac obchodov).
+//
+// IPv6 sa pre denné limity skracuje na sieť /56 (tretie kolo, nález K3; pred
+// ním /64), pre minútový na /64. Do D1 ide len číslo koša 0 až 65 535 z
+// odtlačku siete s dňom a tajomstvom (kosIp), nie IP.
+// ---------------------------------------------------------------------------
+
+export const DENNY_LIMIT_IP_ROZHOVORY = 5;
+export const DENNY_LIMIT_IP_OTAZKY = 60;
+export const DENNY_LIMIT_IP_AI = { free: 10, platene: 30 };
+export const DENNY_LIMIT_IP_AI_SPOLU = 30;
+export const IP_KOSOV = 65536;
+
+/** Rozvinie IPv6 zápis na 8 skupín, alebo null. */
+function rozvinIpv6(ip) {
+  let s = String(ip).toLowerCase().split('%')[0];
+  if (!s.includes(':')) return null;
+  // Koniec vo forme IPv4 (::ffff:1.2.3.4) na dve skupiny.
+  const v4 = s.match(/(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (v4) {
+    const n = v4.slice(1).map(Number);
+    if (n.some((x) => x > 255)) return null;
+    s = s.slice(0, s.length - v4[0].length) + ((n[0] << 8) | n[1]).toString(16) + ':' + ((n[2] << 8) | n[3]).toString(16);
+  }
+  const casti = s.split('::');
+  if (casti.length > 2) return null;
+  const hlava = casti[0] ? casti[0].split(':') : [];
+  const chvost = casti.length === 2 && casti[1] ? casti[1].split(':') : [];
+  const chyba = 8 - hlava.length - chvost.length;
+  if (casti.length === 1 && chyba !== 0) return null;
+  if (chyba < 0) return null;
+  const skupiny = [...hlava, ...Array(casti.length === 2 ? chyba : 0).fill('0'), ...chvost];
+  if (skupiny.length !== 8 || skupiny.some((g) => !/^[0-9a-f]{1,4}$/.test(g))) return null;
+  return skupiny.map((g) => parseInt(g, 16));
+}
+
+/**
+ * IP na jednotku limitu: IPv4 celá, IPv6 prvé 4 skupiny (sieť /64), IPv4
+ * zapísaná v IPv6 (::ffff:a.b.c.d) ako IPv4. Neznámy tvar ostáva ako je.
+ */
+export function normalizujIp(ip) {
+  const s = String(ip || '').trim();
+  if (!s) return '';
+  const g = rozvinIpv6(s);
+  if (!g) return s;
+  if (g.slice(0, 5).every((x) => x === 0) && g[5] === 0xffff) {
+    return `${g[6] >> 8}.${g[6] & 255}.${g[7] >> 8}.${g[7] & 255}`;
+  }
+  return `${g.slice(0, 4).map((x) => x.toString(16)).join(':')}::/64`;
+}
+
+/**
+ * Sieť pre DENNÉ limity (tretie kolo, nález K3): IPv4 celá, IPv6 prvých 56
+ * bitov. Domáca prípojka dostáva bežne delegovanú /56 (256 sietí /64) a tunel
+ * zadarmo aj /48, takže na /64 stačilo útočníkovi 6 sietí jednej prípojky na
+ * minutie spoločného stropu. Minútový limit ostáva na /64 (normalizujIp).
+ * IPv4 zámerne nie /24: v jednej /24 sú bežne stovky zákazníkov poskytovateľa
+ * (a za CGNAT celé mestá), limit 30 odpovedí modelom za deň by zasiahol
+ * skutočných zákazníkov ľudovky; útočníka s viac IPv4 ohraničí atomický bazén
+ * bezplatných obchodov (budget.js neuronovePolozky).
+ */
+export function sietIpDenna(ip) {
+  const s = String(ip || '').trim();
+  if (!s) return '';
+  const g = rozvinIpv6(s);
+  if (!g) return s;
+  if (g.slice(0, 5).every((x) => x === 0) && g[5] === 0xffff) {
+    return `${g[6] >> 8}.${g[6] & 255}.${g[7] >> 8}.${g[7] & 255}`;
+  }
+  return `${[g[0], g[1], g[2], g[3] & 0xff00].map((x) => x.toString(16)).join(':')}::/56`;
+}
+
+async function sha256Bajty(text) {
+  return new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)));
+}
+
+/**
+ * Kôš 0 až IP_KOSOV-1 pre (deň, sieť denných limitov) s tajomstvom. Jediné, čo
+ * z IP ide do D1. Dve rôzne siete padnú do jedného koša zriedka (pri 200
+ * návštevníkoch obchodu za deň asi 0,3 %) a vtedy len zdieľajú limit.
+ * Pseudonym, nie anonym: kto má tajomstvo a konkrétnu IP, vie jej kôš
+ * dopočítať; riadky sa preto mažú po 2 dňoch (pocty.js zmazStare).
+ */
+export async function kosIp(ip, den, sol = '') {
+  const b = await sha256Bajty(`kos|${den}|${sietIpDenna(ip)}|${sol || ''}`);
+  return ((b[0] << 8) | b[1]) % IP_KOSOV;
+}
+
+/** Odtlačok siete denných limitov pre kľúč KV (16 hex znakov), aby KV nenieslo holú IP. */
+export async function odtlacokIpSiete(ip, sol = '') {
+  const b = await sha256Bajty(`siet|${sietIpDenna(ip)}|${sol || ''}`);
+  let hex = '';
+  for (const x of b.slice(0, 8)) hex += (x < 16 ? '0' : '') + x.toString(16);
+  return hex;
+}
+
+/** Odtlačok siete pre kľúč minútového limitu v KV (16 hex znakov), aby KV nenieslo holú IP. */
+export async function odtlacokIpMinuta(ip, sol = '') {
+  const b = await sha256Bajty(`min|${normalizujIp(ip)}|${sol || ''}`);
+  let hex = '';
+  for (const x of b.slice(0, 8)) hex += (x < 16 ? '0' : '') + x.toString(16);
+  return hex;
+}
+
+// ---------------------------------------------------------------------------
 // Input size limits
 // ---------------------------------------------------------------------------
 
 export const MAX_BODY_BYTES = 8000;
-export const MAX_MESSAGE_CHARS = 2000;
+/**
+ * Najdlhšia otázka, ktorú server pošle do vektora a modelu (nález 4 kontroly
+ * kroku 1): dlhšia sa skráti. Predtým bolo číslo 2000 definované, ale nikde
+ * sa nepoužívalo, a otázka mohla mať asi 7 900 znakov (asi +60 neurónov).
+ * Widget má na poli ten istý maxlength.
+ */
+export const MAX_MESSAGE_CHARS = 500;
+/** Najdlhšie pole darčeka (recipient, interests) do vektora a modelu. */
+export const MAX_DARCEK_POLE_CHARS = 200;
 export const MAX_MESSAGES = 20;
+
+/** Skráti text na `max` znakov (po orezaní medzier), nikdy nehádže. */
+export function skratText(text, max) {
+  const s = String(text == null ? '' : text).trim();
+  return s.length > max ? s.slice(0, max) : s;
+}
 
 export class InputTooLargeError extends Error {}
 

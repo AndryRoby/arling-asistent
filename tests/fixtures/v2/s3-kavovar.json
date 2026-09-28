@@ -1,0 +1,36 @@
+{
+  "otazka": "Aký kávovar do 100 eur?",
+  "odpoved": {
+    "answer": "Do 100 € máme štyri možnosti. Kapsulový kávovar Orava Mini stojí 89,90 € v červenej aj bielej farbe: tlak 19 barov, zahriatie za 25 sekúnd, nádržka 0,7 l a šírka len 11 cm.\n\nAk vám stačí káva bez kapsúl, french press na 1 liter stojí 24,90 € a kanvica s dlhým hrdlom na filtrovanú kávu 39,90 €. Červený Orava Mini je skladom, biely má dodanie do 3 dní.",
+    "products": [
+      {
+        "title": "Kapsulový kávovar Orava Mini, červený",
+        "url": "http://127.0.0.1:8851/asistent/ukazka/#p-KAV-003",
+        "image": "http://127.0.0.1:8851/asistent/ukazka/img/KAV-003.svg",
+        "price": 89.9,
+        "currency": "EUR"
+      },
+      {
+        "title": "French press 1 l z borosilikátového skla",
+        "url": "http://127.0.0.1:8851/asistent/ukazka/#p-KAV-006",
+        "image": "http://127.0.0.1:8851/asistent/ukazka/img/KAV-006.svg",
+        "price": 24.9,
+        "currency": "EUR"
+      },
+      {
+        "title": "Kanvica na filtrovanú kávu s dlhým hrdlom 0,9 l",
+        "url": "http://127.0.0.1:8851/asistent/ukazka/#p-KAV-007",
+        "image": "http://127.0.0.1:8851/asistent/ukazka/img/KAV-007.svg",
+        "price": 39.9,
+        "currency": "EUR"
+      },
+      {
+        "title": "Kapsulový kávovar Orava Mini, biely",
+        "url": "http://127.0.0.1:8851/asistent/ukazka/#p-KAV-004",
+        "image": "http://127.0.0.1:8851/asistent/ukazka/img/KAV-004.svg",
+        "price": 89.9,
+        "currency": "EUR"
+      }
+    ]
+  }
+}

@@ -8,6 +8,7 @@
 
 import { SQL } from '../../worker/src/tenants.js';
 import { ZC_SQL } from '../../worker/src/zivotny-cyklus.js';
+import { POCTY_SQL } from '../../worker/src/pocty.js';
 
 export function createMockD1() {
   const tenants = new Map(); // id -> row
@@ -36,6 +37,33 @@ export function createMockD1() {
   function potrebujTabulku(nazov) {
     if (!zcTabulky[nazov]) throw new Error(`D1_ERROR: no such table: ${nazov}`);
   }
+  // Krok 1 plánu: stĺpce nákladov v counters (tenants.js ensureNakladyColumns),
+  // každý so svojím príznakom ako stĺpce vyššie.
+  const nakladyStlpce = { otazky: false, tokeny_vstup: false, tokeny_vystup: false, neurony: false, bez_ai: false };
+  function pridajNakladovyStlpec(nazov) {
+    if (nakladyStlpce[nazov]) throw new Error(`duplicate column name: ${nazov}`);
+    nakladyStlpce[nazov] = true;
+    for (const row of counters.values()) if (row[nazov] === undefined) row[nazov] = 0;
+    return { success: true, meta: { changes: 0 } };
+  }
+  function potrebujNakladove() {
+    for (const [nazov, je] of Object.entries(nakladyStlpce)) if (!je) throw new Error(`D1_ERROR: no such column: ${nazov}`);
+  }
+  /** Nový riadok counters so všetkými stĺpcami, ktoré tabuľka práve má. */
+  function novyCounter(tenantId, day) {
+    const row = { tenant_id: tenantId, day, conversations: 0, product_clicks: 0 };
+    if (zcStlpce.web_conversations) row.web_conversations = 0;
+    for (const [nazov, je] of Object.entries(nakladyStlpce)) if (je) row[nazov] = 0;
+    return row;
+  }
+  // Oprava kroku 1: atomické denné počítadlá (worker/src/pocty.js). Každá
+  // veta sa v mocku vykoná naraz (bez await uprostred), rovnako atomicky ako
+  // jedna SQL veta v D1.
+  let hasPocty = false;
+  const pocty = new Map(); // kluc -> {kluc, den, hodnota}
+  function potrebujPocty() {
+    if (!hasPocty) throw new Error('D1_ERROR: no such table: asistent_pocty');
+  }
   let dalsieId = 1;
   const calls = []; // každý vykonaný príkaz, pre testy „žiadny dopyt do D1“
 
@@ -57,6 +85,33 @@ export function createMockD1() {
   function run(sql, args) {
     calls.push(sql);
     switch (sql) {
+      case POCTY_SQL.CREATE_POCTY:
+        hasPocty = true;
+        return { success: true, meta: { changes: 0 } };
+      case POCTY_SQL.CREATE_POCTY_INDEX:
+        potrebujPocty();
+        return { success: true, meta: { changes: 0 } };
+      case POCTY_SQL.ODOBER: {
+        potrebujPocty();
+        const [pocet, kluc] = args;
+        const row = pocty.get(kluc);
+        if (row) row.hodnota = Math.max(0, row.hodnota - pocet);
+        return { success: true, meta: { changes: row ? 1 : 0 } };
+      }
+      case POCTY_SQL.ZMAZ_STARE: {
+        potrebujPocty();
+        let n = 0;
+        for (const [k, row] of pocty) if (row.den < args[0]) { pocty.delete(k); n += 1; }
+        return { success: true, meta: { changes: n } };
+      }
+      case SQL.VRAT_USAGE: {
+        const row = tenants.get(args[0]);
+        if (row && row.used_this_month > 0) {
+          row.used_this_month -= 1;
+          return { success: true, meta: { changes: 1 } };
+        }
+        return { success: true, meta: { changes: 0 } };
+      }
       case ZC_SQL.CREATE_UDALOSTI:
         hasUdalosti = true;
         return { success: true, meta: { changes: 0 } };
@@ -284,7 +339,7 @@ export function createMockD1() {
       case SQL.UPSERT_COUNTER_CONVERSATION: {
         const [tenantId, day] = args;
         const key = `${tenantId}::${day}`;
-        const row = counters.get(key) || { tenant_id: tenantId, day, conversations: 0, product_clicks: 0, ...(zcStlpce.web_conversations ? { web_conversations: 0 } : {}) };
+        const row = counters.get(key) || novyCounter(tenantId, day);
         row.conversations += 1;
         counters.set(key, row);
         return { success: true, meta: { changes: 1 } };
@@ -292,8 +347,31 @@ export function createMockD1() {
       case SQL.UPSERT_COUNTER_CLICK: {
         const [tenantId, day] = args;
         const key = `${tenantId}::${day}`;
-        const row = counters.get(key) || { tenant_id: tenantId, day, conversations: 0, product_clicks: 0, ...(zcStlpce.web_conversations ? { web_conversations: 0 } : {}) };
+        const row = counters.get(key) || novyCounter(tenantId, day);
         row.product_clicks += 1;
+        counters.set(key, row);
+        return { success: true, meta: { changes: 1 } };
+      }
+      case SQL.ADD_COUNTER_OTAZKY:
+        return pridajNakladovyStlpec('otazky');
+      case SQL.ADD_COUNTER_TOKENY_VSTUP:
+        return pridajNakladovyStlpec('tokeny_vstup');
+      case SQL.ADD_COUNTER_TOKENY_VYSTUP:
+        return pridajNakladovyStlpec('tokeny_vystup');
+      case SQL.ADD_COUNTER_NEURONY:
+        return pridajNakladovyStlpec('neurony');
+      case SQL.ADD_COUNTER_BEZ_AI:
+        return pridajNakladovyStlpec('bez_ai');
+      case SQL.UPSERT_COUNTER_NAKLADY: {
+        potrebujNakladove();
+        const [tenantId, day, tokenyVstup, tokenyVystup, neurony, bezAi] = args;
+        const key = `${tenantId}::${day}`;
+        const row = counters.get(key) || novyCounter(tenantId, day);
+        row.otazky += 1;
+        row.tokeny_vstup += tokenyVstup;
+        row.tokeny_vystup += tokenyVystup;
+        row.neurony += neurony;
+        row.bez_ai += bezAi;
         counters.set(key, row);
         return { success: true, meta: { changes: 1 } };
       }
@@ -305,11 +383,59 @@ export function createMockD1() {
   function first(sql, args) {
     calls.push(sql);
     switch (sql) {
+      case POCTY_SQL.PRIDAJ_AK_POD: {
+        potrebujPocty();
+        const [kluc, den, pocet, limit] = args;
+        const row = pocty.get(kluc);
+        if (!row) {
+          // Vložený riadok: SQLite WHERE z DO UPDATE tu neplatí, limit stráži pocty.js rezervuj.
+          pocty.set(kluc, { kluc, den, hodnota: pocet });
+          return { hodnota: pocet };
+        }
+        if (row.hodnota + pocet > limit) return null;
+        row.hodnota += pocet;
+        return { hodnota: row.hodnota };
+      }
+      case POCTY_SQL.PRIDAJ: {
+        potrebujPocty();
+        const [kluc, den, pocet] = args;
+        const row = pocty.get(kluc);
+        if (!row) {
+          pocty.set(kluc, { kluc, den, hodnota: pocet });
+          return { hodnota: pocet };
+        }
+        row.hodnota += pocet;
+        return { hodnota: row.hodnota };
+      }
+      case SQL.REZERVUJ_USAGE: {
+        const row = tenants.get(args[0]);
+        if (row && row.used_this_month < row.monthly_quota) {
+          row.used_this_month += 1;
+          return { used_this_month: row.used_this_month, monthly_quota: row.monthly_quota };
+        }
+        return null;
+      }
+      case POCTY_SQL.CITAJ: {
+        potrebujPocty();
+        const row = pocty.get(args[0]);
+        return row ? { hodnota: row.hodnota } : null;
+      }
       case SQL.GET_TENANT_BY_ID:
         return clone(tenants.get(args[0])) || null;
       case SQL.GET_TENANT_BY_DOMAIN: {
         for (const row of tenants.values()) if (row.domain === args[0]) return clone(row);
         return null;
+      }
+      case SQL.GET_COUNTER_DNES: {
+        potrebujNakladove();
+        const row = counters.get(`${args[0]}::${args[1]}`);
+        return row ? { otazky: row.otazky || 0, neurony: row.neurony || 0 } : null;
+      }
+      case SQL.SUM_NEURONY_DNES: {
+        potrebujNakladove();
+        let suma = 0;
+        for (const row of counters.values()) if (row.day === args[0]) suma += row.neurony || 0;
+        return { neurony: suma };
       }
       case ZC_SQL.POCET_STROP: {
         potrebujTabulku('asistent_strop');
@@ -331,6 +457,11 @@ export function createMockD1() {
     switch (sql) {
       case SQL.LIST_TENANTS:
         return { results: Array.from(tenants.values()).map(clone) };
+      case SQL.AKTIVNE_TENANTY_OD: {
+        const ids = new Set();
+        for (const r of counters.values()) if (r.day >= args[0] && r.conversations > 0) ids.add(r.tenant_id);
+        return { results: [...ids].map((tenant_id) => ({ tenant_id })) };
+      }
       case ZC_SQL.LIST_UDALOSTI_TENANTA:
         potrebujUdalosti();
         return { results: udalosti.filter((u) => u.tenant_id === args[0]).sort((a, b) => a.id - b.id).map(clone) };
@@ -394,6 +525,9 @@ export function createMockD1() {
     _udalosti: udalosti,
     _calls: calls,
     _zcStlpce: zcStlpce,
+    _nakladyStlpce: nakladyStlpce,
+    _pocty: pocty,
+    _hasPocty: () => hasPocty,
     _hasUdalosti: () => hasUdalosti,
     _strop: strop,
     _potlacene: potlacene,

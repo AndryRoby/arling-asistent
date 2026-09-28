@@ -28,11 +28,39 @@ ALLOWED_ORIGINS = "arling.sk"
 # Stripe zakaznicky portal (sprava karty, zrusenie predplatneho), verejny
 # odkaz, nie tajomstvo. Vraciaj sa nezmeneny v GET /v1/ucet/ja (src/ucet.js).
 STRIPE_PORTAL_URL = "https://billing.stripe.com/p/login/3cIaER9M63hNeFcg8B4ko00"
-# Denny strop na Workers AI v neuronoch (viac v src/budget.js).
-# 9500 je zamerne pod bezplatnou dennou davkou 10 000, takze kym to nezvysime,
-# nad ramec pausalu 5 USD nezaplatime nic. Pri prvom platiacom zakaznikovi
-# zvysit a zapisat zmenu do company/finances.md.
-AI_DAILY_NEURON_BUDGET = "9500"
+# Spolocny denny strop na Workers AI v SKUTOCNYCH neuronoch (src/budget.js).
+# Od kroku 1 planu (ops/asistent/genialny-plan.md 2.2 bod 4, 2.4) sa naklad
+# kazdej odpovede pocita z tokenov (pole usage, inak z dlzky textu) a zapisuje
+# do D1 counters; predtym sa pripocitavalo pevnych 90 neuronov na otazku, co
+# bolo o 50 az 90 % menej nez skutocnost, takze stary strop 9500 znamenal asi
+# 14 000 skutocnych neuronov a nad bezplatnu davku 10 000 sme uz platili
+# (ops/asistent/naklady-a-pravidla-2026-09-25.md bod 1).
+# 20000 do prvej platby: nad davku najviac 10 000 neuronov denne, teda asi
+# 0,11 USD. Strop je poistka proti chybe, nie limit obchodu: od 80 % odpovedaju
+# bezplatne obchody a ukazka bez modelu, platiace s modelom az do 100 %, potom
+# vsetci bez modelu (odpoved bez modelu stoji len vektor otazky) a 503 az pri
+# 150 %. Odhad sa rezervuje atomicky v D1 pred volanim modelu (src/pocty.js).
+# Denny strop obchodu podla planu v otazkach (budget.js DENNY_STROP_OTAZOK) aj
+# ako podiel tohto stropu v neuronoch (PODIEL_OBCHODU: free 10 %).
+# Po prvej platbe navrh 150000 (rozhoduje Fable). Kazdu zmenu zapisat do
+# company/finances.md.
+AI_DAILY_NEURON_BUDGET = "20000"
+# Vlastny denny rozpocet nacitania feedov (formular aj nocny cron), v
+# skutocnych neuronoch bge-m3 (src/budget.js obnovaLimit). Chat ho necita, takze
+# cudzie feedy uz nezhodia chat vsetkym (plan 2.2 bod 8). Spolu so stropom
+# chatu je horna hranica 25 000 neuronov denne, nad bezplatnu davku najviac
+# asi 0,17 USD. Zapisat do company/finances.md spolu so stropom chatu.
+AI_DAILY_OBNOVA_BUDGET = "5000"
+# Najviac otazok v jednom rozhovore (src/relacia.js maxOtazok). Plan 2.1 hovori
+# 10, ale je to bod 3.2/1 na Andrejovo schvalenie a verejne texty (plugin,
+# stranky porovnania) zatial slubuju "however many questions". Kym Andrej
+# neschvali a texty sa nezmenia, 1000 = sluba plati. Po schvaleni "10".
+ASISTENT_MAX_OTAZOK = "1000"
+# Vystrahy ochrany pre Fable cez ntfy (src/notify.js pingOchrana): naklady_den,
+# obchod_marza, zneuzitie, ai_vypadok. Zapnut hodnotou "zapnute" az ked
+# products/subscribe-service pozna tieto udalosti a ich titulky (nikdy nie
+# "platba"). Dovtedy sa nic neposiela.
+ASISTENT_NTFY_OCHRANA = "vypnute"
 # Zivotny cyklus Asistenta (src/zivotny-cyklus.js, navrh
 # ops/asistent/zivotny-cyklus.md). Vsetky tri su zamerne vypnute: deploy sam
 # nic neposle. Udalosti v D1 sa zapisuju vzdy. Zapnut hodnotou "zapnute" az

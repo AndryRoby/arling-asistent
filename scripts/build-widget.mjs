@@ -32,6 +32,9 @@ const rootDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const sourcePath = path.join(rootDir, 'widget', 'widget.js');
 const workerOutPath = path.join(rootDir, 'worker', 'src', 'widget-src.js');
 const demoOutPath = path.join(rootDir, 'demo', 'widget.js');
+// Tretí výstup (v2, SPEC 0.3): kópia pre arling.sk/asistent/, ktorú načítava
+// ukážkový obchod. Predtým sa kopírovala ručne a tri týždne zaostávala.
+const hubOutPath = path.join(rootDir, '..', 'arling-sk', 'asistent', 'widget.js');
 
 const source = readFileSync(sourcePath, 'utf8');
 
@@ -53,8 +56,9 @@ const header =
 
 writeFileSync(workerOutPath, header + 'export default `' + escapeForTemplateLiteral(source) + '`;\n', 'utf8');
 writeFileSync(demoOutPath, source, 'utf8');
+writeFileSync(hubOutPath, source, 'utf8');
 
 console.log(
-  `build:widget: wrote ${path.relative(rootDir, workerOutPath)} and ${path.relative(rootDir, demoOutPath)} ` +
+  `build:widget: wrote ${path.relative(rootDir, workerOutPath)}, ${path.relative(rootDir, demoOutPath)} and ${path.relative(rootDir, hubOutPath)} ` +
     `from ${path.relative(rootDir, sourcePath)} (${source.length} bytes)`
 );

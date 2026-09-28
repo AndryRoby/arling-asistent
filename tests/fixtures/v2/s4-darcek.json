@@ -1,0 +1,104 @@
+{
+  "telo": {
+    "recipient": "Mama",
+    "budget_min": 0,
+    "budget_max": 50
+  },
+  "odpoved": {
+    "picks": [
+      {
+        "title": "Darčeková sada medu z podhoria, 3 × 250 g",
+        "url": "http://127.0.0.1:8851/asistent/ukazka/#p-DAR-001",
+        "image": "http://127.0.0.1:8851/asistent/ukazka/img/DAR-001.svg",
+        "price": 24.9,
+        "currency": "EUR",
+        "why": "Tri druhy medu od včelárov z podhoria v drevenej krabičke."
+      },
+      {
+        "title": "Bylinkový čaj darčekový box, 4 druhy",
+        "url": "http://127.0.0.1:8851/asistent/ukazka/#p-DAR-007",
+        "image": "http://127.0.0.1:8851/asistent/ukazka/img/DAR-007.svg",
+        "price": 21.9,
+        "currency": "EUR",
+        "why": "Štyri bylinkové čaje po 30 g: lipa, mäta, medovka a šípka."
+      },
+      {
+        "title": "Sviečka zo sójového vosku, borovica a smola",
+        "url": "http://127.0.0.1:8851/asistent/ukazka/#p-DAR-004",
+        "image": "http://127.0.0.1:8851/asistent/ukazka/img/DAR-004.svg",
+        "price": 18.9,
+        "currency": "EUR",
+        "why": "Vôňa borovice a drevený knôt, horí asi 40 hodín."
+      },
+      {
+        "title": "Keramická miska ručne točená 18 cm",
+        "url": "http://127.0.0.1:8851/asistent/ukazka/#p-DAR-005",
+        "image": "http://127.0.0.1:8851/asistent/ukazka/img/DAR-005.svg",
+        "price": 32.9,
+        "currency": "EUR",
+        "why": "Ručne točená kamenina, každý kus je trochu iný."
+      },
+      {
+        "title": "Vlnené papuče, veľkosť 40 až 41",
+        "url": "http://127.0.0.1:8851/asistent/ukazka/#p-DAR-011",
+        "image": "http://127.0.0.1:8851/asistent/ukazka/img/DAR-011.svg",
+        "price": 34.9,
+        "currency": "EUR",
+        "why": "Plstená ovčia vlna s koženou podrážkou, teplé a priedušné."
+      }
+    ],
+    "candidates": [
+      {
+        "title": "Darčeková sada medu z podhoria, 3 × 250 g",
+        "url": "http://127.0.0.1:8851/asistent/ukazka/#p-DAR-001",
+        "image": "http://127.0.0.1:8851/asistent/ukazka/img/DAR-001.svg",
+        "price": 24.9,
+        "currency": "EUR"
+      },
+      {
+        "title": "Bylinkový čaj darčekový box, 4 druhy",
+        "url": "http://127.0.0.1:8851/asistent/ukazka/#p-DAR-007",
+        "image": "http://127.0.0.1:8851/asistent/ukazka/img/DAR-007.svg",
+        "price": 21.9,
+        "currency": "EUR"
+      },
+      {
+        "title": "Sviečka zo sójového vosku, borovica a smola",
+        "url": "http://127.0.0.1:8851/asistent/ukazka/#p-DAR-004",
+        "image": "http://127.0.0.1:8851/asistent/ukazka/img/DAR-004.svg",
+        "price": 18.9,
+        "currency": "EUR"
+      },
+      {
+        "title": "Keramická miska ručne točená 18 cm",
+        "url": "http://127.0.0.1:8851/asistent/ukazka/#p-DAR-005",
+        "image": "http://127.0.0.1:8851/asistent/ukazka/img/DAR-005.svg",
+        "price": 32.9,
+        "currency": "EUR"
+      },
+      {
+        "title": "Vlnené papuče, veľkosť 40 až 41",
+        "url": "http://127.0.0.1:8851/asistent/ukazka/#p-DAR-011",
+        "image": "http://127.0.0.1:8851/asistent/ukazka/img/DAR-011.svg",
+        "price": 34.9,
+        "currency": "EUR"
+      },
+      {
+        "title": "Kúpeľová soľ s levanduľou 1 kg",
+        "url": "http://127.0.0.1:8851/asistent/ukazka/#p-DAR-009",
+        "image": "http://127.0.0.1:8851/asistent/ukazka/img/DAR-009.svg",
+        "price": 14.9,
+        "currency": "EUR"
+      },
+      {
+        "title": "Zápisník A5 v koženej väzbe",
+        "url": "http://127.0.0.1:8851/asistent/ukazka/#p-DAR-006",
+        "image": "http://127.0.0.1:8851/asistent/ukazka/img/DAR-006.svg",
+        "price": 29.9,
+        "currency": "EUR"
+      }
+    ],
+    "widened": false,
+    "few": false
+  }
+}

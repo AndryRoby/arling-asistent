@@ -95,6 +95,23 @@ export const SQL = {
   ADD_BILLING_REF_COLUMN: `ALTER TABLE tenants ADD COLUMN billing_ref TEXT`,
   ADD_VALID_UNTIL_COLUMN: `ALTER TABLE tenants ADD COLUMN valid_until TEXT`,
   SET_TENANT_PLAN: `UPDATE tenants SET plan = ?, monthly_quota = ?, billing_ref = ?, valid_until = ? WHERE id = ?`,
+  // Krok 1 plánu (ops/asistent/genialny-plan.md 2.4, 4.1): náklady na deň a
+  // obchod. Len čísla, nikdy text otázky, id relácie ani IP (úroveň A, 1.3).
+  ADD_COUNTER_OTAZKY: `ALTER TABLE counters ADD COLUMN otazky INTEGER NOT NULL DEFAULT 0`,
+  ADD_COUNTER_TOKENY_VSTUP: `ALTER TABLE counters ADD COLUMN tokeny_vstup INTEGER NOT NULL DEFAULT 0`,
+  ADD_COUNTER_TOKENY_VYSTUP: `ALTER TABLE counters ADD COLUMN tokeny_vystup INTEGER NOT NULL DEFAULT 0`,
+  ADD_COUNTER_NEURONY: `ALTER TABLE counters ADD COLUMN neurony INTEGER NOT NULL DEFAULT 0`,
+  ADD_COUNTER_BEZ_AI: `ALTER TABLE counters ADD COLUMN bez_ai INTEGER NOT NULL DEFAULT 0`,
+  UPSERT_COUNTER_NAKLADY: `INSERT INTO counters (tenant_id, day, conversations, product_clicks, otazky, tokeny_vstup, tokeny_vystup, neurony, bez_ai) VALUES (?, ?, 0, 0, 1, ?, ?, ?, ?) ON CONFLICT(tenant_id, day) DO UPDATE SET otazky = otazky + 1, tokeny_vstup = tokeny_vstup + excluded.tokeny_vstup, tokeny_vystup = tokeny_vystup + excluded.tokeny_vystup, neurony = neurony + excluded.neurony, bez_ai = bez_ai + excluded.bez_ai`,
+  GET_COUNTER_DNES: `SELECT otazky, neurony FROM counters WHERE tenant_id = ? AND day = ?`,
+  SUM_NEURONY_DNES: `SELECT COALESCE(SUM(neurony), 0) AS neurony FROM counters WHERE day = ?`,
+  // Oprava kroku 1: mesačná kvóta sa rezervuje atomicky PRED modelom a pri
+  // chybe modelu sa vráti (predtým kontrola pred modelom, zápis po ňom, takže
+  // súbežné nové rozhovory prešli všetky).
+  REZERVUJ_USAGE: `UPDATE tenants SET used_this_month = used_this_month + 1 WHERE id = ? AND used_this_month < monthly_quota RETURNING used_this_month, monthly_quota`,
+  VRAT_USAGE: `UPDATE tenants SET used_this_month = used_this_month - 1 WHERE id = ? AND used_this_month > 0`,
+  // Obchody s rozhovorom od daného dňa (nočná obnova feedov, plán 2.2 bod 8).
+  AKTIVNE_TENANTY_OD: `SELECT DISTINCT tenant_id FROM counters WHERE day >= ? AND conversations > 0`,
 };
 
 export class ValidationError extends Error {
@@ -593,6 +610,171 @@ export async function checkAndRecordConversation(db, tenantId, { now = new Date(
 
   const used = usedBefore + 1;
   return { allowed: true, counted: true, used, quota, remaining: quota - used, session: !!sessionKey };
+}
+
+// ---------------------------------------------------------------------------
+// Krok 1: rozhovor sa započíta až po úspešnej odpovedi
+//
+// checkAndRecordConversation vyššie kontroluje a zapisuje naraz, pred
+// volaním modelu: keď potom model zlyhal, obchod aj tak prišiel o rozhovor
+// (NP:51). Cesty /v1/chat a /v1/gift preto odteraz používajú dve kroky:
+// checkConversationQuota pred modelom (nič nezapíše okrem prípadného
+// vynulovania mesiaca) a recordConversation po úspešnej odpovedi. Pri súbehu
+// to neplatilo: kontrolou prešlo toľko nových rozhovorov, koľko ich prišlo
+// naraz, a každý dostal odpoveď aj platný token (kontrola kroku 1, S2). Od
+// opravy nálezov cesty chat a gift používajú rezervujRozhovor (nižšie);
+// checkConversationQuota ostáva ako rýchla kontrola pred rezerváciou a
+// recordConversation len pre náš test (X-Arling-Test), ktorý model nevolá.
+// ---------------------------------------------------------------------------
+
+/**
+ * Je v mesačnej kvóte miesto na nový rozhovor? Nič nezapisuje, okrem
+ * vynulovania počítadla pri prechode do nového mesiaca (to isté robí
+ * checkAndRecordConversation). Vracia {allowed, used, quota, remaining, reason?}.
+ */
+export async function checkConversationQuota(db, tenantId, { now = new Date(), tenant = null } = {}) {
+  const row = tenant ? { ...tenant } : await getTenantById(db, tenantId);
+  if (!row) return { allowed: false, reason: 'unknown_tenant', used: 0, quota: 0, remaining: 0 };
+  const currentMonth = monthKey(now);
+  if (row.quota_month !== currentMonth) {
+    await db.prepare(SQL.RESET_QUOTA_MONTH).bind(currentMonth, tenantId).run();
+    row.used_this_month = 0;
+  }
+  const quota = Number(row.monthly_quota) || 0;
+  const used = Number(row.used_this_month) || 0;
+  if (used >= quota) return { allowed: false, reason: 'quota_exceeded', used, quota, remaining: 0 };
+  return { allowed: true, used, quota, remaining: quota - used };
+}
+
+/**
+ * Započíta jeden rozhovor (po úspešnej odpovedi): used_this_month + 1 len
+ * pod kvótou a riadok counters za dnešok. `sessionKey` a `kv` len pre starý
+ * režim bez podpísanej relácie (pozri relacia.js), kde sa (obchod, session)
+ * pamätá v KV ako doteraz. Vracia tvar, ktorý čakajú notify.js a
+ * zivotny-cyklus.js poRozhovore: {allowed, counted, used, quota, remaining}.
+ */
+export async function recordConversation(db, tenantId, { now = new Date(), sessionKey = null, kv = null } = {}) {
+  const tenant = await getTenantById(db, tenantId);
+  if (!tenant) return { allowed: false, counted: false, reason: 'unknown_tenant', used: 0, quota: 0, remaining: 0 };
+  const quota = Number(tenant.monthly_quota) || 0;
+  const usedBefore = tenant.quota_month === monthKey(now) ? Number(tenant.used_this_month) || 0 : 0;
+  const result = await db.prepare(SQL.INCREMENT_USAGE_IF_UNDER_QUOTA).bind(tenantId).run();
+  const changed = (result && result.meta && result.meta.changes) || (result && result.changes) || 0;
+  if (!changed) {
+    return { allowed: true, counted: false, reason: 'quota_race', used: usedBefore, quota, remaining: Math.max(0, quota - usedBefore) };
+  }
+  await db.prepare(SQL.UPSERT_COUNTER_CONVERSATION).bind(tenantId, dayKey(now)).run();
+  if (sessionKey && kv) {
+    try {
+      await kv.put(sessionKey, '1', { expirationTtl: CONVERSATION_SESSION_TTL_SECONDS });
+    } catch (err) {
+      console.warn('[arling-asistent] conversation session KV put failed, session will count again:', (err && err.message) || err);
+    }
+  }
+  const used = usedBefore + 1;
+  return { allowed: true, counted: true, used, quota, remaining: Math.max(0, quota - used) };
+}
+
+// ---------------------------------------------------------------------------
+// Oprava kroku 1: rezervácia rozhovoru pred modelom
+//
+// Kontrola pred modelom a zápis po ňom (checkConversationQuota a
+// recordConversation vyššie) pustili pri súbehu toľko rozhovorov navyše,
+// koľko ich prišlo naraz (sonda kontroly: 120 súbežných, used 100 zo 100 a 20
+// odpovedí nad kvótu). Cesty /v1/chat a /v1/gift preto odteraz robia:
+//   rezervujRozhovor pred modelom (jedna SQL veta, pripočíta len pod kvótou),
+//   potvrdRozhovor po úspešnej odpovedi (riadok counters, stará session v KV),
+//   vratRozhovor pri chybe modelu (kvóta sa neodráta, plán 2.2 bod 5).
+// ---------------------------------------------------------------------------
+
+/**
+ * Atomicky zaberie jeden rozhovor mesačnej kvóty. Pri prechode do nového
+ * mesiaca najprv vynuluje počítadlo (ako checkConversationQuota).
+ * Vracia {ok: true, used, quota} (used = po rezervácii) alebo {ok: false, used, quota}.
+ */
+export async function rezervujRozhovor(db, tenantId, { now = new Date(), tenant = null } = {}) {
+  const row = tenant ? { ...tenant } : await getTenantById(db, tenantId);
+  if (!row) return { ok: false, used: 0, quota: 0 };
+  if (row.quota_month !== monthKey(now)) {
+    await db.prepare(SQL.RESET_QUOTA_MONTH).bind(monthKey(now), tenantId).run();
+  }
+  const res = await db.prepare(SQL.REZERVUJ_USAGE).bind(tenantId).first();
+  if (!res) {
+    const quota = Number(row.monthly_quota) || 0;
+    return { ok: false, used: quota, quota };
+  }
+  return { ok: true, used: Number(res.used_this_month) || 0, quota: Number(res.monthly_quota) || 0 };
+}
+
+/** Vráti rezervovaný rozhovor (chyba modelu). Nikdy pod nulu. */
+export async function vratRozhovor(db, tenantId) {
+  await db.prepare(SQL.VRAT_USAGE).bind(tenantId).run();
+}
+
+/**
+ * Po úspešnej odpovedi: riadok counters za dnešok a v starom režime bez
+ * relácie aj (obchod, session) v KV. Vracia tvar, ktorý čakajú notify.js a
+ * zivotny-cyklus.js poRozhovore: {allowed, counted, used, quota, remaining}.
+ */
+export async function potvrdRozhovor(db, tenantId, { now = new Date(), used = 0, quota = 0, sessionKey = null, kv = null } = {}) {
+  await db.prepare(SQL.UPSERT_COUNTER_CONVERSATION).bind(tenantId, dayKey(now)).run();
+  if (sessionKey && kv) {
+    try {
+      await kv.put(sessionKey, '1', { expirationTtl: CONVERSATION_SESSION_TTL_SECONDS });
+    } catch (err) {
+      console.warn('[arling-asistent] conversation session KV put failed, session will count again:', (err && err.message) || err);
+    }
+  }
+  return { allowed: true, counted: true, used, quota, remaining: Math.max(0, quota - used) };
+}
+
+/** Id obchodov, ktoré mali od dňa `od` (RRRR-MM-DD) aspoň jeden rozhovor. */
+export async function aktivneTenantyOd(db, od) {
+  const res = await db.prepare(SQL.AKTIVNE_TENANTY_OD).bind(od).all();
+  return new Set(((res && res.results) || []).map((r) => r.tenant_id));
+}
+
+/**
+ * Stĺpce nákladov v counters (otazky, tokeny_vstup, tokeny_vystup, neurony,
+ * bez_ai), strážený ALTER TABLE ako ensureBillingColumns. Ten istý obsah je v
+ * migrations/0003_genialny.sql na ručné spustenie pred nasadením.
+ */
+const nakladyColumnsEnsured = new WeakSet();
+export async function ensureNakladyColumns(db) {
+  if (!db || nakladyColumnsEnsured.has(db)) return;
+  for (const sql of [SQL.ADD_COUNTER_OTAZKY, SQL.ADD_COUNTER_TOKENY_VSTUP, SQL.ADD_COUNTER_TOKENY_VYSTUP, SQL.ADD_COUNTER_NEURONY, SQL.ADD_COUNTER_BEZ_AI]) {
+    try {
+      await db.prepare(sql).run();
+    } catch (err) {
+      const message = String((err && err.message) || err);
+      if (!/duplicate column/i.test(message)) throw err;
+    }
+  }
+  nakladyColumnsEnsured.add(db);
+}
+
+/** Zapíše jednu zodpovedanú otázku a jej náklady do dnešného riadku counters. */
+export async function zapisNaklady(db, tenantId, { tokenyVstup = 0, tokenyVystup = 0, neurony = 0, bezAi = false, now = new Date() } = {}) {
+  await ensureNakladyColumns(db);
+  const cele = (n) => Math.max(0, Math.round(Number(n) || 0));
+  await db
+    .prepare(SQL.UPSERT_COUNTER_NAKLADY)
+    .bind(tenantId, dayKey(now), cele(tokenyVstup), cele(tokenyVystup), cele(neurony), bezAi ? 1 : 0)
+    .run();
+}
+
+/** Dnešné otázky a neuróny obchodu, {otazky, neurony}; bez riadku nuly. */
+export async function getCounterDnes(db, tenantId, { now = new Date() } = {}) {
+  await ensureNakladyColumns(db);
+  const row = await db.prepare(SQL.GET_COUNTER_DNES).bind(tenantId, dayKey(now)).first();
+  return { otazky: Number(row && row.otazky) || 0, neurony: Number(row && row.neurony) || 0 };
+}
+
+/** Súčet neurónov všetkých obchodov za daný UTC deň (z counters). */
+export async function sumNeuronyDnes(db, { now = new Date() } = {}) {
+  await ensureNakladyColumns(db);
+  const row = await db.prepare(SQL.SUM_NEURONY_DNES).bind(dayKey(now)).first();
+  return Number(row && row.neurony) || 0;
 }
 
 export async function recordProductClick(db, tenantId, { now = new Date() } = {}) {

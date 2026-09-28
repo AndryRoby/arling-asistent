@@ -1,0 +1,22 @@
+{
+  "otazka": "Porovnajte mi Kapsulový kávovar Orava Mini a French press.",
+  "odpoved": {
+    "answer": "Orava Mini za 89,90 € je kapsulový kávovar: tlak 19 barov, zahriatie za 25 sekúnd, nádržka 0,7 l, príkon 1200 W a šírka 11 cm. French press za 24,90 € je zaparovacia kanvica na 1 liter, asi 4 šálky, zo skla a nerezového rámu s piestom.\n\nRozdiel je v príprave: Orava Mini ide na hliníkové kapsule bežného rozmeru, french press zaparí mletú kávu a dvojité sitko zachytí aj jemnejšie mletie. Oba sú skladom.",
+    "products": [
+      {
+        "title": "Kapsulový kávovar Orava Mini, červený",
+        "url": "http://127.0.0.1:8851/asistent/ukazka/#p-KAV-003",
+        "image": "http://127.0.0.1:8851/asistent/ukazka/img/KAV-003.svg",
+        "price": 89.9,
+        "currency": "EUR"
+      },
+      {
+        "title": "French press 1 l z borosilikátového skla",
+        "url": "http://127.0.0.1:8851/asistent/ukazka/#p-KAV-006",
+        "image": "http://127.0.0.1:8851/asistent/ukazka/img/KAV-006.svg",
+        "price": 24.9,
+        "currency": "EUR"
+      }
+    ]
+  }
+}

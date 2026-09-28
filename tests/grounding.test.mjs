@@ -18,6 +18,7 @@ import {
   buildUserPrompt,
   formatPriceForPrompt,
   polishAnswer,
+  rozlisSkCs,
   noMatchFallback,
   runChat,
   CHAT_MODEL_OPTIONS,
@@ -81,6 +82,25 @@ test('polishAnswer under lang "auto" detects the slip table from the answer\'s o
   // slip table at all (same as a fixed "en"/"de" request): price formatting
   // still applies, nothing else changes.
   assert.equal(polishAnswer('We do not know, 9.5 EUR.', 'auto'), 'We do not know, 9.50 EUR.');
+});
+
+// Naživo 29. 9. 2026 (ukážkový obchod, lang "auto"): „V našom obchodě nájdete kávovar … alebo …“.
+// Slovenčina „ě“ nepozná; a česká odpoveď s á í ý (ktoré má aj slovenčina) nesmie dostať slovenské opravy.
+test('polishAnswer: český sklz „ě“ v slovenskej odpovedi opraví, českú odpoveď pod "auto" nechá po česky', () => {
+  assert.equal(polishAnswer('V našom obchodě nájdete kávovar Orava Mini, červený alebo biely, za 89.9 EUR.', 'auto'),
+    'V našom obchode nájdete kávovar Orava Mini, červený alebo biely, za 89.90 EUR.');
+  assert.equal(polishAnswer('Tento hrniec je vhodný aj v městě.', 'sk'), 'Tento hrniec je vhodný aj v meste.');
+  assert.equal(polishAnswer('Nabízíme kávovar, který stojí 89.9 EUR, jsme tu denně.', 'auto'), 'Nabízíme kávovar, který stojí 89.90 EUR, jsme tu denně.');
+  assert.equal(polishAnswer('Neznám tento výrobek, jsou tu jen hrnce.', 'auto'), 'Neznám tento výrobek, jsou tu jen hrnce.'); // české „neznám“ ostáva
+  assert.equal(polishAnswer('Jsme tu denně.', 'cs'), 'Jsme tu denně.');
+});
+
+test('rozlisSkCs rozlíši slovenčinu a češtinu podľa znakov a slov len jedného jazyka, remíza je null', () => {
+  assert.equal(rozlisSkCs('Máte čierne tričko so zľavou?'), 'sk');
+  assert.equal(rozlisSkCs('Jaký kávovar máte?'), 'cs');
+  assert.equal(rozlisSkCs('Aký kávovar máte?'), 'sk');
+  assert.equal(rozlisSkCs('V našom obchodě nájdete kávovar, červený alebo biely.'), 'sk');
+  assert.equal(rozlisSkCs('Kávovar stojí 89.90 EUR.'), null);
 });
 
 test('polishAnswer fixes the mixed-script "спросiť" slip (Cyrillic stem + Latin Slovak ending) for both a fixed sk/cs lang and "auto"', () => {

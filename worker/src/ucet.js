@@ -357,7 +357,8 @@ export async function posliKodEmailom(env, { email, kod, jazyk }) {
       body: JSON.stringify({
         // Odosielacia poddoména mail.arling.sk (Resend), hlavná pošta ostáva na Zoho.
         from: 'ARLing <ucet@mail.arling.sk>',
-        reply_to: 'andrej@arling.sk',
+        // Verejná podpora v jazyku kódu (25. 9. 2026): sk a cs podpora@, en a de support@.
+        reply_to: lang === 'sk' || lang === 'cs' ? 'podpora@arling.sk' : 'support@arling.sk',
         to: [email],
         subject: texty.predmet(kod),
         text: texty.text(kod, odkaz),

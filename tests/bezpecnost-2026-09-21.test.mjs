@@ -31,6 +31,8 @@ import { isAdmin, testSessionPovolena, povoleneTestovacieEmaily } from '../worke
 import { HRA_MAX_POCET } from '../worker/src/ucet.js';
 import { createMockD1 } from './helpers/mock-d1.mjs';
 import { createMockAI, createMockVectorize, createMockKV } from './helpers/mock-cf.mjs';
+import { pripocitaj, kluce } from '../worker/src/pocty.js';
+import { obnovaZaZnaky } from '../worker/src/budget.js';
 
 const XML_FEED = '<products><item><id>1</id><name>Kanvica</name><price>9.99</price><url>https://shop.sk/p/1</url><description>Popis.</description></item></products>';
 
@@ -240,12 +242,15 @@ test('POST /v1/tenants ma limit na IP: po TENANT_CREATE_LIMIT_PER_HOUR prichadza
   assert.equal(await getTenantById(env.DB, 'obchod-navyse.sk'), null);
 });
 
+// Od opravy nálezov kroku 1 je dnešná spotreba v D1 asistent_pocty (pocty.js), nie v KV neurons:.
+async function nastavSpotrebu(db, neurony, kluc = 'neurony') {
+  const den = new Date().toISOString().slice(0, 10);
+  await pripocitaj(db, kluc === 'obnova' ? kluce.obnova(den) : kluce.neurony(den), den, neurony * 1000);
+}
+
 test('samoobsluzne nacitanie feedu sa nespusti, ked je denny strop neuronov vycerpany', async () => {
-  const kv = createMockKV();
-  const dnes = new Date();
-  const kluc = `neurons:${dnes.getUTCFullYear()}-${String(dnes.getUTCMonth() + 1).padStart(2, '0')}-${String(dnes.getUTCDate()).padStart(2, '0')}`;
-  await kv.put(kluc, '9499'); // strop je 9500, zostava 1 neuron
-  const env = makeEnv({ kv });
+  const env = makeEnv();
+  await nastavSpotrebu(env.DB, 9499); // strop je 9500, zostava 1 neuron
   env.AI_DAILY_NEURON_BUDGET = '9500';
 
   const tenant = await createTenantFromRequest(env, {
@@ -259,26 +264,27 @@ test('samoobsluzne nacitanie feedu sa nespusti, ked je denny strop neuronov vyce
   assert.ok(INGEST_MIN_NEURONS > 1);
 });
 
-test('nacitanie feedu pripocita spotrebu neuronov do denneho stropu', async () => {
+test('nacitanie feedu pripocita skutocnu spotrebu do rozpoctu obnovy, nie do stropu chatu', async () => {
   const kv = createMockKV();
   const env = makeEnv({ kv });
   const tenant = await createTenant(env.DB, { domain: 'obchod.sk', feedUrl: 'https://obchod.sk/feed.xml', contactEmail: 'a@obchod.sk' });
   const vysledok = await ingestFeedForTenant(env, tenant);
   assert.equal(vysledok.ok, true);
-  const zapis = kv._puts.find((p) => p.key.startsWith('neurons:'));
-  assert.ok(zapis, 'spotreba sa zapisala');
-  assert.equal(Number(zapis.value), vysledok.chunkCount);
+  const den = new Date().toISOString().slice(0, 10);
+  const obnova = env.DB._pocty.get(kluce.obnova(den));
+  assert.ok(obnova, 'spotreba sa zapisala');
+  assert.equal(obnova.hodnota, obnovaZaZnaky(vysledok.znakov), 'skutocne neurony bge-m3 v tisicinach');
+  assert.ok(obnova.hodnota < vysledok.chunkCount * 1000, 'menej ako stary pevny 1 neuron na kus');
+  assert.equal(env.DB._pocty.has(kluce.neurony(den)), false, 'strop chatu sa nemeni');
+  assert.equal(kv._puts.some((p) => p.key.startsWith('neurons:')), false, 'ziadny horuci KV kluc');
 });
 
 // ---------------------------------------------------------------------------
 // 5. Denny strop v /v1/gift bol az ZA volanim modelu
 // ---------------------------------------------------------------------------
 
-test('/v1/gift pri vycerpanom strope model vobec nezavola', async () => {
+test('/v1/gift pri vycerpanom strope model vobec nezavola (100 % bez modelu, 150 % 503)', async () => {
   const kv = createMockKV();
-  const dnes = new Date();
-  const kluc = `neurons:${dnes.getUTCFullYear()}-${String(dnes.getUTCMonth() + 1).padStart(2, '0')}-${String(dnes.getUTCDate()).padStart(2, '0')}`;
-  await kv.put(kluc, '9500');
   const env = {
     DB: createMockD1(),
     AI: createMockAI({ embedDim: 4, chatResponse: JSON.stringify({ picks: [] }) }),
@@ -286,23 +292,34 @@ test('/v1/gift pri vycerpanom strope model vobec nezavola', async () => {
     ASISTENT_CACHE: kv,
     ALLOWED_ORIGINS: 'arling.sk',
   };
+  await nastavSpotrebu(env.DB, 9500);
   const tenant = await createTenant(env.DB, { domain: 'darceky.sk', feedUrl: 'https://darceky.sk/f.xml', contactEmail: 'a@darceky.sk' });
   await setTenantStatus(env.DB, tenant.id, 'ready');
 
-  const res = await worker.fetch(
+  const darcek = (ip) => worker.fetch(
     new Request('https://asistent.arling.sk/v1/gift', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Origin: 'https://darceky.sk', 'CF-Connecting-IP': '1.1.1.1' },
+      headers: { 'Content-Type': 'application/json', Origin: 'https://darceky.sk', 'CF-Connecting-IP': ip },
       body: JSON.stringify({ tenant: tenant.id, recipient: 'mama', interests: 'kava', budget_min: 10, budget_max: 50 }),
     }),
     env,
     {}
   );
-  assert.equal(res.status, 503);
-  assert.equal((await res.json()).error, 'quota_exceeded');
+  // Pri 100 % stropu odpovedá kód bez modelu (stojí len vektor otázky).
+  const res = await darcek('1.1.1.1');
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).meta.bezAi, true);
   // Toto je cela oprava: predtym sa model zavolal a az potom sa zistilo,
   // ze na to nebol rozpocet.
-  assert.equal(env.AI.calls.length, 0);
+  assert.equal(env.AI.calls.filter((c) => c.model !== '@cf/baai/bge-m3').length, 0);
+
+  // Pri 150 % už nič, ani vektor.
+  await nastavSpotrebu(env.DB, 4750);
+  const volaniPred = env.AI.calls.length;
+  const stop = await darcek('2.2.2.2');
+  assert.equal(stop.status, 503);
+  assert.equal((await stop.json()).error, 'quota_exceeded');
+  assert.equal(env.AI.calls.length, volaniPred);
 });
 
 test('/v1/gift s nasou testovacou hlavickou nemini ani jeden neuron', async () => {

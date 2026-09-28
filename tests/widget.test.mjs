@@ -38,10 +38,18 @@ function makeElement(tag) {
     setAttribute(name, value) { el.attrs[name] = String(value); },
     getAttribute(name) { return Object.prototype.hasOwnProperty.call(el.attrs, name) ? el.attrs[name] : null; },
     removeAttribute(name) { delete el.attrs[name]; },
-    appendChild(child) { el.children.push(child); return child; },
+    appendChild(child) { el.children.push(child); if (child && typeof child === 'object') child._parent = el; return child; },
     addEventListener(type, handler) { (el._listeners[type] = el._listeners[type] || []).push(handler); },
     removeEventListener() {},
-    remove() {},
+    // Skutočné odobratie z rodiča (krok 1, W3): riadok „píše“ a chybový riadok musia naozaj zmiznúť.
+    remove() {
+      const p = el._parent;
+      if (p) {
+        const i = p.children.indexOf(el);
+        if (i >= 0) p.children.splice(i, 1);
+        el._parent = null;
+      }
+    },
     // Not a real focus manager (no notion of a single document.activeElement
     // or blur-on-disable, which is exactly the browser behaviour the focus
     // regression tests below cannot reproduce here): just a call counter, so
@@ -114,9 +122,15 @@ function makeFakeWindowAndDocument({ dataTenant = 'tenant-123', dataLang = 'sk',
   return { windowStub, documentStub, scriptEl, body };
 }
 
-function runWidget(documentStub, windowStub, fetchImpl) {
+/** Texty celého stromu falošného DOM (textContent a innerHTML každého prvku). */
+function vsetkyTexty(el) {
+  return [el._text || '', el._html || '', ...el.children.map(vsetkyTexty)].join(' ');
+}
+
+function runWidget(documentStub, windowStub, fetchImpl, extra = {}) {
   const consoleStub = { error() {}, warn() {}, log() {} };
-  const sandbox = { window: windowStub, document: documentStub, console: consoleStub, URL, Math, Date, fetch: fetchImpl };
+  // `extra`: napr. riadené časovače a AbortController pre testy časového limitu (krok 1, W3).
+  const sandbox = { window: windowStub, document: documentStub, console: consoleStub, URL, Math, Date, fetch: fetchImpl, ...extra };
   const context = vm.createContext(sandbox);
   vm.runInContext(widgetSource, context, { filename: 'widget.js' });
   return sandbox;
@@ -615,14 +629,15 @@ test('widget.js treats any data-gift value other than the exact string "1" as ab
 });
 
 test('widget.js adds a localized "find a gift" button next to the chat bubble for all four languages when data-gift="1"', () => {
-  const labels = { sk: 'Nájdi darček', cs: 'Najít dárek', en: 'Find a gift', de: 'Geschenk finden' };
+  // v2: tlačidlo #gift-toggle je dlaždica v úvode (ikona a text giftButton), sk „Nájsť darček“ (SPEC 4.3, príloha A).
+  const labels = { sk: 'Nájsť darček', cs: 'Najít dárek', en: 'Find a gift', de: 'Geschenk finden' };
   for (const lang of Object.keys(labels)) {
     const { windowStub, documentStub, body } = makeFakeWindowAndDocument({ dataLang: lang, extraAttrs: { 'data-gift': '1' } });
     runWidget(documentStub, windowStub);
     const root = body.children[0].shadowRoot;
     const giftToggle = root.getElementById('gift-toggle');
     assert.ok(giftToggle, `gift-toggle must exist for lang=${lang}`);
-    assert.match(root.innerHTML, new RegExp('<button id="gift-toggle"[^>]*>' + labels[lang].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.match(root.innerHTML, new RegExp('<button id="gift-toggle"[^>]*>(?:(?!</button>).)*' + labels[lang].replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '</span></button>'));
   }
 });
 
@@ -632,13 +647,13 @@ test('widget.js adds a localized "find a gift" button next to the chat bubble fo
  * interests, click submit. Returns the sent request bodies and the shadow
  * root so a test can assert on the rendered result.
  */
-async function runGiftFlow({ fetchResponse, dataLang = 'sk', recipientChipIndex = 0, budgetChipIndex = 1, interestsText = 'kava', umami, sessionStorage } = {}) {
+async function runGiftFlow({ fetchResponse, dataLang = 'sk', recipientChipIndex = 0, budgetChipIndex = 1, interestsText = 'kava', umami, sessionStorage, extraAttrs = {}, navigatorLanguage } = {}) {
   const sentBodies = [];
   const fetchImpl = async (url, opts) => {
     sentBodies.push({ url: String(url), body: JSON.parse(opts.body) });
     return fetchResponse || { status: 200, ok: true, json: async () => ({ picks: [], candidates: [] }) };
   };
-  const { windowStub, documentStub, body } = makeFakeWindowAndDocument({ dataLang, extraAttrs: { 'data-gift': '1' }, sessionStorage });
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument({ dataLang, extraAttrs: { 'data-gift': '1', ...extraAttrs }, sessionStorage, navigatorLanguage });
   if (umami) windowStub.umami = umami;
   runWidget(documentStub, windowStub, fetchImpl);
   const root = body.children[0].shadowRoot;
@@ -684,6 +699,15 @@ test('widget.js gift flow sends tenant/lang/recipient/budget/interests/session i
   assert.equal(root.getElementById('gift-step-results').hidden, false);
 });
 
+// Naživo 29. 9. 2026: ukážka posiela chatu "auto" a model pri darčeku pre „Mama“ písal dôvody po anglicky.
+// Darček preto posiela jazyk rozhrania, v ktorom sú čipy aj celý formulár; chat ostáva na "auto".
+test('widget.js gift flow posiela jazyk rozhrania aj pri "auto" odpovediach chatu', async () => {
+  const a = await runGiftFlow({ dataLang: 'sk', extraAttrs: { 'data-answer-lang': 'auto' } });
+  assert.equal(a.sentBodies[0].body.lang, 'sk');
+  const b = await runGiftFlow({ dataLang: null, navigatorLanguage: 'de-DE' });
+  assert.equal(b.sentBodies[0].body.lang, 'de');
+});
+
 test('widget.js gift flow supports an open budget ("100+"): the last chip sends budget_min=100 and budget_max=null', async () => {
   const { sentBodies } = await runGiftFlow({ budgetChipIndex: 3 });
   assert.equal(sentBodies[0].body.budget_min, 100);
@@ -706,10 +730,14 @@ test('widget.js gift flow renders result cards with title, price and the model\'
 
   const list = root.getElementById('gift-results-list');
   assert.equal(list.children.length, 1);
-  const card = list.children[0];
-  assert.match(card.innerHTML, /Čajová súprava/);
-  assert.match(card.innerHTML, /24\.90 EUR/);
-  assert.match(card.innerHTML, /Ladí so záľubou v čaji/);
+  // v2: položka zoznamu nesie rolu listitem, karta je odkaz v nej (K6); cena v miestnom formáte meny (K6).
+  assert.equal(list.children[0].getAttribute('role'), 'listitem');
+  const card = list.children[0].children[0];
+  // Karta sa skladá z prvkov (createElement), nie z innerHTML: text celého stromu.
+  const text = vsetkyTexty(card);
+  assert.match(text, /Čajová súprava/);
+  assert.match(text, /24,90\s€/);
+  assert.match(text, /Ladí so záľubou v čaji/);
   assert.equal(card.href, 'https://shop.sk/p/1');
 
   card._listeners.click[0]();
@@ -802,8 +830,10 @@ test('widget.js clicking the round chat bubble while the gift panel is open clos
 
   root.getElementById('toggle')._listeners.click[0]();
 
+  // v2: sprievodca je pohľad v paneli; spúšťač panel zavrie a s ním aj pohľad sprievodcu (SPEC 8.9).
   assert.equal(root.getElementById('gift-panel').hidden, true);
-  assert.equal(root.getElementById('panel').hidden, false);
+  assert.equal(root.getElementById('panel').hidden, true);
+  assert.equal(root.getElementById('messages').hidden, false, 'pri ďalšom otvorení je vidno rozhovor');
 });
 
 test('widget.js gift recipient free-text input (no chip) is sent as-is, e.g. "babka" (not one of the preset chips)', async () => {
@@ -861,6 +891,521 @@ test('widget.js sends surface "admin" only on /wp-admin/ pages; elsewhere the fi
 test('npm run build:widget output is current: worker/src/widget-src.js and demo/widget.js match widget/widget.js', async () => {
   const demo = fs.readFileSync(path.join(__dirname, '../demo/widget.js'), 'utf8');
   assert.equal(demo, widgetSource);
+  // v2: tretí výstup, kópia pre arling.sk/asistent/ (SPEC 0.3), už nie ručne.
+  const hub = fs.readFileSync(path.join(__dirname, '../../arling-sk/asistent/widget.js'), 'utf8');
+  assert.equal(hub, widgetSource);
   const { default: servirovany } = await import('../worker/src/widget-src.js');
   assert.equal(servirovany, widgetSource);
+});
+
+// ---------------------------------------------------------------------------
+// Krok 1 plánu (ops/asistent/genialny-plan.md 4.2): podpísaná relácia a 11. otázka
+// ---------------------------------------------------------------------------
+
+test('widget.js s workerom: 11 otazok v jednej karte, token relacie sa posiela dalej, najviac 6 sprav, ziadny networkError, 2 rozhovory', async () => {
+  const { default: worker } = await import('../worker/src/index.js');
+  const { createTenant, setTenantStatus } = await import('../worker/src/tenants.js');
+  const { createMockD1 } = await import('./helpers/mock-d1.mjs');
+  const { createMockAI, createMockVectorize, createMockKV } = await import('./helpers/mock-cf.mjs');
+  const env = {
+    DB: createMockD1(),
+    AI: createMockAI({ embedDim: 4, chatResponse: JSON.stringify({ answer: 'Mame to.', products: [] }) }),
+    VECTORIZE: createMockVectorize(),
+    ASISTENT_CACHE: createMockKV(),
+    ALLOWED_ORIGINS: 'arling.sk',
+    UCET_TAJOMSTVO: 'dGVzdG92YWNpZS10YWpvbXN0dm8=',
+    fetchImpl: async () => ({ ok: true, status: 200, text: async () => '' }),
+  };
+  const tenant = await createTenant(env.DB, { domain: 'shop.example', feedUrl: 'https://shop.example/feed.xml', contactEmail: 'a@shop.example' });
+  await setTenantStatus(env.DB, tenant.id, 'ready');
+  // Platený obchod: bezplatný má od opravy nálezov kroku 1 len 10 otázok s
+  // modelom na sieť IP a deň (security.js DENNY_LIMIT_IP_AI), 11. otázka by
+  // bola odpoveď bez modelu. Tu ide o správanie widgetu pri 11. otázke.
+  const { setTenantPlan } = await import('../worker/src/tenants.js');
+  await setTenantPlan(env.DB, tenant.id, { plan: 'starter' });
+  await env.VECTORIZE.upsert([{ id: `${tenant.id}::p1::0`, values: [1, 0, 0, 0], metadata: { tenant: tenant.id, productId: 'p1', title: 'Produkt', url: 'https://shop.example/p/1', availability: 'in_stock' } }]);
+
+  const sent = [];
+  const statuses = [];
+  const replies = [];
+  const fetchImpl = async (url, opts) => {
+    sent.push(JSON.parse(opts.body));
+    const res = await worker.fetch(new Request(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: 'https://shop.example', 'CF-Connecting-IP': '5.5.5.5' },
+      body: opts.body,
+    }), env, {});
+    statuses.push(res.status);
+    const data = await res.json();
+    replies.push(data);
+    return { status: res.status, ok: res.ok, json: async () => data };
+  };
+  const storage = makeSessionStorage();
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument({ dataTenant: tenant.id, sessionStorage: storage });
+  runWidget(documentStub, windowStub, fetchImpl);
+  const root = body.children[0].shadowRoot;
+  const input = root.getElementById('input');
+
+  for (let i = 1; i <= 11; i++) {
+    input.value = `Otazka ${i}`;
+    root.getElementById('form')._listeners.submit[0]({ preventDefault() {} });
+    for (let tick = 0; tick < 500 && (replies.length < i || input.readOnly); tick++) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    assert.equal(replies.length, i, `odpoved na otazku ${i}`);
+  }
+
+  assert.deepEqual(statuses, new Array(11).fill(200));
+  assert.equal(sent[0].relacia, undefined, 'prva otazka nema token');
+  for (let i = 1; i < 11; i++) {
+    assert.equal(sent[i].relacia, replies[i - 1].relacia, `otazka ${i + 1} posiela token z predoslej odpovede`);
+  }
+  for (const b of sent) assert.ok(b.messages.length <= 6, `poslanych sprav ${b.messages.length}`);
+  assert.equal(sent[10].messages[sent[10].messages.length - 1].content, 'Otazka 11');
+  assert.equal(storage._store.get('arling_asistent_relacia'), replies[10].relacia);
+  assert.equal(env.DB._tenants.get(tenant.id).used_this_month, 2, '10 otazok je jeden rozhovor, 11. otazka zacina druhy');
+
+  const texty = root.getElementById('messages').children.map((row) => row.children[0].textContent);
+  assert.equal(texty.includes(STRINGS_NETWORK_ERROR_SK), false, 'widget nezobrazil networkError');
+  assert.equal(texty.filter((t) => t === 'Mame to.').length, 11);
+});
+
+const STRINGS_NETWORK_ERROR_SK = 'Odpoveď sa nepodarilo načítať. Skúste to prosím znova.';
+
+test('widget.js ulozi token relacie z odpovede /v1/chat a posle ho s dalsou otazkou; neplatny token neulozi', async () => {
+  const token = 'r1.eyJ0IjoidCJ9.podpis_A-b';
+  const sentBodies = [];
+  const fetchImpl = async (url, opts) => {
+    sentBodies.push(JSON.parse(opts.body));
+    const odpoved = sentBodies.length === 1 ? { answer: 'ok', products: [], relacia: token } : { answer: 'ok', products: [], relacia: '<script>' };
+    return { status: 200, ok: true, json: async () => odpoved };
+  };
+  const storage = makeSessionStorage();
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument({ sessionStorage: storage });
+  runWidget(documentStub, windowStub, fetchImpl);
+  const root = body.children[0].shadowRoot;
+  for (const text of ['Prva', 'Druha', 'Tretia']) {
+    root.getElementById('input').value = text;
+    root.getElementById('form')._listeners.submit[0]({ preventDefault() {} });
+    for (let tick = 0; tick < 50; tick++) await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  assert.equal(sentBodies[1].relacia, token);
+  assert.equal(sentBodies[2].relacia, token, 'neplatny token z odpovede sa neulozil');
+  assert.equal(storage._store.get('arling_asistent_relacia'), token);
+});
+
+// ---------------------------------------------------------------------------
+// Ukážky oslovených obchodov (28. 9. 2026): jeden pozdrav, tlačidlá navrhy
+// ---------------------------------------------------------------------------
+
+const POZDRAV_SK = 'Dobrý deň, ako vám môžem pomôcť s výberom?';
+const pocetPozdravov = (root) => root.getElementById('messages').children.filter((row) => row.children[0].textContent === POZDRAV_SK).length;
+
+test('widget.js pozdrav len raz: bublina, potom open() a ask() (tlacidlo zivej ukazky), zavriet a znova otvorit', async () => {
+  const fetchImpl = async () => ({ status: 200, ok: true, json: async () => ({ answer: 'ok', products: [] }) });
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument({ dataLang: 'sk' });
+  runWidget(documentStub, windowStub, fetchImpl);
+  const root = body.children[0].shadowRoot;
+  const api = windowStub.ArlingAsistent;
+  root.getElementById('toggle')._listeners.click[0]();
+  assert.equal(pocetPozdravov(root), 1);
+  // Stará live.js volala open() a hneď ask() pri už otvorenom okne.
+  api.open();
+  api.ask('Akú kávu odporúčate do moka kanvičky?');
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(pocetPozdravov(root), 1, 'druhý pozdrav po open() pri otvorenom okne');
+  api.close();
+  api.open();
+  assert.equal(pocetPozdravov(root), 1, 'druhý pozdrav po zatvorení a otvorení');
+});
+
+test('widget.js pozdrav len raz aj bez otazky: dvakrat bublina (zavriet, otvorit) a open() pri otvorenom okne', () => {
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument({ dataLang: 'sk' });
+  runWidget(documentStub, windowStub);
+  const root = body.children[0].shadowRoot;
+  const toggle = root.getElementById('toggle');
+  toggle._listeners.click[0]();
+  windowStub.ArlingAsistent.open();
+  toggle._listeners.click[0]();
+  toggle._listeners.click[0]();
+  assert.equal(pocetPozdravov(root), 1);
+});
+
+test('widget.js navrhy z odpovede (vycerpana ukazka) su tlacidla, klik posle presne tu otazku', async () => {
+  const sentBodies = [];
+  let n = 0;
+  const fetchImpl = async (url, opts) => {
+    sentBodies.push(JSON.parse(opts.body));
+    n += 1;
+    const data = n === 1
+      ? { answer: 'Táto ukážka už dnes minula svoj limit odpovedí, na ďalšie otázky teraz neodpovie. Pripravené otázky nižšie odpovedajú aj teraz.', products: [], navrhy: ['Akú kávu odporúčate do moka kanvičky?', '  '] }
+      : { answer: 'Odporúčame Colombia.', products: [] };
+    return { status: 200, ok: true, json: async () => data };
+  };
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument({ dataLang: 'sk' });
+  runWidget(documentStub, windowStub, fetchImpl);
+  const root = body.children[0].shadowRoot;
+  windowStub.ArlingAsistent.ask('Máte bezkofeínovú kávu?');
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const riadok = root.getElementById('messages').children.find((row) => /pripravené otázky/i.test(row.children[0].textContent));
+  assert.ok(riadok, 'veta vyčerpanej ukážky');
+  const box = riadok.children.find((c) => c.className === 'suggestions');
+  assert.ok(box, 'tlačidlá navrhy');
+  assert.equal(box.children.length, 1, 'prázdny návrh sa nevykreslí');
+  assert.equal(box.children[0].tagName, 'button');
+  assert.equal(box.children[0].textContent, 'Akú kávu odporúčate do moka kanvičky?');
+  box.children[0]._listeners.click[0]();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(sentBodies.length, 2);
+  assert.equal(sentBodies[1].messages[sentBodies[1].messages.length - 1].content, 'Akú kávu odporúčate do moka kanvičky?');
+});
+
+test('widget.js bez pola navrhy ziadne tlacidla (bezne odpovede sa nemenia)', async () => {
+  const fetchImpl = async () => ({ status: 200, ok: true, json: async () => ({ answer: 'ok', products: [] }) });
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument({ dataLang: 'sk' });
+  runWidget(documentStub, windowStub, fetchImpl);
+  const root = body.children[0].shadowRoot;
+  windowStub.ArlingAsistent.ask('Máte kávu?');
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  for (const row of root.getElementById('messages').children) {
+    assert.equal(row.children.some((c) => c.className === 'suggestions'), false);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Brána živej ukážky 28. 9. 2026 (ops/ai/kontrola/2026-09-28-ziva-ukazka.md):
+// jeden rozhovor na stránke (data-mount), obrázky bez /undefined, označenie
+// pripravenej odpovede, kontrast a veľkosť terčov. Pokus 2 stránky, pokus 3 workera (E, F).
+// ---------------------------------------------------------------------------
+
+/** Falošný DOM s prvkom na vloženie widgetu (data-mount). */
+function sMiestom(opts = {}) {
+  const f = makeFakeWindowAndDocument({ dataLang: 'sk', ...opts, extraAttrs: { 'data-mount': 'miesto', ...(opts.extraAttrs || {}) } });
+  const miesto = makeElement('div');
+  f.documentStub.getElementById = (id) => (id === 'miesto' ? miesto : null);
+  return { ...f, miesto };
+}
+
+const radky = (root) => root.getElementById('messages').children;
+
+test('nalez 3: safeUrl nevytvori /undefined ani /null: karta bez obrazka ma pismenovy stvorec, nie <img>; bez URL nie je odkaz', async () => {
+  const produkty = [
+    { title: 'Bez obrázka', url: 'https://shop.sk/a', price: 5, currency: 'EUR' },
+    { title: 'null obrázok', url: 'https://shop.sk/b', image: null },
+    { title: 'prázdny obrázok', url: 'https://shop.sk/c', image: '  ' },
+    { title: 'reťazec undefined', url: 'https://shop.sk/d', image: 'undefined' },
+    { title: 'Bez adresy', image: 'javascript:alert(1)' },
+  ];
+  const fetchResponse = { status: 200, ok: true, json: async () => ({ answer: 'Tu sú.', products: produkty }) };
+  const { root } = await submitMessages(['Máte?'], { fetchResponse });
+  const odpoved = radky(root).find((r) => r.children[0].textContent === 'Tu sú.');
+  // v2: položky zoznamu (role listitem) nesú kartu, obrázok je v bielej tácke (K6, T8).
+  const polozky = odpoved.children.find((c) => c.className === 'products').children;
+  assert.ok(polozky.every((p) => p.getAttribute('role') === 'listitem'));
+  const karty = polozky.map((p) => p.children[0]);
+  assert.equal(karty.length, 5);
+  for (const k of karty) {
+    assert.equal(k.children[0].children[0].tagName, 'span', `${k.children[1].children[0].textContent}: žiadny <img>`);
+    assert.equal(k.children[0].children[0].className, 'product-ph');
+  }
+  assert.equal(karty[0].children[0].children[0].textContent, 'B');
+  assert.equal(karty[4].tagName, 'div', 'bez adresy produktu nie je odkaz na #');
+  assert.equal(karty[4].href, undefined);
+  assert.equal(karty[0].tagName, 'a');
+  assert.equal(karty[0].href, 'https://shop.sk/a');
+});
+
+test('nalez 3: skutocny obrazok sa nacita; ked zlyha, nahradi ho pismenovy stvorec (ziadny rozbity obrazok)', async () => {
+  const fetchResponse = { status: 200, ok: true, json: async () => ({ answer: 'Jeden.', products: [{ title: 'Káva', url: 'https://shop.sk/k', image: 'https://shop.sk/k.jpg', price: 7, currency: 'EUR' }] }) };
+  const { root } = await submitMessages(['Máte kávu?'], { fetchResponse });
+  // v2: položka zoznamu, v nej odkaz, v ňom tácka s obrázkom (K6, T8).
+  const karta = radky(root).find((r) => r.children[0].textContent === 'Jeden.').children.find((c) => c.className === 'products').children[0].children[0];
+  const img = karta.children[0].children[0];
+  assert.equal(img.tagName, 'img');
+  assert.equal(img.src, 'https://shop.sk/k.jpg');
+  assert.equal(img.alt, '');
+  let nahradene = null;
+  img.parentNode = { replaceChild: (novy, stary) => { nahradene = { novy, stary }; } };
+  img._listeners.error[0]();
+  assert.equal(nahradene.stary, img);
+  assert.equal(nahradene.novy.className, 'product-ph');
+  assert.equal(nahradene.novy.textContent, 'K');
+});
+
+test('nalez 1 a F: data-mount vlozi widget do stranky: jedno okno, otvorene, region (nie dialog), bez bubliny a zatvorenia, bez fokusu pri nacitani', () => {
+  const { windowStub, documentStub, body, miesto } = sMiestom({ extraAttrs: { 'data-questions': JSON.stringify(['Máte menšie balenie?', '  ', 'Čo pre šteňa?']) } });
+  runWidget(documentStub, windowStub);
+  assert.equal(body.children.length, 0, 'nič nepláva nad stránkou');
+  assert.equal(miesto.children.length, 1);
+  const host = miesto.children[0];
+  assert.match(host.className, /\binline\b/);
+  const root = host.shadowRoot;
+  assert.match(root.innerHTML, /<div id="panel" role="region" aria-label="[^"]*" hidden>/);
+  assert.doesNotMatch(root.innerHTML, /id="panel"[^>]*aria-modal/);
+  assert.equal(root.getElementById('panel').hidden, false, 'otvorené hneď');
+  assert.equal(root.getElementById('input')._focusCalls || 0, 0, 'fokus by na mobile otvoril klávesnicu');
+  const pozdrav = radky(root)[0];
+  assert.equal(pozdrav.children[0].textContent, 'Dobrý deň, ako vám môžem pomôcť s výberom?');
+  const navrhy = pozdrav.children.find((c) => c.className === 'suggestions').children.map((b) => b.textContent);
+  assert.deepEqual(navrhy, ['Máte menšie balenie?', 'Čo pre šteňa?']);
+  windowStub.ArlingAsistent.close();
+  assert.equal(root.getElementById('panel').hidden, false, 'vložený rozhovor sa nezatvára');
+  assert.ok(widgetSource.includes(':host(.inline) #toggle, :host(.inline) #close-btn { display:none; }'));
+});
+
+test('nalez 1: data-mount s neexistujucim prvkom ostane plavajuca bublina (preklep nezhodi asistenta)', () => {
+  const f = makeFakeWindowAndDocument({ extraAttrs: { 'data-mount': 'nie-je' } });
+  f.documentStub.getElementById = () => null;
+  runWidget(f.documentStub, f.windowStub);
+  assert.equal(f.body.children.length, 1);
+  assert.doesNotMatch(f.body.children[0].className, /inline/);
+});
+
+test('nalez 1: po odpovedi na prvu otazku ostanu ponuknute len nepolozene otazky, polozena je vsade vypnuta', async () => {
+  const fetchImpl = async () => ({ status: 200, ok: true, json: async () => ({ answer: 'Odpoveď.', products: [] }) });
+  const { windowStub, documentStub, miesto } = sMiestom({ extraAttrs: { 'data-questions': JSON.stringify(['Prvá?', 'Druhá?']) } });
+  runWidget(documentStub, windowStub, fetchImpl);
+  const root = miesto.children[0].shadowRoot;
+  const prva = radky(root)[0].children.find((c) => c.className === 'suggestions').children[0];
+  prva._listeners.click[0]();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(prva.disabled, true);
+  const odpoved = radky(root).find((r) => r.children[0].textContent === 'Odpoveď.');
+  assert.deepEqual(odpoved.children.find((c) => c.className === 'suggestions').children.map((b) => b.textContent), ['Druhá?']);
+  assert.equal(root.getElementById('input')._focusCalls || 0, 0, 'ťuknutá otázka neotvorí klávesnicu');
+  windowStub.ArlingAsistent.open();
+  assert.ok(root.getElementById('input')._focusCalls > 0, 'open() (Napísať vlastnú otázku) dá fokus do poľa');
+});
+
+test('nalez E a 5: pripravena odpoved (meta.overene) ma pri sebe oznacenie, ziva odpoved nie', async () => {
+  let n = 0;
+  const fetchImpl = async () => {
+    n += 1;
+    const data = n === 1 ? { answer: 'Uložená.', products: [], meta: { overene: true } } : { answer: 'Živá.', products: [], meta: {} };
+    return { status: 200, ok: true, json: async () => data };
+  };
+  const { windowStub, documentStub, body } = makeFakeWindowAndDocument({ dataLang: 'sk' });
+  runWidget(documentStub, windowStub, fetchImpl);
+  const root = body.children[0].shadowRoot;
+  windowStub.ArlingAsistent.ask('A?');
+  await new Promise((r) => setTimeout(r, 0));
+  windowStub.ArlingAsistent.ask('B?');
+  await new Promise((r) => setTimeout(r, 0));
+  const ulozena = radky(root).find((r) => r.children[0].textContent === 'Uložená.');
+  const ziva = radky(root).find((r) => r.children[0].textContent === 'Živá.');
+  const pozn = ulozena.children.find((c) => c.className === 'note');
+  assert.ok(pozn, 'označenie');
+  assert.match(vsetkyTexty(pozn), /Vopred skontrolovaná odpoveď/);
+  assert.equal(ziva.children.some((c) => c.className === 'note'), false);
+  assert.equal((widgetSource.match(/preparedNote: '/g) || []).length, 4, 'vo všetkých štyroch jazykoch');
+});
+
+test('lenPripravene: prva otazka stranky sa spyta len na ulozenu odpoved; bez nej sa nezobrazi nic, ani otazka', async () => {
+  const sent = [];
+  let odpoved = { answer: '', products: [], meta: { nepripravene: true } };
+  const fetchImpl = async (url, o) => { sent.push(JSON.parse(o.body)); return { status: 200, ok: true, json: async () => odpoved }; };
+  const { windowStub, documentStub, miesto } = sMiestom({ extraAttrs: { 'data-questions': JSON.stringify(['Prvá?']) } });
+  runWidget(documentStub, windowStub, fetchImpl);
+  const root = miesto.children[0].shadowRoot;
+  windowStub.ArlingAsistent.ask('Prvá?', { lenPripravene: true });
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(sent[0].lenPripravene, true);
+  assert.equal(radky(root).length, 1, 'len pozdrav');
+  assert.equal(radky(root)[0].children.find((c) => c.className === 'suggestions').children[0].disabled, false, 'otázka ostáva na ťuknutie');
+  odpoved = { answer: 'Uložená odpoveď.', products: [{ title: 'Granule', url: 'https://g.sk/1', price: 4.5, currency: 'EUR' }], meta: { overene: true } };
+  windowStub.ArlingAsistent.ask('Prvá?', { lenPripravene: true });
+  await new Promise((r) => setTimeout(r, 0));
+  const texty = radky(root).map((r) => r.children[0].textContent);
+  assert.deepEqual(texty.slice(1), ['Prvá?', 'Uložená odpoveď.']);
+  assert.ok(radky(root)[2].children.some((c) => c.className === 'note'));
+  assert.equal(sent.filter((b) => !b.lenPripravene).length, 0);
+});
+
+test('nalez 1: kontrast textu na akcente aspon 4,5 : 1 v svetlom aj tmavom, zatvorenie a odoslanie aspon 44 px, nazvy produktov sa lamu', () => {
+  // v2: nahrádza ho test tokenov T1 a T2 (A6) a farieb obchodu T3 vo farby-v2.test.mjs; tu ostávajú
+  // rozmery z nálezu 1 v novom štýle: 44 px zatvorenie, 48 px Odoslať, 44 px čipy, názov na 2 riadky.
+  const lum = (hex) => {
+    const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  };
+  const kontrast = (a, b) => { const x = lum(a); const y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  for (const meno of ['SVETLY', 'TMAVY']) {
+    const riadok = widgetSource.match(new RegExp(`var ${meno} = '([^']+)'`))[1];
+    const v = (k) => riadok.match(new RegExp(`--a-${k}:(#[0-9A-F]{6})`))[1];
+    assert.ok(kontrast(v('farba-plna'), v('na-farbe')) >= 4.5, `${meno}: text na farbe obchodu`);
+    for (const pod of ['pozadie', 'povrch']) {
+      assert.ok(kontrast(v(pod), v('jemny')) >= 4.5, `${meno}: jemný text na ${pod}`);
+      assert.ok(kontrast(v(pod), v('text')) >= 7, `${meno}: telo na ${pod}`);
+      assert.ok(kontrast(v(pod), v('farba-text')) >= 4.5, `${meno}: text vo farbe obchodu na ${pod}`);
+    }
+  }
+  assert.match(widgetSource, /'\.h-btn,\.u-zavriet,\.pas-sipka\{flex:none;width:44px;height:44px;/, 'zatvorenie 44 px');
+  assert.match(widgetSource, /#send-btn\{flex:none;width:48px;height:48px;/, 'odoslanie 48 px');
+  assert.match(widgetSource, /\.suggestion\{display:inline-flex;align-items:center;gap:8px;min-height:44px;/, 'otázky 44 px');
+  const nazov = widgetSource.match(/\.product-title\{([^}]*)\}/)[1];
+  assert.doesNotMatch(nazov, /nowrap|ellipsis/);
+  assert.match(widgetSource, /\.product-title,\.por-nazov\{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;/);
+  assert.ok(widgetSource.includes('@media (prefers-reduced-motion: reduce)'));
+});
+
+// ---------------------------------------------------------------------------
+// Krok 1 asistenta (28. 9. 2026), W3 posudku ops/ai/kontrola/2026-09-28-ukazka-pokus3.md:
+// automatická prvá otázka (a žiadna iná) nesmie zamknúť rozhovor. Trieda zlyhaní:
+// visiaca požiadavka, visiace telo odpovede, sieťové odmietnutie, chyba servera,
+// nečitateľné telo; pre tichú (lenPripravene) aj bežnú otázku.
+// ---------------------------------------------------------------------------
+
+/** Riadené časovače: test ich spustí sám, nič nečaká naozaj. */
+function hodiny() {
+  const cakajuce = new Map();
+  let id = 0;
+  return {
+    setTimeout(fn, ms) { id += 1; cakajuce.set(id, { fn, ms }); return id; },
+    clearTimeout(i) { cakajuce.delete(i); },
+    spusti() { const v = [...cakajuce.values()]; cakajuce.clear(); v.forEach((c) => c.fn()); return v.map((c) => c.ms); },
+    get pocet() { return cakajuce.size; },
+  };
+}
+const tik = () => new Promise((r) => setTimeout(r, 0));
+const nikdy = () => new Promise(() => {});
+
+function s3Otazkami(fetchImpl) {
+  const h = hodiny();
+  const zrusene = [];
+  class AbortControllerStub {
+    constructor() { this.signal = { aborted: false }; }
+    abort() { this.signal.aborted = true; zrusene.push(this.signal); }
+  }
+  const f = sMiestom({ extraAttrs: { 'data-questions': JSON.stringify(['Prvá?', 'Druhá?']) } });
+  runWidget(f.documentStub, f.windowStub, fetchImpl, { setTimeout: h.setTimeout, clearTimeout: h.clearTimeout, AbortController: AbortControllerStub });
+  const root = f.miesto.children[0].shadowRoot;
+  const tlacidlo = (text) => radky(root)[0].children.find((c) => c.className === 'suggestions').children.find((b) => b.textContent === text);
+  return { ...f, h, root, zrusene, tlacidlo, api: f.windowStub.ArlingAsistent };
+}
+
+function overOdomknute(o, text) {
+  assert.equal(o.root.getElementById('input').readOnly, false, 'pole nie je zamknuté');
+  assert.equal(o.root.getElementById('send-btn').disabled, false, 'odoslanie funguje');
+  assert.equal(radky(o.root).some((r) => r.id === 'thinking-row'), false, 'žiadne „píše“ navždy');
+  if (text) {
+    assert.equal(o.tlacidlo(text).disabled, false, 'otázka je znova na ťuknutie');
+    assert.equal(o.tlacidlo(text).hidden, false);
+  }
+}
+
+const chybovyRiadok = (root) => radky(root).find((r) => /msg-error/.test(r.className));
+
+const PRVA_ZLYHANIA = [
+  ['visiaca požiadavka (časový limit)', () => nikdy(), true],
+  ['visiace telo odpovede (časový limit)', async () => ({ status: 200, ok: true, json: nikdy }), true],
+  ['sieťové odmietnutie', async () => { throw new TypeError('Failed to fetch'); }, false],
+  ['chyba servera 500', async () => ({ status: 500, ok: false, json: async () => ({ error: 'internal_error' }) }), false],
+  ['nečitateľné telo 200', async () => ({ status: 200, ok: true, json: async () => { throw new SyntaxError('bad json'); } }), false],
+];
+
+for (const [nazov, zlyhanie, casom] of PRVA_ZLYHANIA) {
+  test(`W3 prva otazka lenPripravene, ${nazov}: okno sa odomkne, otazka ostane, vysvetlenie a Skusit znova bez modelu`, async () => {
+    const poslane = [];
+    let n = 0;
+    const o = s3Otazkami(async (url, init) => {
+      poslane.push(JSON.parse(init.body));
+      n += 1;
+      if (n === 1) return zlyhanie();
+      return { status: 200, ok: true, json: async () => ({ answer: 'Uložená odpoveď.', products: [], meta: { overene: true } }) };
+    });
+    assert.equal(o.api.ask('Prvá?', { lenPripravene: true }), true);
+    await tik();
+    // Počas čakania: vidno „píše“, do poľa sa dá písať (tichá otázka ho nezamyká).
+    assert.equal(radky(o.root).some((r) => r.id === 'thinking-row'), casom, 'počas čakania ukazovateľ');
+    if (casom) {
+      assert.equal(o.root.getElementById('input').readOnly, false);
+      assert.deepEqual(o.h.spusti(), [8000], 'limit uloženej odpovede 8 s');
+      await tik();
+      assert.equal(o.zrusene.length, 1, 'visiaca požiadavka je zrušená (abort)');
+    }
+    overOdomknute(o, 'Prvá?');
+    const chyba = chybovyRiadok(o.root);
+    assert.ok(chyba, 'vysvetlenie chyby');
+    assert.equal(chyba.children[0].textContent, 'Pripravenú odpoveď sa nepodarilo načítať.');
+    assert.equal(radky(o.root).some((r) => r.children[0].textContent === 'Prvá?'), false, 'otázka bez odpovede sa nezobrazí');
+    assert.equal(o.h.pocet, 0, 'žiadny zabudnutý časovač');
+    // Opakovanie: tá istá tichá otázka, nikdy model.
+    const znova = chyba.children.find((c) => c.className === 'suggestions').children[0];
+    assert.equal(znova.textContent, 'Skúsiť znova');
+    znova._listeners.click[0]();
+    await tik();
+    assert.equal(poslane.length, 2);
+    assert.ok(poslane.every((b) => b.lenPripravene === true), 'opakovanie ide len po uloženú odpoveď');
+    assert.equal(chybovyRiadok(o.root), undefined, 'chybový riadok zmizne');
+    assert.deepEqual(radky(o.root).slice(1).map((r) => r.children[0].textContent), ['Prvá?', 'Uložená odpoveď.']);
+    // Ďalšia otázka po zlyhaní funguje (predtým ask vracal false navždy).
+    assert.equal(o.api.ask('Druhá?'), true);
+  });
+}
+
+test('W3 prva otazka: po zlyhani a pred opakovanim ide hned polozit inu otazku (ask vrati true, poslana je bezna)', async () => {
+  const poslane = [];
+  const o = s3Otazkami(async (url, init) => {
+    poslane.push(JSON.parse(init.body));
+    if (poslane.length === 1) return nikdy();
+    return { status: 200, ok: true, json: async () => ({ answer: 'Živá.', products: [] }) };
+  });
+  o.api.ask('Prvá?', { lenPripravene: true });
+  await tik();
+  o.h.spusti();
+  await tik();
+  assert.equal(o.api.ask('Druhá?'), true);
+  await tik();
+  assert.equal(poslane[1].lenPripravene, undefined);
+  assert.ok(radky(o.root).some((r) => r.children[0].textContent === 'Živá.'));
+});
+
+const BEZNE_ZLYHANIA = [
+  ['visiaca požiadavka', () => nikdy(), 45000],
+  ['visiace telo', async () => ({ status: 200, ok: true, json: nikdy }), 45000],
+  ['sieťové odmietnutie', async () => { throw new TypeError('Failed to fetch'); }, null],
+  ['chyba servera 502', async () => ({ status: 502, ok: false, json: async () => ({}) }), null],
+];
+
+for (const [nazov, zlyhanie, limit] of BEZNE_ZLYHANIA) {
+  test(`W3 bezna otazka, ${nazov}: chyba s opakovanim, pole odomknute, opakovanie neposle otazku dvakrat`, async () => {
+    const poslane = [];
+    const o = s3Otazkami(async (url, init) => {
+      poslane.push(JSON.parse(init.body));
+      if (poslane.length === 1) return zlyhanie();
+      return { status: 200, ok: true, json: async () => ({ answer: 'Živá odpoveď.', products: [] }) };
+    });
+    o.tlacidlo('Druhá?')._listeners.click[0]();
+    await tik();
+    if (limit) {
+      assert.equal(o.root.getElementById('input').readOnly, true, 'bežná otázka pole počas čakania zamkne');
+      assert.deepEqual(o.h.spusti(), [limit]);
+      await tik();
+    }
+    overOdomknute(o);
+    const chyba = chybovyRiadok(o.root);
+    assert.equal(chyba.children[0].textContent, 'Odpoveď sa nepodarilo načítať. Skúste to prosím znova.');
+    chyba.children.find((c) => c.className === 'suggestions').children[0]._listeners.click[0]();
+    await tik();
+    assert.equal(poslane.length, 2);
+    assert.equal(poslane[1].lenPripravene, undefined);
+    assert.deepEqual(poslane[1].messages.filter((m) => m.role === 'user').map((m) => m.content), ['Druhá?'], 'otázka v rozhovore raz');
+    assert.ok(radky(o.root).some((r) => r.children[0].textContent === 'Živá odpoveď.'));
+  });
+}
+
+test('W3 uspesna odpoved zrusi casovac a nic nezostane cakat', async () => {
+  const o = s3Otazkami(async () => ({ status: 200, ok: true, json: async () => ({ answer: 'Hneď.', products: [] }) }));
+  o.api.ask('Prvá?', { lenPripravene: true });
+  await tik();
+  assert.equal(o.h.pocet, 0);
+  o.api.ask('Druhá?');
+  await tik();
+  assert.equal(o.h.pocet, 0);
+  assert.equal(chybovyRiadok(o.root), undefined);
+});
+
+test('W3 texty chyby pripravenej odpovede a opakovania su vo vsetkych styroch jazykoch', () => {
+  assert.equal((widgetSource.match(/preparedFailed: '/g) || []).length, 4);
+  assert.equal((widgetSource.match(/retry: '/g) || []).length, 4);
 });

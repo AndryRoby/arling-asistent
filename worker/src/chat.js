@@ -26,18 +26,28 @@
  * still loading"), because Vectorize has not caught up yet and denying an
  * answer there would be untrue (see INDEX_WARMUP_MS).
  *
- * No conversation is ever written to storage here: the only side effects on
- * success are tenants.checkAndRecordConversation (a quota counter plus a
- * short-lived per-session dedupe key, see tenants.js) and, when a quota
- * threshold is crossed, an owner ping via notify.js.
+ * No conversation is ever written to storage here. Since step 1 of
+ * ops/asistent/genialny-plan.md the route runs through ochrana.js: a
+ * request without an Origin header is refused (403 origin_required, except
+ * our own X-Arling-Test). That only filters accidental clients: a script adds
+ * the header with one flag, so the real protection is the limits in
+ * ochrana.js, reserved atomically in D1 before the model is called (daily
+ * caps per network, per shop in questions and neurons, the shared cap, the
+ * monthly quota). The conversation is identified by a server-signed token
+ * (relacia.js, 24 hours and at most 10 questions). The answer is given with
+ * the model, without it (runChatBezAI: a limit was reached, free shops at
+ * 80 % of the shared cap, everyone at 100 %) or not at all (150 % of the
+ * shared cap, 503). The question is cut to MAX_MESSAGE_CHARS before it
+ * reaches the embedding or the model. The side effects on success are
+ * numbers only: the monthly counter, the daily counters row and, when a
+ * threshold is crossed, pings via notify.js.
  */
 
 import { embedTexts, EMBED_MODEL } from './embed.js';
-import { wrapUntrustedBlock, scanForInjection, detectInjection, SECURITY_HEADERS } from './security.js';
-import { checkAndRecordConversation } from './tenants.js';
-import { maybeNotifyQuota } from './notify.js';
-import { hasBudget, spend, isOurTest, NEURONS } from './budget.js';
-import { poRozhovore } from './zivotny-cyklus.js';
+import { wrapUntrustedBlock, scanForInjection, detectInjection, SECURITY_HEADERS, MAX_MESSAGE_CHARS, skratText, odtlacokIpMinuta } from './security.js';
+import { isOurTest, NEURONS, spocitajNaklady, hornaHranicaMili, vektorMili } from './budget.js';
+import { predOtazkou, poOtazke, poChybe, zivotnyCyklusBezZapoctu, jeNaseMeranie, dorezervuj, rezervujVektor, INTERNY_STROP } from './ochrana.js';
+import { jeOslovenie, nacitajOverene, najdiOverenu, demoVycerpane } from './overene.js';
 
 export const CHAT_MODEL_DEFAULT = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 export const TOP_K = 8;
@@ -92,6 +102,31 @@ export function detectLangFromText(text) {
   if (/[řěů]/i.test(s)) return 'cs';
   if (/[äöüß]/i.test(s) || /\b(wie|und|nicht)\b/i.test(s)) return 'de';
   return 'en';
+}
+
+/**
+ * Slovenčina a čeština zdieľajú väčšinu diakritiky (á í é ý š č ž), takže
+ * detectLangFromText zaradí aj českú odpoveď („který stojí…“) ako sk. Tu sa
+ * rozhoduje podľa znakov a slov, ktoré má len jeden z jazykov; slová vážia
+ * dvakrát, lebo jeden český sklz v slovenskej vete (naživo 29. 9. 2026:
+ * „V našom obchodě … alebo …“) nemá prevážiť celú vetu. Remíza vráti null.
+ */
+const SK_ZNAKY = /[ľĺŕôä]/giu;
+const CS_ZNAKY = /[řůě]/giu;
+const SK_SLOVA = new Set(['sú', 'alebo', 'pre', 'ktorý', 'ktorá', 'ktoré', 'ktorí', 'aký', 'aká', 'aké', 'môžete', 'som', 'sa', 'aj', 'len', 'veľmi', 'našom', 'našej', 'nie', 'ako', 'ešte', 'tiež', 'vášho', 'nájdete']);
+const CS_SLOVA = new Set(['jsou', 'jsem', 'jsme', 'není', 'nebo', 'pro', 'který', 'která', 'které', 'kteří', 'jaký', 'jaká', 'jaké', 'můžete', 'se', 'také', 'jen', 'velmi', 'našem', 'naší', 'ne', 'jako', 'ještě', 'vašeho', 'najdete']);
+
+export function rozlisSkCs(text) {
+  const s = String(text || '').toLowerCase();
+  let sk = (s.match(SK_ZNAKY) || []).length;
+  let cs = (s.match(CS_ZNAKY) || []).length;
+  for (const slovo of s.split(/[^\p{L}]+/u)) {
+    if (SK_SLOVA.has(slovo)) sk += 2;
+    if (CS_SLOVA.has(slovo)) cs += 2;
+  }
+  if (sk > cs) return 'sk';
+  if (cs > sk) return 'cs';
+  return null;
 }
 
 /** Resolve "auto" against the user's message text; a fixed lang code is returned unchanged (via normaliseLang). */
@@ -469,9 +504,12 @@ export function stripProductCodes(text, candidates) {
 
 export function polishAnswer(answer, lang, candidates) {
   let text = String(answer || '').replace(PRICE_ONE_DECIMAL_RE, '$1$2$30');
-  const slipLang = isAutoLang(lang) ? detectLangFromText(text) : normaliseLang(lang);
+  let slipLang = isAutoLang(lang) ? detectLangFromText(text) : normaliseLang(lang);
+  if (isAutoLang(lang) && (slipLang === 'sk' || slipLang === 'cs')) slipLang = rozlisSkCs(text) || slipLang;
   const slips = SLIPS_BY_LANG[slipLang];
   for (const [re, replacement] of slips || []) text = text.replace(re, replacement);
+  // Slovenčina „ě“ nepozná, v slovenskej odpovedi je to vždy český sklz („obchodě“ -> „obchode“, „městě“ -> „meste“).
+  if (slipLang === 'sk') text = text.replace(/ě/g, 'e').replace(/Ě/g, 'E');
   return stripProductCodes(text, candidates);
 }
 
@@ -588,8 +626,77 @@ export function indexWarmingReply(lang, userMessage) {
  * {answer, products, meta}. Throws only on programmer/infra error; user-
  * facing "I don't know" is a normal (non-throwing) return value.
  */
-export async function runChat(env, { tenant, messages, lang, model = CHAT_MODEL_DEFAULT } = {}) {
-  const question = extractLastUserMessage(messages);
+export async function runChat(env, opts = {}) {
+  // Stopa volaní pre presné počítanie nákladov (budget.js spocitajNaklady):
+  // každý úspešne vykonaný vektor a každé volanie modelu s jeho odpoveďou.
+  // Volajúci ju môže dodať (opts.stopa): pri výnimke tak vie, čo už bežalo a
+  // je zaplatené (krok 1 asistenta, W1), a poChybe to nevráti.
+  const stopa = opts.stopa || { volania: [], vektory: [] };
+  const result = await runChatVnutro(env, opts, stopa);
+  result.meta = { ...(result.meta || {}), naklady: spocitajNaklady(stopa) };
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Odpoveď bez modelu (krok 1 plánu, základ Z8)
+//
+// Keď obchod vyčerpal denný strop, sieť IP svoj denný limit otázok s modelom,
+// bezplatný obchod narazil na 80 % spoločného stropu alebo ktokoľvek na 100 %
+// (ochrana.js), zákazník nedostane chybu, ale tri najbližšie produkty z
+// vyhľadávania a jednu pevnú vetu v svojom jazyku.
+// Model sa nevolá; stojí to len vektor otázky. Krok 2 túto vetvu rozšíri
+// (výpadok modelu, zamietnutá odpoveď).
+// ---------------------------------------------------------------------------
+
+export const BEZ_AI_PRODUKTOV = 3;
+
+const BEZ_AI_VETA = {
+  sk: 'Tieto produkty najlepšie zodpovedajú vašej otázke.',
+  cs: 'Tyto produkty nejlépe odpovídají vaší otázce.',
+  en: 'These products best match your question.',
+  de: 'Diese Produkte passen am besten zu Ihrer Frage.',
+};
+
+/*
+ * Odpoveď bez akéhokoľvek plateného výpočtu (pokus 3 brány 28. 9. 2026, nález A):
+ * ani vektor otázky sa nezmestil do stropu (ochrana.js rezervujVektor). Nesľubuje
+ * čas obnovenia, len odkáže na obchod.
+ */
+const BEZ_VYPOCTU_VETA = {
+  sk: (email) => `Produkty k tejto otázke teraz neviem vyhľadať. Napíšte prosím priamo obchodu${email ? ` na ${email}` : ''}.`,
+  cs: (email) => `Produkty k této otázce teď neumím vyhledat. Napište prosím přímo obchodu${email ? ` na ${email}` : ''}.`,
+  en: (email) => `I cannot search the products for this question right now. Please contact the shop directly${email ? ` at ${email}` : ''}.`,
+  de: (email) => `Ich kann die Produkte zu dieser Frage gerade nicht durchsuchen. Bitte wenden Sie sich direkt an den Shop${email ? ` (${email})` : ''}.`,
+};
+
+export function bezVypoctuOdpoved(lang, contactEmail, userMessage) {
+  return { answer: BEZ_VYPOCTU_VETA[resolveLangForFallback(lang, userMessage)](contactEmail), products: [] };
+}
+
+export async function runChatBezAI(env, { tenant, messages, lang, predVektorom = null, stopa = { volania: [], vektory: [] } } = {}) {
+  const question = skratText(extractLastUserMessage(messages), MAX_MESSAGE_CHARS);
+  const hotovo = (res) => ({ ...res, meta: { ...(res.meta || {}), bezAi: true, naklady: spocitajNaklady(stopa) } });
+  if (!question.trim()) return hotovo({ ...noMatchFallback(lang, tenant.contact_email, question), meta: { candidateCount: 0 } });
+  // Aj vektor stojí neuróny: rezervuje sa pred volaním proti tým istým stropom
+  // ako model (nález A). Nezmestí sa: odpoveď bez vektora, nič sa neminie.
+  if (typeof predVektorom === 'function' && !(await predVektorom(vektorMili([question])))) {
+    return hotovo({ ...bezVypoctuOdpoved(lang, tenant.contact_email, question), meta: { candidateCount: 0, bezVypoctu: true } });
+  }
+  const [queryVector] = await embedTexts(env.AI, [question]);
+  // Do stopy až po úspešnom vektore: zlyhaný sa nezapočíta, vykonaný áno, aj keď
+  // potom zlyhá Vectorize (W1).
+  stopa.vektory.push(question);
+  const candidates = await retrieveCandidates(env, tenant.id, queryVector, { topK: TOP_K });
+  if (candidates.length === 0) {
+    return hotovo({ ...noMatchFallback(lang, tenant.contact_email, question), meta: { candidateCount: 0 } });
+  }
+  const products = candidates.slice(0, BEZ_AI_PRODUKTOV).map((c) => ({ title: c.title, url: c.url, price: c.price, currency: c.currency, image: c.image }));
+  return hotovo({ answer: BEZ_AI_VETA[resolveLangForFallback(lang, question)], products, meta: { candidateCount: candidates.length } });
+}
+
+async function runChatVnutro(env, { tenant, messages, lang, model = CHAT_MODEL_DEFAULT, predModelom = null } = {}, stopa) {
+  // Dĺžka otázky na serveri (nález 4): dlhší text by predražil vektor aj prompt.
+  const question = skratText(extractLastUserMessage(messages), MAX_MESSAGE_CHARS);
 
   if (!question.trim()) {
     return { ...noMatchFallback(lang, tenant.contact_email, question), meta: { candidateCount: 0, flaggedInjection: false } };
@@ -605,6 +712,7 @@ export async function runChat(env, { tenant, messages, lang, model = CHAT_MODEL_
     : { ...noMatchFallback(lang, tenant.contact_email, question), meta });
 
   const [queryVector] = await embedTexts(env.AI, [question]);
+  stopa.vektory.push(question);
   const candidates = await retrieveCandidates(env, tenant.id, queryVector, { topK: TOP_K });
 
   if (candidates.length === 0) {
@@ -618,6 +726,19 @@ export async function runChat(env, { tenant, messages, lang, model = CHAT_MODEL_
   const categories = topCategoryNames(candidates, SHOP_FACTS_CATEGORY_LIMIT);
   const userPrompt = buildUserPrompt({ question, candidates, contactEmail: tenant.contact_email, lang, categories });
 
+  // Horná hranica nákladu tohto volania (vstup z bajtov hotového promptu,
+  // výstup max_tokens, vektor otázky) sa rezervuje PRED modelom do všetkých
+  // počítadiel požiadavky (ochrana.js dorezervuj; pokus 2 brány 28. 9., nález
+  // 3: predtým sa rezervovalo 150 a zvyšok sa doúčtoval bez limitu). Keď sa
+  // nezmestí, model nebeží a odpovie sa bez neho z už nájdených kandidátov.
+  if (typeof predModelom === 'function') {
+    const horna = hornaHranicaMili({ model, vstupText: systemPrompt + userPrompt, maxTokens: CHAT_MODEL_OPTIONS.max_tokens, vektory: stopa.vektory });
+    if (!(await predModelom(horna, vektorMili(stopa.vektory)))) {
+      const products = candidates.slice(0, BEZ_AI_PRODUKTOV).map((c) => ({ title: c.title, url: c.url, price: c.price, currency: c.currency, image: c.image }));
+      return { answer: BEZ_AI_VETA[resolveLangForFallback(lang, question)], products, meta: { candidateCount: candidates.length, bezAi: true } };
+    }
+  }
+
   const modelResponse = await env.AI.run(model, {
     messages: [
       { role: 'system', content: systemPrompt },
@@ -626,7 +747,12 @@ export async function runChat(env, { tenant, messages, lang, model = CHAT_MODEL_
     ...CHAT_MODEL_OPTIONS,
   });
 
+  // Model bežal a je zaplatený: do stopy hneď, ešte pred spracovaním odpovede,
+  // aby výnimka pri spracovaní jeho cenu nevrátila (W1).
+  const volanie = { model, modelResponse, vstupText: systemPrompt + userPrompt, vystupText: '' };
+  stopa.volania.push(volanie);
   const rawText = extractModelText(modelResponse);
+  volanie.vystupText = rawText;
 
   let parsed;
   try {
@@ -713,65 +839,129 @@ export async function handleChatRoute(request, env, ctx, deps = {}) {
     return jsonResponse({ error: 'unknown_or_not_ready_tenant' }, 404, chybaCors);
   }
 
+  // Bez hlavičky Origin sa odmieta (plán 2.2 bod 1). Prehliadač ju pri
+  // cross-origin POST posiela vždy, takže widget na e-shope ju má. Je to len
+  // filter neúmyselných klientov (zabudnutý skript, náhodný robot): kto chce
+  // škodiť, pridá hlavičku jedným parametrom. Pred minutím stropu chránia
+  // limity v ochrana.js, nie táto kontrola. Výnimka len pre naše testy s
+  // tajomstvom X-Arling-Test (budget.js isOurTest).
+  if (!origin && !isOurTest(request, env)) {
+    return jsonResponse({ error: 'origin_required' }, 403, chybaCors);
+  }
   const allowed = securityMod.parseAllowedOrigins(env.ALLOWED_ORIGINS);
   if (origin && !securityMod.isOriginAllowed(origin, [tenant.domain, ...allowed])) {
     return jsonResponse({ error: 'origin_not_allowed' }, 403, chybaCors);
   }
   const headers = origin ? securityMod.corsHeaders(origin, [tenant.domain, ...allowed]) || {} : {};
 
+  // Minútový limit (približný, KV): kľúč nesie odtlačok siete /64, nie IP.
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
-  const rate = await securityMod.checkRateLimit(env.ASISTENT_CACHE, ip);
+  const rate = await securityMod.checkRateLimit(env.ASISTENT_CACHE, await odtlacokIpMinuta(ip, env.UCET_TAJOMSTVO || ''));
   if (!rate.allowed) {
     return jsonResponse({ error: 'rate_limited' }, 429, headers);
   }
 
-  // One conversation = one widget session (see tenants.js): the session id
-  // the widget keeps in sessionStorage dedupes against the monthly counter
-  // in KV; an older embed that sends no session counts once per request.
-  const quota = await checkAndRecordConversation(env.DB, tenant.id, { session, kv: env.ASISTENT_CACHE });
-  if (!quota.allowed) {
-    return jsonResponse({ error: 'quota_exceeded' }, 429, headers);
+  // Ukážka osloveného obchodu (overene.js): pripravená otázka dostane uloženú
+  // skontrolovanú odpoveď s kartami, bez AI, bez vektora a bez zápisu do
+  // stropov či kvóty. Náš interný beh (X-Arling-Test, X-Arling-Meranie) ide
+  // vždy živou cestou, aby príprava a brány videli skutočnú odpoveď.
+  const surface = body && body.surface === 'admin' ? 'admin' : 'web';
+  const oslovenie = jeOslovenie(tenant) && !isOurTest(request, env) && !jeNaseMeranie(request, env);
+  const otazka = extractLastUserMessage(messages);
+  const overene = oslovenie ? await nacitajOverene(env, tenant.id) : null;
+  const zhoda = najdiOverenu(overene, otazka);
+  if (zhoda) {
+    return jsonResponse(
+      {
+        answer: zhoda.odpoved,
+        products: zhoda.karty.map((c) => ({ title: c.title, url: c.url, price: c.price, currency: c.currency, image: c.image })),
+        meta: { candidates: zhoda.karty.length, parseError: false, overene: true },
+      },
+      200,
+      headers
+    );
   }
+  // Otázka „len pripravená“ (widget ask s {lenPripravene: true}, prvá otázka živej
+  // ukážky pri načítaní stránky): bez zhody sa nič nepočíta a nič nevolá, odpoveď
+  // je prázdna a widget otázku ani nezobrazí. Stránka tak nikdy nemíňa AI sama.
+  if (body && body.lenPripravene === true) {
+    return jsonResponse({ answer: '', products: [], meta: { candidates: 0, parseError: false, nepripravene: true } }, 200, headers);
+  }
+  // Minutá rezerva, strop alebo kvóta ('limit') alebo výpadok modelu
+  // ('vypadok') na ukážke osloveného obchodu: vecná veta podľa príčiny a
+  // pripravené otázky ako tlačidlá, len keď existujú; nikdy „oddychuje“
+  // (overene.js demoVycerpane, pokus 2 brány 28. 9., nález 6).
+  const ukazkaVycerpana = (druh) => {
+    const r = demoVycerpane(resolveLangForFallback(lang, otazka), overene, druh);
+    return jsonResponse({ ...r, meta: { candidates: 0, parseError: false, ukazkaVycerpana: druh } }, 200, headers);
+  };
 
-  // Owner notification at 80 % / 100 % of the month's quota (notify.js):
-  // only when this request actually moved the counter, and never on the
-  // shopper's critical path: ctx.waitUntil lets the ping finish after the
-  // response, and without a Workers ctx (tests) it is simply awaited.
-  if (quota.counted) {
-    const notification = maybeNotifyQuota(env, { tenantId: tenant.id, usedBefore: quota.used - 1, usedAfter: quota.used, quota: quota.quota });
-    if (ctx && typeof ctx.waitUntil === 'function') {
-      ctx.waitUntil(notification);
-    } else {
-      await notification;
-    }
+  // Relácia, mesačná kvóta, denné limity a režim odpovede (ochrana.js), všetko
+  // rezervované pred modelom. Pri chybe modelu sa rezervácie vrátia (poChybe).
+  const pred = await predOtazkou(request, env, { tenant, body, odhad: NEURONS.chatTurn });
+  if (pred.chyba) {
+    if (pred.chyba.zivotnyCyklus) await zivotnyCyklusBezZapoctu(env, ctx, pred.k, { origin, surface });
+    const e = pred.chyba.obj && pred.chyba.obj.error;
+    if (oslovenie && (e === 'quota_exceeded' || e === 'obchod_limit')) return ukazkaVycerpana('limit');
+    return jsonResponse(pred.chyba.obj, pred.chyba.status, headers);
   }
-
-  // Životný cyklus (zivotny-cyklus.js): zapojenie na webe obchodu, prvá
-  // otázka, rozhovory z webu, limit 80 %. Z tela berie len `surface`
-  // ("admin" posiela widget v náhľade administrácie WordPressu); z Origin len
-  // hostiteľa. Mimo cesty zákazníka, chyba nič nezhodí.
-  const zivotnyCyklus = poRozhovore(env, tenant, { origin, surface: body && body.surface === 'admin' ? 'admin' : 'web', quota });
-  if (ctx && typeof ctx.waitUntil === 'function') {
-    ctx.waitUntil(zivotnyCyklus);
-  } else {
-    await zivotnyCyklus;
-  }
+  const k = pred.k;
 
   // Nase vlastne testy nesmu mrhat dennou davkou neuronov: odpovedia bez
-  // volania modelu (viac v budget.js).
-  if (isOurTest(request, env)) {
-    return jsonResponse({ answer: 'test', products: [], meta: { test: true } }, 200, headers);
-  }
-  // Denny strop: radsej cestne "dnes uz nie" nez faktura, ktoru necakame.
-  const rozpocet = await hasBudget(env, NEURONS.chatTurn);
-  if (!rozpocet.ok) {
-    console.warn('[arling-asistent] denny strop neuronov vycerpany:', rozpocet);
-    return jsonResponse({ error: 'quota_exceeded' }, 503, headers);
+  // volania modelu (viac v budget.js). Rozhovor a zivotny cyklus sa
+  // zapocitaju ako doteraz.
+  if (k.test) {
+    const po = await poOtazke(env, ctx, k, { origin, surface });
+    return jsonResponse({ answer: 'test', products: [], meta: { test: true }, relacia: po.relacia || undefined }, 200, headers);
   }
 
-  const result = await runChat(env, { tenant, messages, lang });
-  await spend(env, NEURONS.chatTurn);
-  return jsonResponse({ answer: result.answer, products: result.products, meta: { candidates: result.meta?.candidateCount ?? 0, parseError: !!result.meta?.parseError } }, 200, headers || {});
+  const bezAi = k.rezim.rezim === 'bez_ai';
+  // Chyba D1 pri rezervácii nie je minutý limit (pokus 3 brány, nález C):
+  // ukážka povie technický výpadok, nie „minula svoj limit“.
+  const druhUkazky = () => (k.rezim && k.rezim.dovod === 'chyba_d1' ? 'vypadok' : 'limit');
+  if (bezAi && oslovenie) {
+    // Ani vektor otázky: ukážka pri minutej rezerve nestojí nič.
+    await poOtazke(env, ctx, k, { bezAi: true, origin, surface });
+    return ukazkaVycerpana(druhUkazky());
+  }
+  let result;
+  // Stopa vykonaných volaní patrí požiadavke: pri výnimke po úspešnom vektore
+  // (napr. Vectorize) ostane jeho cena započítaná (krok 1 asistenta, W1).
+  const stopa = { volania: [], vektory: [] };
+  try {
+    result = bezAi
+      ? await runChatBezAI(env, { tenant, messages, lang, stopa, predVektorom: (mili) => rezervujVektor(env, k, mili) })
+      : await runChat(env, { tenant, messages, lang, stopa, predModelom: (horna, vektoryMili) => dorezervuj(env, k, horna, { vektoryMili }) });
+  } catch (err) {
+    // Chyba modelu kvótu neodráta (plán 2.2 bod 5) a vráti aj denné limity,
+    // aby zákazník po výpadku neostal zamknutý (nález 10). Počíta sa do
+    // výstrahy ai_vypadok a zapojenie na webe sa zaznamená ako pred krokom 1.
+    // Už vykonané platené volania sa nevrátia (W1).
+    await poChybe(env, ctx, k, { origin, surface, vykonaneMili: spocitajNaklady(stopa).mili });
+    // Ukážka osloveného obchodu pri výpadku AI (aj Cloudflare 4006): vecná
+    // veta a pripravené otázky namiesto „oddychuje“ či sieťovej chyby.
+    if (oslovenie) {
+      console.error('[arling-asistent] chyba modelu na ukazke oslovenia:', (err && err.message) || err);
+      return ukazkaVycerpana('vypadok');
+    }
+    throw err;
+  }
+
+  // Horná hranica sa nezmestila (dorezervuj): model nebežal, odpoveď je bez neho.
+  const bezModelu = bezAi || !!(result.meta && result.meta.bezAi);
+  if (k.rezim.rezim === 'interny_strop') return jsonResponse(INTERNY_STROP.obj, INTERNY_STROP.status, headers);
+  const po = await poOtazke(env, ctx, k, { naklady: result.meta && result.meta.naklady, bezAi: bezModelu, origin, surface });
+  if (bezModelu && oslovenie) return ukazkaVycerpana(druhUkazky());
+  return jsonResponse(
+    {
+      answer: result.answer,
+      products: result.products,
+      meta: { candidates: result.meta?.candidateCount ?? 0, parseError: !!result.meta?.parseError, ...(bezModelu ? { bezAi: true } : {}), ...(result.meta?.bezVypoctu ? { bezVypoctu: true } : {}) },
+      relacia: po.relacia || undefined,
+    },
+    200,
+    headers || {}
+  );
 }
 
 const MAX_MESSAGES_GUARD = 20;

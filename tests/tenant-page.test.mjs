@@ -200,8 +200,16 @@ test('demo texts: Stripe upgrade is live via the tenant page, plugin status is c
   assert.ok(html.includes('id="trial-tenant-link"'), 'embed block links to the tenant page');
   assert.ok(app.includes("'tenant/?t=' + encodeURIComponent(tenantId)"), 'app.js fills the tenant page link');
   assert.ok(html.includes('id="btn-plan-starter" href="#playground"') && html.includes('id="btn-plan-pro" href="#playground"'), 'paid plan buttons lead to the trial form');
-  assert.ok(html.includes('wordpress.org a čaká na schválenie'), 'FAQ (sk) says the plugin awaits wordpress.org review');
-  assert.ok(i18n.includes('submitted to wordpress.org and is awaiting review'), 'FAQ (en) says the plugin awaits wordpress.org review');
+  // 28. 9. 2026 (Z-36 pokus 3): plugin je na wordpress.org schválený, test čakal starý stav „čaká na schválenie“.
+  // Živá stránka je products/arling-sk/asistent; demo/i18n.js má v faq.platforms ešte starý text (mimo tohto testu, hlásené Fablovi).
+  const zivy = fs.readFileSync(path.join(here, '..', '..', 'arling-sk', 'asistent', 'i18n.js'), 'utf8');
+  const zivaStranka = fs.readFileSync(path.join(here, '..', '..', 'arling-sk', 'asistent', 'index.html'), 'utf8');
+  assert.ok(html.includes('je schválený na wordpress.org') && !html.includes('čaká na schválenie'), 'FAQ (sk) says the plugin is approved on wordpress.org');
+  for (const [name, s] of [['arling-sk/asistent/index.html', zivaStranka], ['arling-sk/asistent/i18n.js', zivy]]) {
+    assert.ok(s.includes('je schválený na wordpress.org'), `${name}: plugin approved (sk)`);
+    assert.ok(!s.includes('čaká na schválenie') && !s.includes('awaiting review'), `${name}: no stale review status`);
+  }
+  assert.ok(zivy.includes('is approved on wordpress.org'), 'live FAQ (en) says the plugin is approved on wordpress.org');
   assert.ok(html.includes('"name": "Pro", "price": "39"'), 'JSON-LD offer is named Pro like the plan id');
   assert.deepEqual(DEMO_I18N.findIncompleteEntries(), []);
   assert.equal(DEMO_I18N.t('s3.embed.tenantPage', 'en'), 'Usage and upgrade:');

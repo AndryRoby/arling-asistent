@@ -18,6 +18,7 @@
  */
 
 import { monthKey, usagePercent } from './tenants.js';
+import { pripocitaj, rezervuj, kluce } from './pocty.js';
 
 export const DEFAULT_QUOTA_PING_URL = 'https://server.invalid/subscribe/api/ping';
 export const QUOTA_THRESHOLDS = [80, 100];
@@ -116,6 +117,90 @@ export async function notifyKontrolaUpload(env, { sessionId, test = false } = {}
   } catch (err) {
     console.warn('[arling-asistent] kontrola_upload ping failed:', (err && err.message) || err);
     return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Výstrahy ochrany pre Fable (plán 2.2 bod 7, krok 1)
+//
+//   naklady_den   dnešná spotreba neurónov prekročila prah (budget.js prahNakladyDen), p = % stropu
+//   obchod_marza  platiaci obchod dnes minul na AI viac ako 50 % denného čistého príjmu, p = %
+//   zneuzitie     obchod narazil na denný limit IP, strop nových rozhovorov alebo na denný strop otázok, p = 0
+//   ai_vypadok    aspoň 10 chýb modelu v tej istej hodine (UTC), raz za hodinu, p = počet chýb
+//
+// Rovnaký tvar pingu ako quota_80 (?e=&t=&p=), rovnaká hlavička X-Ping-Token.
+// Titulky v ntfy pridá Fable v products/subscribe-service (PING_EVENTS); kým
+// ich služba nepozná, ostáva vypínač ASISTENT_NTFY_OCHRANA na "vypnute"
+// (wrangler.toml) a nič sa neposiela. Titulok nikdy nesmie znieť ako platba.
+// Každá výstraha ide najviac raz za `kluc` (deň, obchod a deň, hodina),
+// značka atomicky v D1 (pocty.js). Nikdy nič nezhodí, nikdy nič neodmietne.
+// ---------------------------------------------------------------------------
+
+export const OCHRANA_UDALOSTI = ['naklady_den', 'obchod_marza', 'zneuzitie', 'ai_vypadok'];
+export const AI_VYPADOK_PRAH_ZA_HODINU = 10;
+
+export function ochranaZapnuta(env) {
+  return Boolean(env && env.ASISTENT_NTFY_OCHRANA === 'zapnute');
+}
+
+/**
+ * Pošle jednu výstrahu ochrany, najviac raz za (udalosť, kluc). Vracia true,
+ * len keď ping naozaj odišiel s odpoveďou ok.
+ */
+export async function pingOchrana(env, { event, tenantId = 'asistent', percent = 0, kluc = '', now = new Date() } = {}) {
+  try {
+    if (!ochranaZapnuta(env) || !OCHRANA_UDALOSTI.includes(event)) return false;
+    const baseUrl = env.QUOTA_PING_URL !== undefined ? env.QUOTA_PING_URL : DEFAULT_QUOTA_PING_URL;
+    if (!baseUrl) return false;
+    // Značka „už poslané“ sa zaberá ATOMICKY v D1 (tretie kolo, nález 6):
+    // predtým KV get a potom put, takže dávka 25 požiadaviek poslala 25 pingov
+    // a pri chybe KV sa pingalo aj tak. Bez D1 alebo pri jej chybe sa nepinga:
+    // radšej jedna chýbajúca výstraha ako záplava ntfy počas útoku.
+    const db = env.DB;
+    if (!db) return false;
+    const den = now.toISOString().slice(0, 10);
+    const prva = await rezervuj(db, kluce.znacka(event, kluc || tenantId), den, 1, 1);
+    if (prva == null) return false;
+    const fetchImpl = env.fetchImpl || fetch;
+    const res = await fetchImpl(buildQuotaPingUrl(baseUrl, { event, tenantId, percent: Math.max(0, Math.round(Number(percent) || 0)) }), {
+      method: 'GET',
+      headers: pingHeaders(env),
+    });
+    if (res && res.ok === false) {
+      console.warn(`[arling-asistent] ochrana ping ${event} vratil HTTP ${res.status}`);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('[arling-asistent] ochrana ping zlyhal:', (err && err.message) || err);
+    return false;
+  }
+}
+
+/**
+ * Započíta chybu modelu do hodinového počítadla a od
+ * AI_VYPADOK_PRAH_ZA_HODINU-tej chyby pošle ai_vypadok, najviac raz za hodinu.
+ * Vracia počet chýb v hodine.
+ *
+ * Počítadlo je atomické v D1 (pocty.js), nie v KV (nález 9 kontroly kroku 1):
+ * pri skutočnom výpadku prídu chyby naraz, KV z 20 súbežných uložilo 1 a prah
+ * `=== 10` sa nedosiahol. Teraz `>= 10` a značka hodiny sa zaberá atomicky.
+ */
+export async function zaznamenajChybuAI(env, { now = new Date() } = {}) {
+  try {
+    const db = env && env.DB;
+    if (!db) return 0;
+    const hodina = now.toISOString().slice(0, 13);
+    const den = hodina.slice(0, 10);
+    const pocet = await pripocitaj(db, kluce.aiChyby(hodina), den, 1);
+    if (pocet >= AI_VYPADOK_PRAH_ZA_HODINU) {
+      // Značku hodiny zaberá atomicky pingOchrana (kľúč znacka:ai_vypadok:<hodina>).
+      await pingOchrana(env, { event: 'ai_vypadok', tenantId: 'asistent', percent: pocet, kluc: hodina, now });
+    }
+    return pocet;
+  } catch (err) {
+    console.warn('[arling-asistent] pocitadlo chyb AI zlyhalo:', (err && err.message) || err);
+    return 0;
   }
 }
 

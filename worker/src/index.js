@@ -52,6 +52,9 @@
  *   GET  /v1/admin/asistent/udalosti -> zivotny-cyklus.js (ADMIN_TOKEN alebo
  *                                        ASISTENT_ADMIN_CITANIE; zdroj pre Twenty)
  *   POST /v1/admin/asistent/doplnit  -> zivotny-cyklus.js (ASISTENT_ADMIN_ZAPIS; spätné udalosti)
+ *   GET/PUT/DELETE /v1/admin/asistent/overene/:tenant
+ *                                    -> overene.js (ASISTENT_ADMIN_ZAPIS; overené
+ *                                        odpovede ukážok oslovených obchodov)
  *   POST /v1/admin/asistent/uvitaci-email
  *                                    -> zivotny-cyklus.js (ASISTENT_ADMIN_ZAPIS; ručné E1)
  *   GET  /widget.js                  -> the embeddable widget, served from
@@ -99,6 +102,7 @@ import {
 import { parseAllowedOrigins, corsHeaders, InputTooLargeError, SECURITY_HEADERS } from './security.js';
 import { ValidationError } from './tenants.js';
 import { handleEshopKontrolaRoute } from './eshop-kontrola.js';
+import { handleOvereneRoute } from './overene.js';
 import widgetSource from './widget-src.js';
 import { handleTiktokRoute } from './tiktok-share.js';
 import scheduledHandler from './cron.js';
@@ -268,6 +272,12 @@ export default {
       const deleteMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)$/);
       if (deleteMatch && request.method === 'DELETE') {
         return await handleDeleteTenantRoute(request, env, deleteMatch[1]);
+      }
+
+      // Overené odpovede ukážok pre oslovené obchody (overene.js, ASISTENT_ADMIN_ZAPIS).
+      const overeneMatch = url.pathname.match(/^\/v1\/admin\/asistent\/overene\/([A-Za-z0-9-]+)$/);
+      if (overeneMatch && ['GET', 'PUT', 'DELETE'].includes(request.method)) {
+        return await handleOvereneRoute(request, env, overeneMatch[1]);
       }
 
       if (url.pathname === '/v1/chat' && request.method === 'POST') {

@@ -30,7 +30,7 @@ import {
 import { fetchFeed, FeedUrlNotAllowedError } from './feed.js';
 import { embedAndUpsertProducts, embedTexts } from './embed.js';
 import { parseAllowedOrigins, corsHeaders, bezpecnePorovnaj, checkRateLimit, SECURITY_HEADERS } from './security.js';
-import { hasBudget, spend, NEURONS } from './budget.js';
+import { hasBudget, hasObnovaBudget, spendObnova, obnovaZaZnaky, MILI } from './budget.js';
 import { poVytvoreni, poNacitani, poZmenePlanu, nastavJazyk, jazykZoVstupu, zdrojZoVstupu, poOvereniMajitela, zapamatajVektory } from './zivotny-cyklus.js';
 import { overenyEmailZBearer } from './ucet.js';
 
@@ -128,6 +128,13 @@ export async function waitForQueryableIndex(env, tenantId, products, opts = {}) 
 export const INGEST_MIN_NEURONS = 200;
 
 /**
+ * Odhad znakov na produkt pred vektormi (kus textu je názov, cena, popis),
+ * len na bránu samoobslužného načítania voči rozpočtu obnovy. Skutočný
+ * náklad sa po vektoroch zapíše zo skutočnej dĺžky textov (embed.js znakov).
+ */
+export const ODHAD_ZNAKOV_NA_PRODUKT = 800;
+
+/**
  * Download the tenant's feed, embed every product, and flip status to
  * ready/error. Safe to call again (re-ingestion on cron).
  *
@@ -183,6 +190,21 @@ async function nacitajFeed(env, tenant, { samoobsluzne = false } = {}) {
     return { ok: false, error: INGEST_ERRORS.NO_PRODUCTS, code: INGEST_ERRORS.NO_PRODUCTS, feedType: feed.type };
   }
 
+  // Rozpočet obnovy (plán 2.2 bod 8, nález 8 kontroly kroku 1): načítanie z
+  // internetového formulára sa pustí, len keď sa odhad celého feedu zmestí do
+  // dnešného rozpočtu obnovy. Chat tento rozpočet nečíta, takže cudzie feedy
+  // mu strop neminú.
+  if (samoobsluzne) {
+    const odhad = obnovaZaZnaky(feed.products.length * ODHAD_ZNAKOV_NA_PRODUKT) / MILI;
+    const obnova = await hasObnovaBudget(env, odhad);
+    if (!obnova.ok) {
+      console.warn('[arling-asistent] denny rozpocet obnovy vycerpany, samoobsluzne nacitanie feedu odlozene:', obnova);
+      await setTenantStatus(env.DB, tenant.id, TENANT_STATUS.ERROR);
+      await zapisChybuNacitania(env, tenant.id, INGEST_ERRORS.AI_BUDGET);
+      return { ok: false, error: 'ai_budget_exhausted', code: INGEST_ERRORS.AI_BUDGET };
+    }
+  }
+
   try {
     const { products, type, truncated } = feed;
     const idsVektorov = [];
@@ -190,9 +212,10 @@ async function nacitajFeed(env, tenant, { samoobsluzne = false } = {}) {
     // Zoznam id vektorov pre úplný výmaz účtu (zivotny-cyklus.js zmazTenanta):
     // Vectorize nevie vypísať vektory podľa metadát. Chyba zápisu nič nezhodí.
     await zapamatajVektory(env, tenant.id, idsVektorov);
-    // Spotreba sa zapisuje vždy, aj pri cron obnove: je to najväčší žrút
-    // neurónov v tejto službe a strop, ktorý ho nevidí, nechráni pred ničím.
-    await spend(env, summary.chunkCount * NEURONS.embedPerText);
+    // Spotreba sa zapisuje vždy, aj pri cron obnove, do vlastného rozpočtu
+    // obnovy (nie do spoločného stropu chatu) a v skutočných neurónoch
+    // bge-m3 podľa dĺžky textov (predtým pevný 1 neurón na kus, asi 4-krát viac).
+    await spendObnova(env, obnovaZaZnaky(summary.znakov));
     await setProductCount(env.DB, tenant.id, summary.productCount);
     // Stav sa prepina ako prvy a bez podmienok. Zakaznik, ktory ma produkty
     // nacitane, nesmie ostat visiet na pending len preto, ze nam nieco
@@ -335,10 +358,11 @@ async function startIngestion(env, tenant, waitUntil, opts = {}) {
  * vlastní. Pravidelnú obnovu feedu naďalej robí denný cron, ten na nikoho
  * nečaká.
  */
-export async function createTenantFromRequest(env, { feedUrl, domain, email, lang, zdroj, userAgent, overenyEmail = null }, { waitUntil, now = new Date() } = {}) {
+export async function createTenantFromRequest(env, { feedUrl, domain, email, lang, zdroj, userAgent, overenyEmail = null, povolitOslovenie = false }, { waitUntil, now = new Date() } = {}) {
   // Jazyk e-mailov a odkiaľ účet vznikol (návrh ops/asistent/zivotny-cyklus.md 1.3).
+  // Zdroj `oslovenie` (režim ukážky) len s overeným admin tokenom (nález 1).
   const jazyk = jazykZoVstupu(lang);
-  const zdrojUctu = zdrojZoVstupu(zdroj, userAgent);
+  const zdrojUctu = zdrojZoVstupu(zdroj, userAgent, { povolitOslovenie });
   // Adresa potvrdená 6-miestnym kódom (Bearer z /v1/ucet/over). Len vtedy
   // smú ísť automatické e-maily E0 a E1 bez ďalších podmienok
   // (zivotny-cyklus.js mozeIst, adverzárna kontrola 25. 9. 2026).
@@ -496,6 +520,13 @@ function corsHeadersForRequest(request, env, extraAllowedDomains = []) {
   return corsHeaders(origin, [...extraAllowedDomains, ...allowed]) || {};
 }
 
+/** X-Admin-Token rovný ASISTENT_ADMIN_ZAPIS (bez tajomstva nikdy). */
+export function jeAdminZapis(request, env) {
+  const tajne = env && env.ASISTENT_ADMIN_ZAPIS;
+  const token = request.headers.get('X-Admin-Token') || '';
+  return Boolean(tajne) && Boolean(token) && bezpecnePorovnaj(token, tajne);
+}
+
 export async function handleCreateTenantRoute(request, env, ctx) {
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
   const rate = await checkRateLimit(env.ASISTENT_CACHE, ip, {
@@ -524,6 +555,11 @@ export async function handleCreateTenantRoute(request, env, ctx) {
         zdroj: body && body.zdroj,
         userAgent: request.headers.get('User-Agent') || '',
         overenyEmail: await overenyEmailZBearer(request, env),
+        // Režim ukážky osloveného obchodu smie zapnúť len náš autorizovaný
+        // skript (ops/oslovenia/vytvor-ukazku.py s X-Admin-Token =
+        // ASISTENT_ADMIN_ZAPIS). Verejná registrácia so zdroj „oslovenie“ bez
+        // tokenu dostane bežný zdroj (pokus 2 brány 28. 9., nález 1).
+        povolitOslovenie: jeAdminZapis(request, env),
       },
       { waitUntil: ctx && ctx.waitUntil ? ctx.waitUntil.bind(ctx) : undefined }
     );

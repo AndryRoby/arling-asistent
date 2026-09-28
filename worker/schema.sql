@@ -49,8 +49,25 @@ CREATE TABLE IF NOT EXISTS counters (
   -- Rozhovory z webu samotneho obchodu (nie z arling.sk, nie z nahladu v
   -- administracii WordPressu); z nich sa pocita udalost "aktivny".
   web_conversations INTEGER NOT NULL DEFAULT 0,
+  -- Naklady (migrations/0003_genialny.sql, src/tenants.js zapisNaklady):
+  -- zodpovedane otazky, tokeny modelu, skutocne neurony a odpovede bez modelu.
+  otazky INTEGER NOT NULL DEFAULT 0,
+  tokeny_vstup INTEGER NOT NULL DEFAULT 0,
+  tokeny_vystup INTEGER NOT NULL DEFAULT 0,
+  neurony INTEGER NOT NULL DEFAULT 0,
+  bez_ai INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (tenant_id, day)
 );
+
+-- Denna suma neuronov vsetkych obchodov (prehlad nakladov).
+CREATE INDEX IF NOT EXISTS idx_counters_day ON counters (day);
+
+-- Atomicke denne pocitadla ochrany (src/pocty.js): spolocny strop, strop
+-- obchodu, denne limity siete IP, rozpocet obnovy feedov, chyby modelu.
+-- Kluc nikdy nenesie IP ani id relacie (len cislo kosa 0 az 65535), riadky
+-- starsie ako 2 dni maze denny cron.
+CREATE TABLE IF NOT EXISTS asistent_pocty (kluc TEXT PRIMARY KEY, den TEXT NOT NULL, hodnota INTEGER NOT NULL DEFAULT 0);
+CREATE INDEX IF NOT EXISTS idx_asistent_pocty_den ON asistent_pocty (den);
 
 -- Udalosti uctu (vytvoreny, ready, chyba, zapojeny, prva_otazka, aktivny,
 -- limit_80, limit_100, plan, zruseny, email:E0 az email:E4, emaily_stop).

@@ -459,7 +459,8 @@ test('14. Resend: odosielateľ, reply_to, adresa, Idempotency-Key, List-Unsubscr
   assert.equal(o.opts.headers.Authorization, 'Bearer re_test_kluc');
   assert.equal(o.opts.headers['Idempotency-Key'], `asistent-${t.id}-E1`);
   assert.equal(o.body.from, 'ARLing Asistent <asistent@mail.arling.sk>');
-  assert.equal(o.body.reply_to, 'andrej@arling.sk');
+  // Od 25. 9. 2026 verejná podpora v jazyku e-mailu, nie osobná adresa (účet je po slovensky).
+  assert.equal(o.body.reply_to, 'podpora@arling.sk');
   assert.deepEqual(o.body.to, ['majitel@hlavicky.sk']);
   const stop = await odkazStop(env, t.id);
   assert.equal(o.body.headers['List-Unsubscribe'], `<${stop}>`);
@@ -468,6 +469,17 @@ test('14. Resend: odosielateľ, reply_to, adresa, Idempotency-Key, List-Unsubscr
   const riadok = await najdiU(env, t.id, 'email:E1');
   assert.equal(riadok.data.stav, 'odoslany');
   assert.equal(riadok.data.resend_id, 're_1');
+});
+
+test('14b. reply_to podľa jazyka e-mailu: anglický a nemecký účet support@, český podpora@, nikdy osobná adresa', async () => {
+  for (const [jazyk, adresa] of [['en', 'support@arling.sk'], ['de', 'support@arling.sk'], ['cs', 'podpora@arling.sk']]) {
+    const env = makeEnv();
+    const t = await pripravUcet(env, { domain: 'jazyk-' + jazyk + '.sk', email: 'majitel@jazyk-' + jazyk + '.sk', jazyk });
+    const r = await posliEmail(env, t, 'E1', { now: PONDELOK_10 });
+    assert.equal(r.poslane, true, jazyk);
+    assert.equal(env.odoslane[0].body.reply_to, adresa, jazyk);
+    assert.ok(!JSON.stringify(env.odoslane[0].body).includes('andrej@arling.sk'), jazyk + ': osobná adresa v e-maile');
+  }
 });
 
 test('15. najviac raz: dva súbežné E1 pošlú jeden POST; 4xx zamietnutý bez ďalšieho pokusu; 5xx zlyhal, cron skúša s tým istým kľúčom a po 3 pokusoch pingne', async () => {
@@ -1204,4 +1216,15 @@ test('A11. adresa s menom a lomenými zátvorkami neprejde; zlé percentové kó
   }
   const r = await worker.fetch(new Request('https://x/v1/tenants/%E0/emaily/stop?k=x'), env, {});
   assert.equal(r.status, 400);
+});
+
+test('A12. hranica rozhovoru z env (relacia.js maxOtazok) ide cez posliEmail do textu: 1 000 aj predvolených 10, zmrazená v riadku (Z-42 pokus 2, nález 2)', async () => {
+  const NB = ' ';
+  for (const [hodnota, cislo, text] of [['1000', 1000, `(najviac 1${NB}000${NB}otázok)`], [null, 10, `(najviac 10${NB}otázok)`]]) {
+    const env = makeEnv({ extra: hodnota ? { ASISTENT_MAX_OTAZOK: hodnota } : {} });
+    const t = await pripravUcet(env, { domain: `hranica-${cislo}.sk` });
+    assert.equal((await posliEmail(env, t, 'E1', { now: PONDELOK_10 })).poslane, true);
+    assert.ok(env.odoslane[0].body.text.includes(text), `${cislo}: ${env.odoslane[0].body.text}`);
+    assert.equal((await najdiU(env, t.id, 'email:E1')).data.params.max_otazok, cislo);
+  }
 });

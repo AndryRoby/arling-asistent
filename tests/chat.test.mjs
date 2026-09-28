@@ -486,20 +486,28 @@ test('looksDegenerate zachyti zacyklenu odpoved a nechyta normalny text', () => 
 });
 
 // Denny strop neuronov: poistka proti neocakavanej fakture (budget.js).
-test('denny strop: pod stropom pusti, nad stropom nie, a pri padajucom KV pusti', async () => {
+test('denny strop: pod stropom pusti, nad stropom nie, a pri padajucej D1 pusti', async () => {
   const { hasBudget, budgetLimit, isOurTest, NEURONS } = await import('../worker/src/budget.js');
+  const { createMockD1 } = await import('./helpers/mock-d1.mjs');
+  const { pripocitaj, kluce } = await import('../worker/src/pocty.js');
   assert.equal(budgetLimit({}), 9500);
   assert.equal(budgetLimit({ AI_DAILY_NEURON_BUDGET: '200' }), 200);
 
-  const kv = (hodnota) => ({ get: async () => hodnota, put: async () => {} });
-  const podStropom = await hasBudget({ ASISTENT_CACHE: kv('100'), AI_DAILY_NEURON_BUDGET: '1000' }, NEURONS.chatTurn);
+  // Spotreba je od opravy nálezov kroku 1 v D1 asistent_pocty (tisíciny neurónu).
+  const db = async (neurony) => {
+    const d = createMockD1();
+    const den = new Date().toISOString().slice(0, 10);
+    await pripocitaj(d, kluce.neurony(den), den, neurony * 1000);
+    return d;
+  };
+  const podStropom = await hasBudget({ DB: await db(100), AI_DAILY_NEURON_BUDGET: '1000' }, NEURONS.chatTurn);
   assert.equal(podStropom.ok, true);
-  const nadStropom = await hasBudget({ ASISTENT_CACHE: kv('995'), AI_DAILY_NEURON_BUDGET: '1000' }, NEURONS.chatTurn);
+  const nadStropom = await hasBudget({ DB: await db(995), AI_DAILY_NEURON_BUDGET: '1000' }, NEURONS.chatTurn);
   assert.equal(nadStropom.ok, false);
 
-  const padajuceKv = { get: async () => { throw new Error('KV down'); }, put: async () => {} };
-  const priPade = await hasBudget({ ASISTENT_CACHE: padajuceKv, AI_DAILY_NEURON_BUDGET: '1000' }, NEURONS.chatTurn);
-  assert.equal(priPade.ok, true, 'vypadok KV nesmie umlcat Asistenta');
+  const padajucaD1 = { prepare: () => ({ bind() { return this; }, run: async () => { throw new Error('D1 down'); }, first: async () => { throw new Error('D1 down'); } }) };
+  const priPade = await hasBudget({ DB: padajucaD1, AI_DAILY_NEURON_BUDGET: '1000' }, NEURONS.chatTurn);
+  assert.equal(priPade.ok, true, 'vypadok D1 pri citani nesmie umlcat Asistenta');
 
   const req = (v) => ({ headers: { get: () => v } });
   assert.equal(isOurTest(req('tajne'), { ADMIN_TOKEN: 'tajne' }), true);

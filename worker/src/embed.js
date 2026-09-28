@@ -116,7 +116,10 @@ export async function embedAndUpsertProducts(env, tenantId, products, { batchSiz
     if (Array.isArray(ids)) for (const v of toUpsert) ids.push(v.id);
   }
 
-  return { productCount: products.length, chunkCount: allChunks.length, upserted };
+  // znakov: dĺžka všetkých textov poslaných do vektorov, pre skutočný náklad
+  // načítania (budget.js obnovaZaZnaky) namiesto pevného 1 neurónu na kus.
+  const znakov = allChunks.reduce((s, c) => s + String(c.text || '').length, 0);
+  return { productCount: products.length, chunkCount: allChunks.length, upserted, znakov };
 }
 
 /** Remove every vector belonging to a tenant (used before re-ingesting on feed refresh, and on tenant deletion). */

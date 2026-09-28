@@ -96,6 +96,8 @@ export const DICT = {
   's2.th.plan': { sk: 'Plán', en: 'Plan' },
   's2.th.price': { sk: 'Cena', en: 'Price' },
   's2.th.conversations': { sk: 'Rozhovory / mesiac', en: 'Conversations / month' },
+  // Prípona ceny v tabuľke. Medzera na začiatku je zámerná, oddeľuje ju od sumy.
+  'pricing.perMonth': { sk: ' / mesiac', en: ' / month' },
   'pricing.limit.free': { sk: 'do 100', en: 'up to 100' },
   'pricing.limit.starter': { sk: 'do 1 000', en: 'up to 1,000' },
   'pricing.limit.growth': { sk: 'do 3 000', en: 'up to 3,000' },

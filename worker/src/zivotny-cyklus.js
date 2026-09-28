@@ -62,13 +62,18 @@ import { domainMatches, hostnameFromOrigin, parseAllowedOrigins, bezpecnePorovna
 import { DEFAULT_QUOTA_PING_URL, thresholdsCrossed } from './notify.js';
 import { vytvorEmail, JAZYKY_EMAILOV, WIDGET_ORIGIN, castiDatumu } from './zivotny-cyklus-texty.js';
 import { overenyEmailZBearer } from './ucet.js';
+import { maxOtazok } from './relacia.js';
 
 // ---------------------------------------------------------------------------
 // Konštanty
 // ---------------------------------------------------------------------------
 
 export const ODOSIELATEL = 'ARLing Asistent <asistent@mail.arling.sk>';
-export const ODPOVED_NA = 'andrej@arling.sk';
+// Odpovede na e-maily idú na verejnú podporu v jazyku e-mailu (25. 9. 2026), nie na osobnú
+// adresu: slovenčina a čeština podpora@, angličtina a nemčina support@ (obe doručuje Zoho
+// do tej istej schránky). Neznámy jazyk ide na podpora@.
+export const ODPOVED_NA = { sk: 'podpora@arling.sk', cs: 'podpora@arling.sk', en: 'support@arling.sk', de: 'support@arling.sk' };
+export const odpovedNa = (jazyk) => ODPOVED_NA[jazyk] || ODPOVED_NA.sk;
 export const RESEND_URL = 'https://api.resend.com/emails';
 export const STROP_EMAILOV = 4;
 export const MAX_POKUSOV = 3;
@@ -90,7 +95,9 @@ export const DOBEH_OKNO_DNI = 11; // E3 najneskôr 10 dní po E1, s rezervou
 export const DOBEH_MAX_DOPYTOV = 800;
 export const DOBEH_REZERVA_NA_UCET = 40;
 export const VEKTORY_MAX = 20000;
-export const ZDROJE = ['formular', 'wordpress', 'shopify', 'api'];
+// 'oslovenie' = ukážka, ktorú Fable založí e-shopu pred písaným oslovením (27. 9. 2026): bez pingu „asistent_novy“,
+// aby sa v ntfy nepomýlila so zákazníkom; automatické e-maily idú aj tak len podľa pravidiel vyššie.
+export const ZDROJE = ['formular', 'wordpress', 'shopify', 'api', 'oslovenie'];
 
 // Verejné poštové domény: zhoda „doména e-mailu = doména obchodu“ pri nich nič
 // nedokazuje (ktokoľvek by si mohol nárokovať obchod gmail.com).
@@ -242,10 +249,22 @@ export function jazykUctu(tenant) {
   return 'en';
 }
 
-/** Odkiaľ účet vznikol: pole zdroj, pri starom plugine bez neho hlavička User-Agent WordPress/..., inak api. */
-export function zdrojZoVstupu(raw, userAgent) {
+/**
+ * Zdroje, ktoré smie poslať verejná registrácia. `oslovenie` zapína režim
+ * ukážky (rezerva ukážok, bez mesačnej kvóty, overené odpovede), preto ho
+ * smie nastaviť len autorizovaný postup s ASISTENT_ADMIN_ZAPIS (onboarding.js;
+ * pokus 2 brány 28. 9., nález 1: verejný POST /v1/tenants ho predtým dostal).
+ */
+export const VEREJNE_ZDROJE = ZDROJE.filter((z) => z !== 'oslovenie');
+
+/**
+ * Odkiaľ účet vznikol: pole zdroj, pri starom plugine bez neho hlavička
+ * User-Agent WordPress/..., inak api. `oslovenie` len s `povolitOslovenie`
+ * (overený admin token), inak sa ignoruje ako neznáma hodnota.
+ */
+export function zdrojZoVstupu(raw, userAgent, { povolitOslovenie = false } = {}) {
   const s = String(raw || '').trim().toLowerCase();
-  if (ZDROJE.includes(s)) return s;
+  if (VEREJNE_ZDROJE.includes(s) || (s === 'oslovenie' && povolitOslovenie)) return s;
   if (/^wordpress\//i.test(String(userAgent || ''))) return 'wordpress';
   return 'api';
 }
@@ -594,6 +613,8 @@ function parametreEmailu(tenant, data, udalosti, stop) {
     used: params.used,
     quota: params.quota,
     mesiac: params.mesiac,
+    // hranica rozhovoru (relacia.js maxOtazok) zmrazená pri prvom pokuse; starší riadok bez nej: text ju neuvádza
+    maxOtazok: params.max_otazok != null ? Number(params.max_otazok) : undefined,
     dalsiMesiac: new Date(params.dalsi_mesiac || tenant.created_at || 0),
     ucet: `https://arling.sk/asistent/tenant/?t=${encodeURIComponent(tenant.id)}`,
     skusit: `https://arling.sk/asistent/live/?t=${encodeURIComponent(tenant.id)}&shop=${encodeURIComponent(tenant.domain)}`,
@@ -652,7 +673,7 @@ async function odosli(env, tenant, kluc, data, udalosti, now) {
       body: JSON.stringify({
         from: ODOSIELATEL,
         to: [tenant.contact_email],
-        reply_to: ODPOVED_NA,
+        reply_to: odpovedNa(data.jazyk),
         subject: sprava.predmet,
         text: sprava.text,
         html: sprava.html,
@@ -728,6 +749,7 @@ export async function posliEmail(env, tenant, kod, { now = new Date(), rucne = f
         ...params,
         pocet: Number(tenant.product_count) || (ready && Number(ready.data.product_count)) || 0,
         zapojene_kedy: (zapojeny && zapojeny.kedy) || null,
+        max_otazok: maxOtazok(env),
       },
       anglicka_veta: !!anglickaVeta,
       pokus_at: now.toISOString(),
@@ -790,7 +812,7 @@ export async function poVytvoreni(env, tenant, { jazyk = null, zdroj = 'api', ov
     if (jeDemo(env, tenant.domain)) return;
     const feedHost = feedHostUctu(tenant);
     const nove = await zaznamenaj(env, tenant.id, 'vytvoreny', 'vytvoreny', { zdroj, jazyk, feed_host: feedHost, overeny: !!overeny }, now);
-    if (nove && env.ASISTENT_NTFY === 'zapnute') {
+    if (nove && env.ASISTENT_NTFY === 'zapnute' && zdroj !== 'oslovenie') {
       const over = overeny ? 'kod' : domenaSedi(tenant) ? 'domena' : null;
       if (over || (await pingNovyPovoleny(env, now))) {
         const popisOverenia = over === 'kod' ? 'e-mail overeny kodom' : over === 'domena' ? 'domena e-mailu sedi' : 'e-mail neovereny, automaticke e-maily nejdu';
@@ -1308,7 +1330,8 @@ export async function zmazTenanta(env, tenantId, { now = new Date() } = {}) {
     }
   }
   if (env.ASISTENT_CACHE && typeof env.ASISTENT_CACHE.delete === 'function') {
-    for (const kluc of [`ingest-error:${tenantId}`, `vektory:${tenantId}`]) {
+    // overene: = overené odpovede ukážky osloveného obchodu (overene.js).
+    for (const kluc of [`ingest-error:${tenantId}`, `vektory:${tenantId}`, `overene:${tenantId}`]) {
       try {
         await env.ASISTENT_CACHE.delete(kluc);
       } catch (e) {
@@ -1577,8 +1600,8 @@ const STOP_TEXTY = {
     tlacidlo: 'Zastaviť e-maily',
     nevytvaralOtazka: 'Tohto Asistenta ste nevytvárali vy? Potom vám na túto adresu už nepošleme žiadny e-mail k žiadnemu Asistentovi a Andrejovi dáme vedieť, že účet s vašou adresou založil niekto iný.',
     nevytvaralTlacidlo: 'Tohto Asistenta som nevytváral',
-    hotovo: (d) => `Hotovo. K Asistentovi pre ${d} vám už nepošleme žiadny e-mail. Ak chcete Asistenta zrušiť a zmazať údaje, napíšte na andrej@arling.sk.`,
-    hotovoNevytvaral: 'Ďakujeme, zaznamenali sme to. Na túto adresu vám už nepošleme žiadny e-mail k žiadnemu Asistentovi. Ak chcete, aby sme účet s vašou adresou zmazali hneď, napíšte na andrej@arling.sk, inak ho posúdime sami.',
+    hotovo: (d) => `Hotovo. K Asistentovi pre ${d} vám už nepošleme žiadny e-mail. Ak chcete Asistenta zrušiť a zmazať údaje, napíšte na podpora@arling.sk.`,
+    hotovoNevytvaral: 'Ďakujeme, zaznamenali sme to. Na túto adresu vám už nepošleme žiadny e-mail k žiadnemu Asistentovi. Ak chcete, aby sme účet s vašou adresou zmazali hneď, napíšte na podpora@arling.sk, inak ho posúdime sami.',
   },
   cs: {
     titul: 'Zastavit e-maily Asistenta',
@@ -1586,8 +1609,8 @@ const STOP_TEXTY = {
     tlacidlo: 'Zastavit e-maily',
     nevytvaralOtazka: 'Tohoto Asistenta jste nevytvořili vy? Pak vám na tuto adresu už nepošleme žádný e-mail k žádnému Asistentovi a Andrejovi dáme vědět, že účet s vaší adresou založil někdo jiný.',
     nevytvaralTlacidlo: 'Tohoto Asistenta jsem nevytvořil',
-    hotovo: (d) => `Hotovo. K Asistentovi pro ${d} vám už nepošleme žádný e-mail. Pokud chcete Asistenta zrušit a smazat údaje, napište na andrej@arling.sk.`,
-    hotovoNevytvaral: 'Děkujeme, zaznamenali jsme to. Na tuto adresu vám už nepošleme žádný e-mail k žádnému Asistentovi. Pokud chcete, abychom účet s vaší adresou smazali hned, napište na andrej@arling.sk, jinak ho posoudíme sami.',
+    hotovo: (d) => `Hotovo. K Asistentovi pro ${d} vám už nepošleme žádný e-mail. Pokud chcete Asistenta zrušit a smazat údaje, napište na podpora@arling.sk.`,
+    hotovoNevytvaral: 'Děkujeme, zaznamenali jsme to. Na tuto adresu vám už nepošleme žádný e-mail k žádnému Asistentovi. Pokud chcete, abychom účet s vaší adresou smazali hned, napište na podpora@arling.sk, jinak ho posoudíme sami.',
   },
   en: {
     titul: 'Stop assistant e-mails',
@@ -1595,8 +1618,8 @@ const STOP_TEXTY = {
     tlacidlo: 'Stop e-mails',
     nevytvaralOtazka: 'You did not create this assistant? Then we will not send any e-mail about any assistant to this address again, and we will let Andrej know that someone else used your address.',
     nevytvaralTlacidlo: 'I did not create this assistant',
-    hotovo: (d) => `Done. We will not send you any more e-mails about the assistant for ${d}. To cancel the assistant and delete your data, write to andrej@arling.sk.`,
-    hotovoNevytvaral: 'Thank you, noted. We will not send any e-mail about any assistant to this address again. If you want the account with your address deleted right away, write to andrej@arling.sk; otherwise we will review it ourselves.',
+    hotovo: (d) => `Done. We will not send you any more e-mails about the assistant for ${d}. To cancel the assistant and delete your data, write to support@arling.sk.`,
+    hotovoNevytvaral: 'Thank you, noted. We will not send any e-mail about any assistant to this address again. If you want the account with your address deleted right away, write to support@arling.sk; otherwise we will review it ourselves.',
   },
   de: {
     titul: 'E-Mails zum Assistenten stoppen',
@@ -1604,8 +1627,8 @@ const STOP_TEXTY = {
     tlacidlo: 'E-Mails stoppen',
     nevytvaralOtazka: 'Sie haben diesen Assistenten nicht erstellt? Dann senden wir an diese Adresse keine E-Mails zu irgendeinem Assistenten mehr und geben Andrej Bescheid, dass jemand anderes Ihre Adresse verwendet hat.',
     nevytvaralTlacidlo: 'Ich habe diesen Assistenten nicht erstellt',
-    hotovo: (d) => `Erledigt. Zum Assistenten für ${d} senden wir Ihnen keine E-Mails mehr. Wenn Sie den Assistenten kündigen und Ihre Daten löschen möchten, schreiben Sie an andrej@arling.sk.`,
-    hotovoNevytvaral: 'Danke, wir haben es vermerkt. An diese Adresse senden wir keine E-Mails zu irgendeinem Assistenten mehr. Wenn das Konto mit Ihrer Adresse sofort gelöscht werden soll, schreiben Sie an andrej@arling.sk, sonst prüfen wir es selbst.',
+    hotovo: (d) => `Erledigt. Zum Assistenten für ${d} senden wir Ihnen keine E-Mails mehr. Wenn Sie den Assistenten kündigen und Ihre Daten löschen möchten, schreiben Sie an support@arling.sk.`,
+    hotovoNevytvaral: 'Danke, wir haben es vermerkt. An diese Adresse senden wir keine E-Mails zu irgendeinem Assistenten mehr. Wenn das Konto mit Ihrer Adresse sofort gelöscht werden soll, schreiben Sie an support@arling.sk, sonst prüfen wir es selbst.',
   },
 };
 

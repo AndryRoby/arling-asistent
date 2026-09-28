@@ -24,6 +24,9 @@ import {
   selectGiftCandidates,
   parseGiftModelJson,
   reconcileGiftPicks,
+  bezDetskychPreDospeleho,
+  cistyDovod,
+  jeDospely,
   runGift,
   handleGiftRoute,
 } from '../worker/src/gift.js';
@@ -277,6 +280,59 @@ test('runGift falls back to the tenant\'s most common category names when intere
   // Two embed calls: the initial recipient-only seed, then the category-enriched query.
   const embedCalls = ai.calls.filter((c) => c.model === '@cf/baai/bge-m3');
   assert.equal(embedCalls.length, 2);
+});
+
+// Naživo 29. 9. 2026 na ukážkovom obchode: „Mama“ do 50 € dostala detský príbor a vkladačku
+// a dôvody „Cena 16.90 EUR“. Kód preto vek obdarovaného stráži sám a dôvod len s cenou zahodí.
+test('bezDetskychPreDospeleho: dospelému bez detských výrobkov, dieťaťu a záujmom o deti ich nechá, prázdny výsledok nikdy', () => {
+  const c = [
+    { title: 'Detský príbor z nerezovej ocele, 4 kusy', category: 'Deti | Stolovanie' },
+    { title: 'Drevená vkladačka tvary a farby', category: 'Deti | Hračky' },
+    { title: 'Bylinkový čaj darčekový box', category: 'Darčeky | Jedlé darčeky' },
+    { title: 'One of a kind mug', category: 'Gifts' },
+  ];
+  assert.deepEqual(bezDetskychPreDospeleho(c, 'Mama', '').map((x) => x.title), ['Bylinkový čaj darčekový box', 'One of a kind mug']);
+  for (const kto of ['Máma', 'Otec', 'Partner/ka', 'Kolega', 'Kamarát/ka', 'Sebe', 'Mum', 'Dad', 'Colleague', 'Oma', 'Kollege/in', 'Mich selbst', 'pre babku']) {
+    assert.equal(jeDospely(kto), true, kto);
+    assert.equal(bezDetskychPreDospeleho(c, kto, '').length, 2, kto);
+  }
+  for (const kto of ['Dieťa', 'Dítě', 'Child', 'Kind', 'synovec 5 rokov']) {
+    // dieťaťu nič nezmizne, detské výrobky idú dopredu (výber bez modelu berie prvých päť)
+    assert.deepEqual(bezDetskychPreDospeleho(c, kto, '').map((x) => x.title), [c[0].title, c[1].title, c[2].title, c[3].title], kto);
+    assert.deepEqual(bezDetskychPreDospeleho([c[2], c[0], c[3], c[1]], kto, '').map((x) => x.title), [c[0].title, c[1].title, c[2].title, c[3].title], kto);
+  }
+  assert.equal(bezDetskychPreDospeleho(c, 'Mama', 'hračky pre vnúča').length, 4); // záujmy výslovne o deťoch
+  const lenDetske = c.slice(0, 2);
+  assert.equal(bezDetskychPreDospeleho(lenDetske, 'Mama', '').length, 2); // obchod len s detským tovarom: radšej výber než nič
+});
+
+test('cistyDovod zahodí dôvod, ktorý je len cena, a skutočný dôvod nechá', () => {
+  for (const d of ['Cena 16.90 EUR', 'Za 16.90 €', 'Price: 22.90 EUR', 'Preis 19,90 EUR', 'len 9.90 EUR', '', 'ok']) assert.equal(cistyDovod(d), '', d);
+  for (const d of ['Voňavý čaj na pokojné večery.', 'Praktický pomocník do kuchyne za 16.90 EUR.', 'A calm tea ritual for evenings.']) assert.equal(cistyDovod(d), d, d);
+});
+
+test('runGift: pre „Mama“ model detské výrobky vôbec nedostane a dôvod len s cenou sa zahodí', async () => {
+  const vectorize = createMockVectorize();
+  await upsertProduct(vectorize, 't9', { id: 'k', title: 'Detský príbor z nerezovej ocele', price: 16.9, category: 'Deti | Stolovanie' });
+  await upsertProduct(vectorize, 't9', { id: 'v', title: 'Drevená vkladačka tvary a farby', price: 19.9, category: 'Deti | Hračky' });
+  await upsertProduct(vectorize, 't9', { id: 'c', title: 'Bylinkový čaj darčekový box', price: 21.9, category: 'Darčeky | Jedlé darčeky' });
+  await upsertProduct(vectorize, 't9', { id: 's', title: 'Sviečka zo sójového vosku', price: 18.9, category: 'Darčeky | Do domácnosti' });
+  const ai = createMockAI({
+    embedDim: 4,
+    chatResponse: JSON.stringify({ picks: [
+      { url: 'https://shop.sk/p/k', why: 'Praktický darček do kuchyne' },
+      { url: 'https://shop.sk/p/c', why: 'Cena 21.90 EUR' },
+      { url: 'https://shop.sk/p/s', why: 'Voňavá sviečka na pokojné večery' },
+    ] }),
+  });
+  const result = await runGift({ AI: ai, VECTORIZE: vectorize }, { tenant: { id: 't9' }, recipient: 'Mama', interests: '', budgetMin: 0, budgetMax: 50, lang: 'auto' });
+  assert.deepEqual(result.picks.map((p) => p.url), ['https://shop.sk/p/c', 'https://shop.sk/p/s']);
+  assert.equal(result.picks[0].why, '');
+  assert.match(result.picks[1].why, /Voňavá/);
+  assert.ok(result.candidates.every((c) => !/Detský|vkladačka/.test(c.title)));
+  const zadanie = JSON.stringify(ai.calls.filter((c) => c.model !== '@cf/baai/bge-m3'));
+  assert.ok(zadanie.includes('Sviečka') && !zadanie.includes('Detský príbor') && !zadanie.includes('vkladačka'));
+  assert.match(zadanie, /never only the price/);
 });
 
 test('runGift returns an empty picks list (never invented products) when the model output cannot be parsed', async () => {

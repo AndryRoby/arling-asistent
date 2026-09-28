@@ -1,0 +1,143 @@
+{
+  "_popis": "Spoločné prípady normalizácie otázky pre worker/src/overene.js normalizujOtazku a ops/oslovenia/predohrej-ukazky.py normalizuj (pokus 2 brány 28. 9. 2026, nález 7; pokus 3, nález D: záporné znamienko). Testy: tests/ukazky-oslovenia.test.mjs a ops/oslovenia/predohrej_ukazky_test.py.",
+  "pripady": [
+    [
+      "Akú kávu odporúčate do moka kanvičky?",
+      "aku kavu odporucate do moka kanvicky"
+    ],
+    [
+      "  aku KAVU odporucate do moka-kanvicky  ",
+      "aku kavu odporucate do moka kanvicky"
+    ],
+    [
+      "Máte menšie balenie na vyskúšanie?",
+      "mate mensie balenie na vyskusanie"
+    ],
+    [
+      "Ktorá káva má najmenej kyslosti?",
+      "ktora kava ma najmenej kyslosti"
+    ],
+    [
+      "Aké granule sú vhodné pre šteňa veľkého plemena?",
+      "ake granule su vhodne pre stena velkeho plemena"
+    ],
+    [
+      "Máte balenie 1,5 kg?",
+      "mate balenie 1.5 kg"
+    ],
+    [
+      "Mate balenie 1.5 kg",
+      "mate balenie 1.5 kg"
+    ],
+    [
+      "Mate balenie 1-5 kg?",
+      "mate balenie 1-5 kg"
+    ],
+    [
+      "Máte balenie 1 – 5 kg?",
+      "mate balenie 1-5 kg"
+    ],
+    [
+      "Mate balenie 15 kg?",
+      "mate balenie 15 kg"
+    ],
+    [
+      "Mate balenie 1 5 kg?",
+      "mate balenie 1 5 kg"
+    ],
+    [
+      "Zľava 10 %?",
+      "zlava 10%"
+    ],
+    [
+      "Pomer 1/2?",
+      "pomer 1/2"
+    ],
+    [
+      "Granule 28/18 pre šteňa",
+      "granule 28/18 pre stena"
+    ],
+    [
+      "Colombia Supremo Scr.19 Sofía",
+      "colombia supremo scr 19 sofia"
+    ],
+    [
+      "Cena 4,50 €?",
+      "cena 4.50"
+    ],
+    [
+      "-5 stupňov",
+      "-5 stupnov"
+    ],
+    [
+      "Funguje pri -5 °C?",
+      "funguje pri -5 c"
+    ],
+    [
+      "Funguje pri 5 °C?",
+      "funguje pri 5 c"
+    ],
+    [
+      "Funguje pri −10 °C?",
+      "funguje pri -10 c"
+    ],
+    [
+      "Teplota (-5)?",
+      "teplota -5"
+    ],
+    [
+      "Model X-5 a A-3",
+      "model x 5 a a 3"
+    ],
+    [
+      "Od -5 do -10",
+      "od -5 do -10"
+    ],
+    [
+      "1 -5",
+      "1-5"
+    ],
+    [
+      "a_b",
+      "a b"
+    ],
+    [
+      "Verzia 1.2.3",
+      "verzia 1.2.3"
+    ],
+    [
+      "",
+      ""
+    ]
+  ],
+  "rozne": [
+    [
+      "Mate balenie 1,5 kg?",
+      "Mate balenie 1-5 kg?"
+    ],
+    [
+      "Mate balenie 1,5 kg?",
+      "Mate balenie 15 kg?"
+    ],
+    [
+      "Mate balenie 1-5 kg?",
+      "Mate balenie 1 5 kg?"
+    ],
+    [
+      "Pomer 1/2?",
+      "Pomer 12?"
+    ],
+    [
+      "Zľava 10 %?",
+      "Zľava 10?"
+    ],
+    [
+      "Funguje pri -5 °C?",
+      "Funguje pri 5 °C?"
+    ],
+    [
+      "Od -5 do 10",
+      "Od 5 do 10"
+    ]
+  ]
+}
