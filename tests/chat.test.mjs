@@ -664,3 +664,9 @@ test('indexWarmingReply ma text vo vsetkych styroch jazykoch, bez produktov a be
   // Neznamy jazyk padne na anglictinu, rovnako ako normaliseLang.
   assert.equal(indexWarmingReply('fr').answer, indexWarmingReply('en').answer);
 });
+
+test('polishAnswer opraví sklzy zo živej odpovede 29. 9. ráno (vám môžete vybrať, Obe hrnce)', () => {
+  assert.equal(polishAnswer('Na indukciu vám môžete vybrať hrniec. Obe hrnce sú vhodné.', 'sk', []),
+    'Na indukciu si môžete vybrať hrniec. Oba hrnce sú vhodné.');
+  assert.equal(polishAnswer('Poradím vám, ktorý vybrať.', 'sk', []), 'Poradím vám, ktorý vybrať.');
+});

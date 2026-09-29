@@ -458,6 +458,10 @@ const SLIPS_BY_LANG = {
     [wordRe('kategorii'), 'kategórii'],
     [wordRe('Oceni'), 'Ocení'],
     [wordRe('oceni'), 'ocení'],
+    // naživo 29. 9. ráno: „Na indukciu vám môžete vybrať“, „Obe hrnce sú vhodné“ (hrniec je mužského rodu)
+    [/(?<!\p{L})vám môžete vybrať(?!\p{L})/gu, 'si môžete vybrať'],
+    [/(?<!\p{L})Obe hrnce(?!\p{L})/gu, 'Oba hrnce'],
+    [/(?<!\p{L})obe hrnce(?!\p{L})/gu, 'oba hrnce'],
   ],
   cs: [
     [wordRe('Neviem'), 'Nevím'],
