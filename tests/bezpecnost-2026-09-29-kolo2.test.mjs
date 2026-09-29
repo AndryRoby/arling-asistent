@@ -316,7 +316,8 @@ test('A3. plugin 0.4.0 pri zmene adresy REST (R1): rovnaký majiteľ bez Bearera
         if (stav !== TENANT_STATUS.READY) await setTenantStatus(env.DB, id, stav, { now: new Date(Date.now() - TRI_DNI) });
         // Ready sa bez Bearera opravuje len po chybe a na kanonickú cestu.
         if (stav === TENANT_STATUS.READY) await env.ASISTENT_CACHE.put(`ingest-error:${id}`, 'feed_http_404');
-        const povolena = stav !== TENANT_STATUS.READY || !/\/api\/|\/shop\//.test(new URL(nova).pathname);
+        // aj vlastná predpona REST (/api/, WordPress v podpriečinku) je kanonická cesta pluginu (útočník kola 3, nález 3)
+        const povolena = true;
         const popis = `${nova} ${stav} ${email}`;
         const res = await worker.fetch(tenantReq({ feed_url: nova, domain: 'obchod.sk', email, lang: 'en', zdroj: 'wordpress' }, { plugin: true }), env, ctx);
         await dobehni();

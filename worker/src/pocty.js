@@ -100,6 +100,7 @@ export const kluce = {
   neuronyOslovenie: (den) => `neurony-osl:${den}`, // rezerva ukážok oslovených obchodov, tisíciny (budget.js rezervaOslovenia)
   interne: (den) => `interne:${den}`, // náš interný beh (X-Arling-Meranie), tisíciny, vlastný rozpočet
   obnova: (den) => `obnova:${den}`, // načítanie feedov, tisíciny neurónu, vlastný rozpočet
+  obnovaSamo: (den) => `obnova-samo:${den}`, // z toho samoobslužné načítania (strop 30 %, útočník kola 3, nález 1)
   zalozenie: (den, kos) => `zal:${den}:${kos}`, // nové obchody z jednej siete za deň (kôš IP)
   ai: (t, den) => `ai:${t}:${den}`, // otázky obchodu s modelom
   mili: (t, den) => `mili:${t}:${den}`, // neuróny obchodu v tisícinách

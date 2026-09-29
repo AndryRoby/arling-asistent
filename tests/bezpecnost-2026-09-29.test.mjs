@@ -40,7 +40,7 @@ import { jazykZoVstupu, zaznamenaj } from '../worker/src/zivotny-cyklus.js';
 import { runChat, runChatBezAI, buildUserPrompt, noMatchFallback, bezVypoctuOdpoved } from '../worker/src/chat.js';
 import { fetchFeed, guardedFetch, normaliseProduct, parseFeed, FEED_CHYBY, MAX_FEED_BAJTOV, TITLE_MAX_LEN } from '../worker/src/feed.js';
 import { znakyProduktov, buildProductChunks } from '../worker/src/embed.js';
-import { obnovaZaZnaky } from '../worker/src/budget.js';
+import { obnovaZaZnaky, SAMOOBSLUHA_PODIEL_OBNOVY } from '../worker/src/budget.js';
 import { pripocitaj, kluce } from '../worker/src/pocty.js';
 import { vytvorToken } from '../worker/src/ucet.js';
 import { createMockD1 } from './helpers/mock-d1.mjs';
@@ -379,7 +379,8 @@ test('3a. súbežné samoobslužné načítania nikdy neprekročia denný rozpo�
       // Pomalé vektory: bez atomickej rezervácie by všetky prečítali tú istú nulovú spotrebu.
       const beh = env.AI.run.bind(env.AI);
       env.AI.run = async (...a) => { await new Promise((r) => setTimeout(r, 2)); return beh(...a); };
-      env.AI_DAILY_OBNOVA_BUDGET = String((zmesti * naklad + naklad / 2) / 1000);
+      // samoobsluha smie najviac 30 % denného rozpočtu obnovy (útočník kola 3, nález 1)
+      env.AI_DAILY_OBNOVA_BUDGET = String((zmesti * naklad + naklad / 2) / SAMOOBSLUHA_PODIEL_OBNOVY / 1000);
       const ulohy = [];
       const tenanty = await Promise.all(Array.from({ length: n }, (_, i) =>
         createTenantFromRequest(env, { feedUrl: `https://obchod${i}.sk/feed.xml`, domain: `obchod${i}.sk`, email: `a@obchod${i}.sk` }, { waitUntil: (p) => ulohy.push(p) })));
@@ -390,7 +391,7 @@ test('3a. súbežné samoobslužné načítania nikdy neprekročia denný rozpo�
       assert.ok(vysledky.filter((v) => v && !v.ok).every((v) => v.code === 'ai_budget_exhausted'), popis);
       const den = new Date().toISOString().slice(0, 10);
       const spotreba = (env.DB._pocty.get(kluce.obnova(den)) || { hodnota: 0 }).hodnota;
-      assert.ok(spotreba <= Math.floor(Number(env.AI_DAILY_OBNOVA_BUDGET) * 1000), `${popis}: ${spotreba}`);
+      assert.ok(spotreba <= Math.floor(Number(env.AI_DAILY_OBNOVA_BUDGET) * 1000 * SAMOOBSLUHA_PODIEL_OBNOVY), `${popis}: ${spotreba}`);
       assert.equal(spotreba, ok * naklad, `${popis}: rezervácia = skutočnosť, nič dvakrát`);
       for (const t of tenanty) {
         const r = await getTenantById(env.DB, t.id);

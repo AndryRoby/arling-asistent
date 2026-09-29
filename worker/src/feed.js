@@ -32,6 +32,8 @@ export const MAX_PRODUCTS = 5000;
 // Surové polia sa orežú pred dekódovaním entít a odstraňovaním značiek.
 export const SUROVY_POPIS_MAX = 20000;
 export const SUROVY_NAZOV_MAX = 2000;
+// Ostatné polia (URL, obrázok, kategória, výrobca, EAN): útočník kola 3, nález 2, 8 MB v CATEGORYTEXT zhodilo pamäť.
+export const SUROVY_INE_MAX = 4000;
 
 // ---------------------------------------------------------------------------
 // Small text helpers
@@ -190,7 +192,7 @@ export function extractTag(xml, tagName) {
   if (!b) return '';
   const meno = String(tagName).toLowerCase().split(':').pop();
   const limit = meno === 'description' ? SUROVY_POPIS_MAX
-    : /^(name|title|productname|product)$/.test(meno) ? SUROVY_NAZOV_MAX : Infinity;
+    : /^(name|title|productname|product)$/.test(meno) ? SUROVY_NAZOV_MAX : SUROVY_INE_MAX;
   const koniec = Math.min(b.obsahDo, b.obsahOd + limit);
   let obsah = text.slice(b.obsahOd, koniec);
   // Rez uprostred CDATA nemá zmeniť jej obsah na nedokončenú značku.
@@ -623,13 +625,13 @@ export function normaliseProduct(raw, { defaultCurrency = 'EUR', descriptionMaxL
     description,
     price: Number.isFinite(priceNumber) ? priceNumber : null,
     currency: (raw.currency || defaultCurrency || 'EUR').trim(),
-    url: String(raw.link || '').trim(),
-    image: String(raw.image || '').trim(),
-    availability: normaliseAvailability(raw.availability),
-    category: String(raw.category || '').trim(),
+    url: String(raw.link || '').slice(0, SUROVY_INE_MAX).trim(),
+    image: String(raw.image || '').slice(0, SUROVY_INE_MAX).trim(),
+    availability: normaliseAvailability(String(raw.availability || '').slice(0, 200)),
+    category: String(raw.category || '').slice(0, SUROVY_INE_MAX).trim(),
   };
   for (const key of OPTIONAL_PRODUCT_FIELDS) {
-    const value = String(raw[key] || '').trim();
+    const value = String(raw[key] || '').slice(0, SUROVY_INE_MAX).trim();
     if (value) product[key] = value;
   }
   return product;

@@ -191,12 +191,12 @@ async function odlozNacitanie(env, tenant, dovod) {
  * pripočíta (len rozdiel, nič sa nerátá dvakrát). Bez rezervácie (cron, admin)
  * sa pripočíta celý skutočný náklad ako doteraz.
  */
-async function dorovnajObnovu(env, skutocne, rezervovane, casRezervacie) {
+async function dorovnajObnovu(env, skutocne, rezervovane, casRezervacie, samoobsluha = false) {
   // Deň rezervácie, aby sa rozdiel nezapísal do nového dňa po polnoci; bez
   // rezervácie ako doteraz (deň zápisu).
   const kedy = rezervovane > 0 ? casRezervacie : undefined;
-  if (skutocne > rezervovane) await spendObnova(env, skutocne - rezervovane, kedy);
-  else if (rezervovane > skutocne) await vratObnovu(env, rezervovane - skutocne, kedy);
+  if (skutocne > rezervovane) await spendObnova(env, skutocne - rezervovane, kedy, { samoobsluha: samoobsluha && rezervovane > 0 });
+  else if (rezervovane > skutocne) await vratObnovu(env, rezervovane - skutocne, kedy, { samoobsluha });
 }
 
 /**
@@ -224,7 +224,9 @@ export function jeKanonickyFeed(feedUrl, domena) {
       videne.add(kluc);
     }
     const route = u.searchParams.get('rest_route');
-    const woo = /^\/wp-json\/wc\/store\/v1\/products\/?$/.test(u.pathname);
+    // vlastná predpona REST (filter rest_url_prefix, napr. /api/wc/store/v1/products) ako isWooCommerceStoreApiUrl;
+    // plugin 0.4.0 posiela get_rest_url(), útočník kola 3, nález 3
+    const woo = /\/wc\/store\/v1\/products\/?$/.test(u.pathname);
     const jednoduche = u.pathname === '/' && /^\/wc\/store\/v1\/products\/?$/.test(route || '');
     if (route !== null && !/^\/wc\/store\/v1\/products\/?$/.test(route)) return false;
     return woo || jednoduche || (u.pathname === '/products.json' && route === null);
@@ -324,7 +326,8 @@ async function nacitajFeed(env, tenant, {
   const casRezervacie = Date.now();
   if (rezervovat) {
     const naklad = obnovaZaZnaky(znakyProduktov(feed.products));
-    if (!(await rezervujObnovu(env, naklad, casRezervacie, { podiel: podielObnovy }))) return odlozNacitanie(env, tenant, 'denny rozpocet obnovy vycerpany');
+    // samoobslužné načítanie má navyše vlastný strop 30 % (budget.js), cron posiela svojich 70 %
+    if (!(await rezervujObnovu(env, naklad, casRezervacie, { podiel: podielObnovy, samoobsluha: samoobsluzne }))) return odlozNacitanie(env, tenant, 'denny rozpocet obnovy vycerpany');
     rezervovane = naklad;
   }
 
@@ -349,7 +352,7 @@ async function nacitajFeed(env, tenant, {
     // Pri samoobsluhe je už rezervovaná, dorovná sa len rozdiel. Pri chybe
     // vektorov (catch nižšie) rezervácia ostáva: časť vektorov mohla bežať a
     // nevieme koľko, radšej započítať viac než menej.
-    await dorovnajObnovu(env, obnovaZaZnaky(summary.znakov), rezervovane, casRezervacie);
+    await dorovnajObnovu(env, obnovaZaZnaky(summary.znakov), rezervovane, casRezervacie, samoobsluzne);
     await setProductCount(env.DB, tenant.id, ponechat
       ? Math.max(Number(tenant.product_count) || 0, summary.productCount)
       : summary.productCount);

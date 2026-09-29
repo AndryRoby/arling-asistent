@@ -380,3 +380,40 @@ test('7. Verejné hostingové prípony nepovolia platformu ani susedný obchod',
     assert.equal(hostPatriDomene('cdn.obchod.' + p, 'obchod.' + p), true, p);
   }
 });
+
+// Útočník kola 3 (Claude, 29. 9.): samoobsluha s vlastným stropom, orezanie všetkých polí, vlastná predpona REST.
+test('7. samoobslužné rezervácie majú vlastný strop 30 %, súčet so 70 % cronu nikdy nad 100 %', async () => {
+  const e = prostredie(); e.AI_DAILY_OBNOVA_BUDGET = '10';
+  const samo = await Promise.all(Array.from({ length: 20 }, () => rezervujObnovu(e, 1000, undefined, { samoobsluha: true })));
+  assert.equal(samo.filter(Boolean).length, 3, 'samoobsluha najviac 30 %');
+  const cron = await Promise.all(Array.from({ length: 20 }, () => rezervujObnovu(e, 1000, undefined, { podiel: 0.7 })));
+  assert.equal(cron.filter(Boolean).length, 4, 'cron dorovná do 70 % spolu');
+  assert.ok(await usedObnovaToday(e) <= 10);
+  // aj keď samoobsluha narazí na strop, cron pre platiacich má stále miesto
+  const e2 = prostredie(); e2.AI_DAILY_OBNOVA_BUDGET = '10';
+  for (let i = 0; i < 10; i++) await rezervujObnovu(e2, 1000, undefined, { samoobsluha: true });
+  assert.equal(await rezervujObnovu(e2, 1000, undefined, { podiel: 0.7 }), true);
+});
+
+test('8. surové polia okrem názvu a popisu sú orezané (URL, obrázok, kategória, výrobca, EAN), 8 MB bez pádu', () => {
+  for (const tag of ['URL', 'IMGURL', 'CATEGORYTEXT', 'MANUFACTURER', 'EAN', 'ITEMGROUP_ID']) {
+    // vstup vzniká až v podprocese (8 MB sa nezmestí do príkazového riadka Windows)
+    const r = spawnSync(process.execPath, ['--max-old-space-size=128', '--input-type=module', '-e',
+      `const { parseHeurekaXml } = await import(${JSON.stringify(new URL('../worker/src/feed.js', import.meta.url).href)});
+       const zla = '&#99999999;'.repeat(Math.floor((8 * 1024 * 1024) / 11));
+       const x = '<SHOP><SHOPITEM><ITEM_ID>1</ITEM_ID><PRODUCTNAME>X</PRODUCTNAME><PRICE_VAT>9.99</PRICE_VAT><${tag}>' + zla + '</${tag}></SHOPITEM></SHOP>';
+       const t = Date.now(); const p = parseHeurekaXml(x, 'https://obchod.sk/export.xml');
+       const d = Math.max(0, ...p.flatMap((q) => Object.values(q || {}).map((v) => String(v).length)));
+       console.log(JSON.stringify({ d, ms: Date.now() - t }));`], { encoding: 'utf8' });
+    assert.equal(r.status, 0, tag + ' ' + (r.stderr || '').slice(0, 200));
+    const v = JSON.parse(r.stdout.trim().split(/\r?\n/).pop());
+    assert.ok(v.d <= 4100 && v.ms < 2000, tag + ' ' + JSON.stringify(v));
+  }
+});
+
+test('9. kanonický feed prijme vlastnú predponu REST, ktorú posiela plugin (get_rest_url)', () => {
+  assert.equal(jeKanonickyFeed('https://ludovka.eu/api/wc/store/v1/products?per_page=100', 'ludovka.eu'), true);
+  assert.equal(jeKanonickyFeed('https://ludovka.eu/wp-json/wc/store/v1/products', 'ludovka.eu'), true);
+  assert.equal(jeKanonickyFeed('https://ludovka.eu/out?u=https://zly.example/wc/store/v1/products', 'ludovka.eu'), false);
+  assert.equal(jeKanonickyFeed('https://ludovka.eu/api/wc/store/v1/products?search=zzz', 'ludovka.eu'), false);
+});

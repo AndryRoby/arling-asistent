@@ -421,10 +421,11 @@ export async function hasObnovaBudget(env, cost = 0, now = Date.now()) {
  * Pripočíta skutočný náklad načítania feedu (tisíciny neurónu) do rozpočtu
  * obnovy. Chat tento kľúč nečíta. Chyba D1 nič nezhodí.
  */
-export async function spendObnova(env, mili, now = Date.now()) {
+export async function spendObnova(env, mili, now = Date.now(), { samoobsluha = false } = {}) {
   if (!env || !env.DB || !(mili > 0)) return;
   try {
     await pripocitaj(env.DB, kluce.obnova(denUtc(now)), denUtc(now), mili);
+    if (samoobsluha) await pripocitaj(env.DB, kluce.obnovaSamo(denUtc(now)), denUtc(now), mili);
   } catch (e) {
     console.error('[arling-asistent] nepodarilo sa zapisat spotrebu obnovy:', e && e.message);
   }
@@ -438,16 +439,24 @@ export async function spendObnova(env, mili, now = Date.now()) {
  * Volá ju onboarding.js pri samoobslužnom načítaní (bezpečnostná kontrola
  * 29. 9. 2026: do vtedy sa nevolala nikde a brána len čítala).
  */
-export async function rezervujObnovu(env, mili, now = Date.now(), { podiel = 1 } = {}) {
+export const SAMOOBSLUHA_PODIEL_OBNOVY = 0.3;
+
+export async function rezervujObnovu(env, mili, now = Date.now(), { podiel = 1, samoobsluha = false } = {}) {
   const m = Math.max(0, Math.ceil(Number(mili) || 0));
   if (!env || !env.DB) return false;
   if (m === 0) return true;
   try {
     const den = denUtc(now);
-    // Cron používa 70 % toho istého denného počítadla. Rezervácia je atomická
-    // aj voči súbežnej registrácii; zvyšných 30 % smie použiť samoobsluha.
+    // Cron používa 70 % denného počítadla. Samoobslužné načítania majú navyše vlastné počítadlo so stropom
+    // 30 %, takže ani veľa falošných registrácií nevytlačí nočnú obnovu platiacich (útočník kola 3, nález 1).
+    if (samoobsluha) {
+      const stropSamo = Math.floor(obnovaLimit(env) * MILI * SAMOOBSLUHA_PODIEL_OBNOVY);
+      if ((await rezervuj(env.DB, kluce.obnovaSamo(den), den, m, stropSamo)) == null) return false;
+    }
     const strop = Math.floor(obnovaLimit(env) * MILI * Math.max(0, Math.min(1, Number(podiel) || 0)));
-    return (await rezervuj(env.DB, kluce.obnova(den), den, m, strop)) != null;
+    const ok = (await rezervuj(env.DB, kluce.obnova(den), den, m, strop)) != null;
+    if (!ok && samoobsluha) await vrat(env.DB, kluce.obnovaSamo(den), m);
+    return ok;
   } catch (e) {
     console.error('[arling-asistent] rezervacia rozpoctu obnovy zlyhala:', e && e.message);
     return false;
@@ -459,11 +468,12 @@ export async function rezervujObnovu(env, mili, now = Date.now(), { podiel = 1 }
  * dňa, v ktorom sa rezervovala (`now` rezervácie). Nikdy pod nulu, chyba D1
  * nič nezhodí.
  */
-export async function vratObnovu(env, mili, now = Date.now()) {
+export async function vratObnovu(env, mili, now = Date.now(), { samoobsluha = false } = {}) {
   const m = Math.max(0, Math.floor(Number(mili) || 0));
   if (!env || !env.DB || m === 0) return;
   try {
     await vrat(env.DB, kluce.obnova(denUtc(now)), m);
+    if (samoobsluha) await vrat(env.DB, kluce.obnovaSamo(denUtc(now)), m);
   } catch (e) {
     console.error('[arling-asistent] vratenie rezervacie obnovy zlyhalo:', e && e.message);
   }
