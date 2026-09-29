@@ -19,6 +19,8 @@ import {
   formatPriceForPrompt,
   polishAnswer,
   rozlisSkCs,
+  doplnKartyZTextu,
+  bezPrikladovOtazok,
   noMatchFallback,
   runChat,
   CHAT_MODEL_OPTIONS,
@@ -57,10 +59,10 @@ test("buildSystemPrompt: fixed languages carry the empty-answer protocol and the
 test('polishAnswer fixes known Slovak/Czech slips as whole words and gives prose prices two decimals, nothing else', () => {
   assert.equal(polishAnswer('Neznám počasie, kontaktujte nás.', 'sk'), 'Neviem počasie, kontaktujte nás.');
   assert.equal(polishAnswer('Máme niekoľko hrnecov, konkrétné dva.', 'sk'), 'Máme niekoľko hrncov, konkrétne dva.');
-  assert.equal(polishAnswer('Kávovar stojí 89.9 EUR, hrniec 44,9 € a fľaša 1.5 l, 3,5 l, 20 cm.', 'sk'), 'Kávovar stojí 89.90 EUR, hrniec 44,90 € a fľaša 1.5 l, 3,5 l, 20 cm.');
-  assert.equal(polishAnswer('Cena 89.90 EUR ostáva.', 'sk'), 'Cena 89.90 EUR ostáva.');
+  assert.equal(polishAnswer('Kávovar stojí 89.9 EUR, hrniec 44,9 € a fľaša 1.5 l, 3,5 l, 20 cm.', 'sk'), 'Kávovar stojí 89,90 €, hrniec 44,90 € a fľaša 1.5 l, 3,5 l, 20 cm.');
+  assert.equal(polishAnswer('Cena 89.90 EUR ostáva.', 'sk'), 'Cena 89,90 € ostáva.');
   assert.equal(polishAnswer('Neznámy výrobca.', 'sk'), 'Neznámy výrobca.'); // whole word only: "neznámy" is correct Slovak
-  assert.equal(polishAnswer('Neviem, stojí 12.5 Kč.', 'cs'), 'Nevím, stojí 12.50 Kč.');
+  assert.equal(polishAnswer('Neviem, stojí 12.5 Kč.', 'cs'), 'Nevím, stojí 12,50 Kč.');
   assert.equal(polishAnswer('Neznám it, 9.5 EUR.', 'en'), 'Neznám it, 9.50 EUR.'); // no slip table for en
   assert.equal(polishAnswer('', 'sk'), '');
 });
@@ -76,8 +78,8 @@ test('polishAnswer fixes known Slovak/Czech slips as whole words and gives prose
 test('polishAnswer under lang "auto" detects the slip table from the answer\'s own language, not the (unknown) requested one', () => {
   // The answer itself carries Slovak diacritics, so its own slips are still
   // caught even though the caller only knows lang: "auto" up front.
-  assert.equal(polishAnswer('Neznám, 9.5 EUR.', 'auto'), 'Neviem, 9.50 EUR.');
-  assert.equal(polishAnswer('Nevím, stojí 12.5 Kč.', 'auto'), 'Nevím, stojí 12.50 Kč.'); // already correct Czech, untouched
+  assert.equal(polishAnswer('Neznám, 9.5 EUR.', 'auto'), 'Neviem, 9,50 €.');
+  assert.equal(polishAnswer('Nevím, stojí 12.5 Kč.', 'auto'), 'Nevím, stojí 12,50 Kč.'); // already correct Czech, untouched
   // An answer with no sk/cs/de-detectable diacritics (plain English) has no
   // slip table at all (same as a fixed "en"/"de" request): price formatting
   // still applies, nothing else changes.
@@ -88,11 +90,44 @@ test('polishAnswer under lang "auto" detects the slip table from the answer\'s o
 // Slovenčina „ě“ nepozná; a česká odpoveď s á í ý (ktoré má aj slovenčina) nesmie dostať slovenské opravy.
 test('polishAnswer: český sklz „ě“ v slovenskej odpovedi opraví, českú odpoveď pod "auto" nechá po česky', () => {
   assert.equal(polishAnswer('V našom obchodě nájdete kávovar Orava Mini, červený alebo biely, za 89.9 EUR.', 'auto'),
-    'V našom obchode nájdete kávovar Orava Mini, červený alebo biely, za 89.90 EUR.');
+    'V našom obchode nájdete kávovar Orava Mini, červený alebo biely, za 89,90 €.');
   assert.equal(polishAnswer('Tento hrniec je vhodný aj v městě.', 'sk'), 'Tento hrniec je vhodný aj v meste.');
-  assert.equal(polishAnswer('Nabízíme kávovar, který stojí 89.9 EUR, jsme tu denně.', 'auto'), 'Nabízíme kávovar, který stojí 89.90 EUR, jsme tu denně.');
+  assert.equal(polishAnswer('Nabízíme kávovar, který stojí 89.9 EUR, jsme tu denně.', 'auto'), 'Nabízíme kávovar, který stojí 89,90 €, jsme tu denně.');
   assert.equal(polishAnswer('Neznám tento výrobek, jsou tu jen hrnce.', 'auto'), 'Neznám tento výrobek, jsou tu jen hrnce.'); // české „neznám“ ostáva
   assert.equal(polishAnswer('Jsme tu denně.', 'cs'), 'Jsme tu denně.');
+});
+
+// Naživo 29. 9. 2026 po 00:00 UTC: „Čím si doma pripravím dobrú kávu bez kapsúl?“ dostalo tykanie,
+// príklady otázok za odpoveďou, „kategorii“ a nula kariet, hoci odpoveď menovala dve kanvice.
+test('doplnKartyZTextu pridá karty k výrobkom, ktoré odpoveď menuje, len z kandidátov a v poradí textu', () => {
+  const c = [
+    { title: 'Mlynček na kávu ručný s keramickými kameňmi', url: 'u3', price: 34.9 },
+    { title: 'Rýchlovarná kanvica s nastavením teploty 1,7 l', url: 'u1', price: 54.9 },
+    { title: 'Kanvica na filtrovanú kávu s dlhým hrdlom 0,9 l', url: 'u2', price: 39.9 },
+    { title: 'Hrniec', url: 'u4', price: 10 },
+  ];
+  const t = 'Pomôže Kanvica na filtrovanú kávu s dlhým hrdlom 0,9 l za 39.90 EUR alebo rýchlovarná kanvica s nastavením teploty 1,7 L. Hrniec nie.';
+  assert.deepEqual(doplnKartyZTextu([], t, c).map((p) => p.url), ['u2', 'u1']); // krátky názov „Hrniec“ sa nepáruje
+  assert.deepEqual(doplnKartyZTextu([{ url: 'u2', title: 'x' }], t, c).map((p) => p.url), ['u2', 'u1']); // bez duplicity
+  const tri = [{ url: 'a' }, { url: 'b' }, { url: 'c' }];
+  assert.equal(doplnKartyZTextu(tri, t, c).length, 3); // strop troch kariet
+  assert.deepEqual(doplnKartyZTextu([], 'Máme kávovar Orava.', c), []); // nič menované, nič pridané
+});
+
+test('bezPrikladovOtazok odstrihne príklady otázok z odpovede o výrobkoch vo všetkých jazykoch, krátku odpoveď nechá', () => {
+  const zaklad = 'Dobrú kávu si pripravíte v kanvici na filtrovanú kávu za 39.90 EUR.';
+  assert.equal(bezPrikladovOtazok(zaklad + ' Príkladom môže byť otázka: Aké kávovary máte?'), zaklad);
+  assert.equal(bezPrikladovOtazok(zaklad + ' Môžete sa opýtať napríklad na ceny šálok.'), zaklad);
+  assert.equal(bezPrikladovOtazok('Kávu si připravíte v konvici za 39.90 EUR. Například se můžete zeptat na hrnky.'), 'Kávu si připravíte v konvici za 39.90 EUR.');
+  assert.equal(bezPrikladovOtazok('The pour-over kettle costs 39.90 EUR and suits filter coffee. For example, you can ask about mugs.'), 'The pour-over kettle costs 39.90 EUR and suits filter coffee.');
+  assert.equal(bezPrikladovOtazok('Der Wasserkocher kostet 39.90 EUR und passt gut. Sie können mich zum Beispiel fragen, was es kostet.'), 'Der Wasserkocher kostet 39.90 EUR und passt gut.');
+  assert.equal(bezPrikladovOtazok('Áno. Príkladom môže byť otázka: Aké hrnce máte?'), 'Áno. Príkladom môže byť otázka: Aké hrnce máte?');
+  assert.equal(bezPrikladovOtazok(zaklad), zaklad);
+});
+
+test('polishAnswer: obchod vyká, „kategorii“ opraví', () => {
+  assert.equal(polishAnswer('Kávu si môžeš pripraviť doma, nájdeš ju v kategorii Káva.', 'sk'), 'Kávu si môžete pripraviť doma, nájdete ju v kategórii Káva.');
+  assert.equal(polishAnswer('Môžeš si vybrať, čo máš rád.', 'auto'), 'Môžete si vybrať, čo máte rád.');
 });
 
 test('rozlisSkCs rozlíši slovenčinu a češtinu podľa znakov a slov len jedného jazyka, remíza je null', () => {
@@ -126,7 +161,7 @@ test('runChat sends the low-temperature sampling options to the chat model and p
   await vectorize.upsert([{ id: 't::p::0', values: [1, 0], metadata: { tenant: 't', productId: 'p', title: 'Hrniec', url: 'https://x/1', price: 34.9, currency: 'EUR', availability: 'in_stock' } }]);
   const ai = createMockAI({ embedDim: 2, chatResponse: JSON.stringify({ answer: 'Neznám presne, ale hrniec stojí 34.9 EUR.', products: [{ title: 'Hrniec', url: 'https://x/1' }] }) });
   const result = await runChat({ AI: ai, VECTORIZE: vectorize }, { tenant: { id: 't', contact_email: 'obchod@shop.sk' }, messages: [{ role: 'user', content: 'Koľko stojí hrniec?' }], lang: 'sk' });
-  assert.equal(result.answer, 'Neviem presne, ale hrniec stojí 34.90 EUR.');
+  assert.equal(result.answer, 'Neviem presne, ale hrniec stojí 34,90 €.');
   assert.equal(result.products.length, 1);
   assert.equal(ai.calls[1].input.temperature, CHAT_MODEL_OPTIONS.temperature);
   assert.equal(ai.calls[1].input.max_tokens, CHAT_MODEL_OPTIONS.max_tokens);

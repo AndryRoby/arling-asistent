@@ -46,6 +46,7 @@ import {
   retrieveCandidates,
   topCategoryNames,
   PUBLIC_ERROR_CORS,
+  polishAnswer,
 } from './chat.js';
 import { NEURONS, spocitajNaklady, isOurTest, hornaHranicaMili, vektorMili } from './budget.js';
 import { predOtazkou, poOtazke, poChybe, zivotnyCyklusBezZapoctu, dorezervuj, rezervujVektor, INTERNY_STROP } from './ochrana.js';
@@ -272,7 +273,7 @@ export function reconcileGiftPicks(modelPicks, candidates) {
 const bezDiakritiky = (t) => String(t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 
 // Obdarovaný je dospelý: čipy widgetu (sk, cs, en, de) a bežné slová v páde, v akom ich ľudia píšu.
-const DOSPELY_RE = /(?<!\p{L})(mama|mamu|mame|mamou|mamka|mamke|mamicka|mamina|maminka|mamince|matka|matke|otec|otca|otcovi|tato|tatovi|tata|tatinek|ocko|ockovi|babka|babku|babke|babicka|babicce|dedko|dedkovi|dedo|dedovi|dedecek|kolega|kolegu|kolegovi|kolegyna|kolegyne|kolegyni|partner|partnerka|partnerku|partnerovi|manzel|manzelka|manzelku|manzelovi|priatel|priatelka|priatelku|priatelovi|pritel|pritelkyne|kamarat|kamaratka|kamaratke|kamarad|kamaradka|sef|sefka|sefovi|sebe|sobe|mom|mum|mother|dad|father|grandma|grandmother|grandpa|grandfather|colleague|boss|husband|wife|boyfriend|girlfriend|friend|myself|mutter|mutti|vater|papa|oma|opa|kollege|kollegin|freund|freundin|ehemann|ehefrau|chef|chefin|selbst)(?!\p{L})/u;
+const DOSPELY_RE = /(?<!\p{L})(mama|mamu|mame|mamou|mamka|mamke|mamicka|mamina|maminka|mamince|matka|matke|otec|otca|otcovi|tato|tatovi|tata|tatinek|ocko|ockovi|babka|babku|babke|babicka|babicce|dedko|dedkovi|dedo|dedovi|dedecek|kolega|kolegu|kolegovi|kolegyna|kolegyne|kolegyni|partner|partnerka|partnerku|partnerovi|manzel|manzelka|manzelku|manzelovi|priatel|priatelka|priatelku|priatelovi|pritel|pritelkyne|kamarat|kamaratka|kamaratke|kamarad|kamaradka|sef|sefka|sefovi|sebe|seba|sobe|mom|mum|mother|dad|father|grandma|grandmother|grandpa|grandfather|colleague|boss|husband|wife|boyfriend|girlfriend|friend|myself|mutter|mutti|vater|papa|oma|opa|kollege|kollegin|freund|freundin|ehemann|ehefrau|chef|chefin|selbst)(?!\p{L})/u;
 // Výrobok pre deti podľa názvu a kategórie (nie popisu: „one of a kind“ nie je dieťa).
 const DETSKE_RE = /(?<!\p{L})(deti|detsk\p{L}*|dieta|dietatu|deticky|dojc\p{L}*|batol\p{L}*|babatk\p{L}*|miminko|miminka|hrack\p{L}*|kinder\p{L}*|baby|babies|toddlers?|child|children|kids?|toys?|spielzeug\p{L}*|skolk\p{L}*)(?!\p{L})/u;
 
@@ -438,7 +439,7 @@ async function runGiftVnutro(env, { tenant, recipient, budgetMin, budgetMax, int
   let parseError = false;
   try {
     const parsed = parseGiftModelJson(rawText);
-    picks = reconcileGiftPicks(parsed.picks, filtered);
+    picks = reconcileGiftPicks(parsed.picks, filtered).map((p) => (p.why ? { ...p, why: polishAnswer(p.why, lang, filtered) } : p));
   } catch (e) {
     parseError = true;
   }

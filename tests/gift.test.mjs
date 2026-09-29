@@ -292,7 +292,7 @@ test('bezDetskychPreDospeleho: dospelému bez detských výrobkov, dieťaťu a z
     { title: 'One of a kind mug', category: 'Gifts' },
   ];
   assert.deepEqual(bezDetskychPreDospeleho(c, 'Mama', '').map((x) => x.title), ['Bylinkový čaj darčekový box', 'One of a kind mug']);
-  for (const kto of ['Máma', 'Otec', 'Partner/ka', 'Kolega', 'Kamarát/ka', 'Sebe', 'Mum', 'Dad', 'Colleague', 'Oma', 'Kollege/in', 'Mich selbst', 'pre babku']) {
+  for (const kto of ['Máma', 'Otec', 'Partner/ka', 'Kolega', 'Kamarát/ka', 'Sebe', 'Mum', 'Dad', 'Colleague', 'Oma', 'Kollege/in', 'Mich selbst', 'pre babku', 'pre seba']) {
     assert.equal(jeDospely(kto), true, kto);
     assert.equal(bezDetskychPreDospeleho(c, kto, '').length, 2, kto);
   }

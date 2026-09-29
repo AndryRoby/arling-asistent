@@ -61,6 +61,11 @@ test('detectLangFromText picks sk/cs/de from characteristic diacritics or words,
   assert.equal(detectLangFromText('Haben Sie das in Größe M, und wie teuer ist es?'), 'de');
   assert.equal(detectLangFromText('Do you have this in size M?'), 'en');
   assert.equal(detectLangFromText(''), 'en');
+  // bez diakritiky podľa slov len jedného jazyka (naživo 29. 9. 2026, porovnanie bez modelu odpovedalo anglicky)
+  assert.equal(detectLangFromText('Porovnajte mi Ferrum Hron Inox FH-20 a Ferrum Hron Inox FH-24.'), 'sk');
+  assert.equal(detectLangFromText('Aky kavovar do 100 eur?'), 'sk');
+  assert.equal(detectLangFromText('Jaky hrnec pro indukci?'), 'cs');
+  assert.equal(detectLangFromText('Compare the FH-20 and the FH-24 for me.'), 'en');
 });
 
 test('buildSystemPrompt is language-specific, forbids invention, and demands JSON with at most 3 products', () => {
