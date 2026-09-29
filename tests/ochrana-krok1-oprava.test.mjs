@@ -575,8 +575,10 @@ test('riziko 8: vycerpany rozpocet obnovy preskoci dalsie obchody bez zmeny stav
   const v = await refreshAllFeeds(env, { now: pondelok });
   const podla = Object.fromEntries(v.map((x) => [x.tenantId, x]));
   assert.equal(podla[stary.id].preskocene, 'neaktivny');
-  assert.equal(podla[aktivny.id].ok, true, 'prvy sa este zmesti');
-  // Rozpočet 1 neurón je po prvom feede preč: ďalší aktívny by sa preskočil bez chyby.
+  assert.equal(podla[aktivny.id].ok, false, 'celý feed sa do rezervácie nezmestí');
+  assert.equal(podla[aktivny.id].preskocene, 'rozpocet_obnovy');
+  assert.equal(pocet(env, kluce.obnova(DEN())), 0, 'odmietnutý feed nič neminie');
+  // Ani ďalší aktívny obchod nesmie prekročiť strop; ready ostáva ready.
   const druhy = await readyTenant(env, 'druhy.sk');
   const v2 = await refreshAllFeeds(env, { now: pondelok });
   const d = v2.find((x) => x.tenantId === druhy.id);

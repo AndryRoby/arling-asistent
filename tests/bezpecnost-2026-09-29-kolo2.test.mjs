@@ -269,7 +269,8 @@ test('A2b. načítanie obchodu viaže feed na jeho doménu (nový obchod dostane
   const presmeruj = async (url) => (/utocnik/.test(url) ? predvolenyFetch(url) : { ok: false, status: 301, headers: new Headers({ location: 'https://utocnik.example/feed.xml' }), text: async () => '' });
   for (const [popis, pripravit, viazany] of [
     ['bežný obchod', (t) => t, true],
-    ['ukážka oslovenia', (t) => ({ ...t, zdroj: 'oslovenie' }), false],
+    ['oslovenie na vlastnom feede', (t) => ({ ...t, zdroj: 'oslovenie' }), true],
+    ['snímka oslovenia', (t) => ({ ...t, zdroj: 'oslovenie', feed_url: 'https://snimky.example/feed.xml' }), false],
     ['demo obchod', (t) => ({ ...t, domain: 'ukazka.arling.sk' }), false],
   ]) {
     for (const stav of [TENANT_STATUS.PENDING, TENANT_STATUS.READY]) {
@@ -313,6 +314,9 @@ test('A3. plugin 0.4.0 pri zmene adresy REST (R1): rovnaký majiteľ bez Bearera
         const row = env.DB._tenants.get(id);
         row.created_at = new Date(Date.now() - TRI_DNI).toISOString();
         if (stav !== TENANT_STATUS.READY) await setTenantStatus(env.DB, id, stav, { now: new Date(Date.now() - TRI_DNI) });
+        // Ready sa bez Bearera opravuje len po chybe a na kanonickú cestu.
+        if (stav === TENANT_STATUS.READY) await env.ASISTENT_CACHE.put(`ingest-error:${id}`, 'feed_http_404');
+        const povolena = stav !== TENANT_STATUS.READY || !/\/api\/|\/shop\//.test(new URL(nova).pathname);
         const popis = `${nova} ${stav} ${email}`;
         const res = await worker.fetch(tenantReq({ feed_url: nova, domain: 'obchod.sk', email, lang: 'en', zdroj: 'wordpress' }, { plugin: true }), env, ctx);
         await dobehni();
@@ -320,9 +324,9 @@ test('A3. plugin 0.4.0 pri zmene adresy REST (R1): rovnaký majiteľ bez Bearera
         const telo = await res.json();
         assert.equal(telo.id, id, popis);
         assert.equal(telo.existing, true, popis);
-        assert.equal(telo.feed_treba_overit, undefined, popis);
+        assert.equal(telo.feed_treba_overit, povolena ? undefined : true, popis);
         const po = await getTenantById(env.DB, id);
-        assert.equal(po.feed_url, nova, popis);
+        assert.equal(po.feed_url, povolena ? nova : stara, popis);
         assert.equal(po.status, TENANT_STATUS.READY, popis);
       }
     }
@@ -410,7 +414,8 @@ test('A5. bežiaci obchod prevezme nový feed z vlastnej domény až po úspešn
     const vektoryPred = vektoryObchodu(env, id);
     env.fetchImpl = zlyFetch;
     const { ctx, dobehni } = ctxNaPozadi();
-    const res = await worker.fetch(tenantReq({ feed_url: 'https://obchod.sk/uvod', domain: 'obchod.sk', email: 'majitel@obchod.sk' }), env, ctx);
+    const token = await tokenPre(env, 'majitel@obchod.sk');
+    const res = await worker.fetch(tenantReq({ feed_url: 'https://obchod.sk/uvod', domain: 'obchod.sk', email: 'majitel@obchod.sk' }, { token }), env, ctx);
     await dobehni();
     assert.equal(res.status, 200, popis);
     const po = await getTenantById(env.DB, id);
@@ -421,7 +426,7 @@ test('A5. bežiaci obchod prevezme nový feed z vlastnej domény až po úspešn
     assert.equal(await readIngestError(env, id), kod, popis);
 
     env.fetchImpl = async (url) => predvolenyFetch(url);
-    await worker.fetch(tenantReq({ feed_url: 'https://obchod.sk/novy.xml', domain: 'obchod.sk', email: 'majitel@obchod.sk' }), env, ctx);
+    await worker.fetch(tenantReq({ feed_url: 'https://obchod.sk/novy.xml', domain: 'obchod.sk', email: 'majitel@obchod.sk' }, { token: await tokenPre(env, 'majitel@obchod.sk') }), env, ctx);
     await dobehni();
     assert.equal((await getTenantById(env.DB, id)).feed_url, 'https://obchod.sk/novy.xml', popis);
   }
@@ -545,7 +550,7 @@ test('B1. po každom úspešnom načítaní ostanú vo Vectorize len vektory z n
         assert.equal(r.ok, true, popis);
       } else {
         const { ctx, dobehni } = ctxNaPozadi();
-        await worker.fetch(tenantReq({ feed_url: 'https://obchod.sk/novy.xml', domain: 'obchod.sk', email: 'majitel@obchod.sk' }), env, ctx);
+        await worker.fetch(tenantReq({ feed_url: 'https://obchod.sk/novy.xml', domain: 'obchod.sk', email: 'majitel@obchod.sk' }, { token: await tokenPre(env, 'majitel@obchod.sk') }), env, ctx);
         await dobehni();
         assert.equal((await getTenantById(env.DB, id)).feed_url, 'https://obchod.sk/novy.xml', popis);
       }

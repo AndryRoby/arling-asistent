@@ -29,6 +29,9 @@ import { isPrivateHost, hostPatriDomene } from './tenants.js';
 import { citajTelo } from './eshop-kontrola.js';
 
 export const MAX_PRODUCTS = 5000;
+// Surové polia sa orežú pred dekódovaním entít a odstraňovaním značiek.
+export const SUROVY_POPIS_MAX = 20000;
+export const SUROVY_NAZOV_MAX = 2000;
 
 // ---------------------------------------------------------------------------
 // Small text helpers
@@ -49,12 +52,7 @@ export function decodeXmlEntities(text) {
     if (code[0] === '#') {
       const isHex = code[1] === 'x' || code[1] === 'X';
       const num = isHex ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
-      if (Number.isNaN(num)) return match;
-      try {
-        return String.fromCodePoint(num);
-      } catch (e) {
-        return match;
-      }
+      return num >= 0 && num <= 0x10ffff ? String.fromCodePoint(num) : match;
     }
     return Object.prototype.hasOwnProperty.call(ENTITY_MAP, code) ? ENTITY_MAP[code] : match;
   });
@@ -124,17 +122,16 @@ function odstranSkriptyAStyly(s) {
 /** Strip HTML tags from a description and collapse whitespace to plain text. */
 export function stripHtml(text) {
   if (!text) return '';
-  const bezSkriptov = odstranSkriptyAStyly(String(text));
+  const bezSkriptov = odstranSkriptyAStyly(String(text))
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|li)>/gi, '\n');
   // Značka <…> sa dá dokončiť len po posledný '>'. Za ním ostáva text bez
   // zmeny (tak ako predtým), len ho regulárny výraz neprechádza pre každé
   // osamelé '<' znova až do konca.
   const posledny = bezSkriptov.lastIndexOf('>');
   const hlava = posledny >= 0 ? bezSkriptov.slice(0, posledny + 1) : '';
   const chvost = posledny >= 0 ? bezSkriptov.slice(posledny + 1) : bezSkriptov;
-  const withoutTags = hlava
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/(p|div|li)>/gi, '\n')
-    .replace(/<[^>]+>/g, ' ') + chvost;
+  const withoutTags = hlava.replace(/<[^>]+>/g, ' ') + chvost;
   return decodeXmlEntities(withoutTags)
     .replace(/[ \t]+/g, ' ')
     .replace(/ +([.,!?;:])/g, '$1')
@@ -191,7 +188,14 @@ export function extractTag(xml, tagName) {
   const text = String(xml || '');
   const b = najdiBlok(text, vzoryZnacky(tagName), 0);
   if (!b) return '';
-  return decodeXmlEntities(stripCdata(text.slice(b.obsahOd, b.obsahDo))).trim();
+  const meno = String(tagName).toLowerCase().split(':').pop();
+  const limit = meno === 'description' ? SUROVY_POPIS_MAX
+    : /^(name|title|productname|product)$/.test(meno) ? SUROVY_NAZOV_MAX : Infinity;
+  const koniec = Math.min(b.obsahDo, b.obsahOd + limit);
+  let obsah = text.slice(b.obsahOd, koniec);
+  // Rez uprostred CDATA nemá zmeniť jej obsah na nedokončenú značku.
+  if (koniec < b.obsahDo && obsah.lastIndexOf('<![CDATA[') > obsah.lastIndexOf(']]>')) obsah += ']]>';
+  return decodeXmlEntities(stripCdata(obsah)).trim();
 }
 
 /** Extract an attribute value from the first matching self-closing/opening tag, e.g. <g:image_link href="..."/>. */
@@ -523,8 +527,8 @@ function mapShopifyProducts(products, feedUrl) {
     const url = p.handle ? absoluteUrl(`/products/${p.handle}`, feedUrl) : '';
     return {
       id: p.id != null ? String(p.id) : '',
-      title: p.title || '',
-      description: p.body_html || '',
+      title: String(p.title || '').slice(0, SUROVY_NAZOV_MAX),
+      description: String(p.body_html || '').slice(0, SUROVY_POPIS_MAX),
       price: firstVariant.price != null ? String(firstVariant.price) : '',
       link: url,
       image,
@@ -559,11 +563,11 @@ function mapWooCommerceProducts(products, feedUrl) {
     }
     const image = (Array.isArray(p.images) && p.images[0] && p.images[0].src) || '';
     const category = (Array.isArray(p.categories) && p.categories[0] && p.categories[0].name) || '';
-    const description = p.short_description || p.description || '';
+    const description = String(p.short_description || p.description || '').slice(0, SUROVY_POPIS_MAX);
     const inStock = p.stock_status ? p.stock_status === 'instock' : (p.is_in_stock !== undefined ? !!p.is_in_stock : true);
     return {
       id: p.id != null ? String(p.id) : '',
-      title: p.name || '',
+      title: String(p.name || '').slice(0, SUROVY_NAZOV_MAX),
       description,
       price,
       currency,
@@ -607,11 +611,11 @@ const OPTIONAL_PRODUCT_FIELDS = ['brand', 'gtin', 'group'];
 export const TITLE_MAX_LEN = 180;
 
 export function normaliseProduct(raw, { defaultCurrency = 'EUR', descriptionMaxLen = 600 } = {}) {
-  const celyTitul = String(raw.title || '').trim();
+  const celyTitul = String(raw.title || '').slice(0, SUROVY_NAZOV_MAX).trim();
   const title = truncate(celyTitul, TITLE_MAX_LEN);
-  // Id z celého názvu, nie orezaného: produkty bez id si nechajú ten istý vektor.
+  // Id používa surový názov do bezpečnostného stropu, nie zobrazovaných 180 znakov.
   const id = String(raw.id || '').trim() || celyTitul;
-  const description = truncate(stripHtml(raw.description || ''), descriptionMaxLen);
+  const description = truncate(stripHtml(String(raw.description || '').slice(0, SUROVY_POPIS_MAX)), descriptionMaxLen);
   const priceNumber = parseFloat(String(raw.price || '').replace(/[^0-9.,]/g, '').replace(',', '.'));
   const product = {
     id,
@@ -668,7 +672,8 @@ function hotovyFeed(type, rawItems, options = {}, { orezane = false } = {}) {
     .map((raw) => normaliseProduct(raw, options))
     .filter((p) => p.title && p.id);
 
-  return { type, products, truncated };
+  // Strop počtu produktov ostáva v truncated, ale neznamená chybu sťahovania.
+  return { type, products, truncated, neuplny: orezane };
 }
 
 const FEED_FETCH_HEADERS = { 'user-agent': 'ARLingAsistentBot/1.0 (+https://arling.sk/asistent/)' };
@@ -956,15 +961,15 @@ async function fetchPaginatedJsonList(feedUrl, fetchImpl, { sizeParam, pageSize,
         domena: limity.domena,
       });
     } catch (e) {
-      const limit = e && (e.message === FEED_CHYBY.PRILIS_VELKY || e.message === FEED_CHYBY.CAS);
-      if (page === 1 || !limit) throw e;
+      if (page === 1 || e instanceof FeedUrlNotAllowedError) throw e;
       orezane = true;
       break; // strop bajtov alebo času na neskoršej strane: nechať, čo už je stiahnuté
     }
     const { res, text, bajtov } = stiahnute;
     if (!res.ok) {
       if (page === 1) throw new Error(`feed_fetch_failed_${res.status}`);
-      break; // stop on non-200: keep whatever was already fetched
+      orezane = true;
+      break; // Chyba ďalšej strany nesmie vymazať zvyšok katalógu.
     }
     bajtovSpolu += bajtov;
 
@@ -973,7 +978,7 @@ async function fetchPaginatedJsonList(feedUrl, fetchImpl, { sizeParam, pageSize,
       pageItems = extractItems(parsujJsonSoStropom(text, { maxZnakov: limity.maxJsonBajtov }));
     } catch (e) {
       if (page === 1) throw e;
-      if (e && e.message === FEED_CHYBY.PRILIS_VELKY) orezane = true;
+      orezane = true;
       break;
     }
 
@@ -988,7 +993,10 @@ function fetchShopifyProductsPaginated(feedUrl, fetchImpl, limity) {
   return fetchPaginatedJsonList(feedUrl, fetchImpl, {
     sizeParam: 'limit',
     pageSize: SHOPIFY_PRODUCTS_JSON_PAGE_SIZE,
-    extractItems: (parsed) => (parsed && Array.isArray(parsed.products) ? parsed.products : []),
+    extractItems: (parsed) => {
+      if (!parsed || !Array.isArray(parsed.products)) throw new Error('unrecognised_feed_format');
+      return parsed.products;
+    },
     mapItems: mapShopifyProducts,
   }, limity);
 }
@@ -997,7 +1005,10 @@ function fetchWooCommerceStoreApiPaginated(feedUrl, fetchImpl, limity) {
   return fetchPaginatedJsonList(feedUrl, fetchImpl, {
     sizeParam: 'per_page',
     pageSize: WOOCOMMERCE_STORE_API_PAGE_SIZE,
-    extractItems: (parsed) => (Array.isArray(parsed) ? parsed : []),
+    extractItems: (parsed) => {
+      if (!Array.isArray(parsed)) throw new Error('unrecognised_feed_format');
+      return parsed;
+    },
     mapItems: mapWooCommerceProducts,
   }, limity);
 }
@@ -1037,6 +1048,9 @@ export async function fetchFeed(feedUrl, {
   }
   // Jeden JSON (nie stránkovaný) má ten istý strop ako jedna strana.
   const vysledok = parsujRozpoznany(rozpoznajFeed(text, { maxZnakov: maxJsonBajtov }), text, feedUrl, options);
-  if (orezane) vysledok.truncated = true;
+  if (orezane) {
+    vysledok.truncated = true;
+    vysledok.neuplny = true;
+  }
   return vysledok;
 }

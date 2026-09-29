@@ -330,10 +330,16 @@ export const VEREJNE_PRIPONY = new Set([
   'myshopify.com', 'myshoptet.com', 'wixsite.com', 'wix.com', 'webnode.sk', 'webnode.cz', 'webnode.com', 'webnode.page',
   'wordpress.com', 'wpcomstaging.com', 'blogspot.com', 'weebly.com', 'jimdosite.com', 'jimdofree.com', 'squarespace.com',
   'square.site', 'company.site', 'mybigcommerce.com', 'webflow.io', 'framer.website', 'framer.app', 'tilda.ws', 'carrd.co',
+  'eshop-rychle.cz', 'eshop-rychlo.sk', 'webareal.cz', 'webareal.sk', 'upgates.shop', 'shoptet.sk', 'myshoptet.com',
+  'byznysweb.cz', 'biznisweb.sk', 'blogspot.sk', 'blogspot.cz', 'blogspot.de',
+  // Verejné subdomény a dynamické DNS
+  'eu.org', 'duckdns.org', 'ddns.net', 'ddns.me', 'no-ip.org', 'hopto.org',
+  'zapto.org', 'sytes.net', 'dynu.net',
   // hosting a nasadenie
   'github.io', 'gitlab.io', 'pages.dev', 'workers.dev', 'netlify.app', 'vercel.app', 'herokuapp.com', 'onrender.com',
   'fly.dev', 'r2.dev', 'web.app', 'firebaseapp.com', 'appspot.com', 'azurewebsites.net', 'cloudfront.net',
   's3.amazonaws.com', 'pantheonsite.io', 'wpengine.com', 'cloudwaysapps.com', '000webhostapp.com',
+  'glitch.me', 'azurestaticapps.net', 'surge.sh', 'readthedocs.io', 'replit.app', 'repl.co',
   'trycloudflare.com', 'ngrok.io', 'ngrok-free.app', 'ngrok.app', 'ts.net',
 ]);
 

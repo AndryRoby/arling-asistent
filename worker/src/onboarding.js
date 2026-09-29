@@ -158,6 +158,14 @@ export async function ingestFeedForTenant(env, tenant, opts = {}) {
   // alebo o nočnú obnovu obchodu, ktorý bol ready už predtým (bez e-mailu).
   const bolReady = !!tenant && tenant.status === TENANT_STATUS.READY;
   const result = await nacitajFeed(env, tenant, opts);
+  // Posledný časový alebo veľkostný strop rozhoduje o poradí ďalšej obnovy.
+  // Odloženie pre rozpočet nesmie vymazať predchádzajúci náročný beh.
+  if (result.code !== INGEST_ERRORS.AI_BUDGET && env.ASISTENT_CACHE) {
+    const narocny = result.neuplny || /feed_timeout|feed_too_large|cpu|exceeded.*time/i.test(result.error || '');
+    try {
+      await env.ASISTENT_CACHE.put(`ingest-limit:${tenant.id}`, narocny ? '1' : '0', { expirationTtl: INGEST_ERROR_TTL_SECONDS });
+    } catch (e) { /* Poradie obnovy nesmie zhodiť úspešné načítanie. */ }
+  }
   await poNacitani(env, tenant, result, { bolReady });
   return result;
 }
@@ -197,9 +205,41 @@ async function dorovnajObnovu(env, skutocne, rezervovane, casRezervacie) {
  * našom serveri, zakladá ju len vytvor-ukazku.py s admin tokenom) a demo
  * obchod ARLing (README „Demo tenanti“).
  */
-export function domenaFeeduObchodu(env, tenant) {
-  if (!tenant || jeOslovenieTenant(tenant) || jeDemo(env, tenant.domain)) return null;
+export function domenaFeeduObchodu(env, tenant, feedUrl = tenant?.feed_url) {
+  if (!tenant || jeDemo(env, tenant.domain)) return null;
+  if (jeOslovenieTenant(tenant) && !feedPatriDomene(feedUrl, tenant.domain)) return null;
   return tenant.domain;
+}
+
+/** Výnimka bez Bearera prijíma iba úplný verejný katalóg, bez filtrov. */
+export function jeKanonickyFeed(feedUrl, domena) {
+  if (!feedPatriDomene(feedUrl, domena)) return false;
+  try {
+    const u = new URL(feedUrl);
+    if (!/^https?:$/.test(u.protocol) || u.username || u.password || u.hash) return false;
+    const povolene = new Set(['rest_route', 'per_page', 'page', 'lang']);
+    const videne = new Set();
+    for (const [kluc] of u.searchParams) {
+      if (!povolene.has(kluc) || videne.has(kluc)) return false;
+      videne.add(kluc);
+    }
+    const route = u.searchParams.get('rest_route');
+    const woo = /^\/wp-json\/wc\/store\/v1\/products\/?$/.test(u.pathname);
+    const jednoduche = u.pathname === '/' && /^\/wc\/store\/v1\/products\/?$/.test(route || '');
+    if (route !== null && !/^\/wc\/store\/v1\/products\/?$/.test(route)) return false;
+    return woo || jednoduche || (u.pathname === '/products.json' && route === null);
+  } catch (e) {
+    return false;
+  }
+}
+
+/** Posledné načítanie narazilo na čas, CPU alebo veľkosť. Bez KV nie je dôkaz. */
+export async function readIngestLimit(env, tenantId) {
+  try {
+    return (await env.ASISTENT_CACHE?.get(`ingest-limit:${tenantId}`)) === '1';
+  } catch (e) {
+    return false;
+  }
 }
 
 /**
@@ -234,19 +274,25 @@ async function zlyhanieNacitania(env, tenant, code, error, { feedType = null, nu
  * (bežiaci obchod mení feed, createTenantFromRequest); pri zlyhaní ostáva
  * doterajší feed aj katalóg.
  */
-async function nacitajFeed(env, tenant, { samoobsluzne = false, rezervovat = samoobsluzne, novyFeed = null } = {}) {
+async function nacitajFeed(env, tenant, {
+  samoobsluzne = false,
+  rezervovat = samoobsluzne || publicPlanName(tenant.plan) === 'free' || jeDemo(env, tenant.domain),
+  novyFeed = null,
+  zmenenyFeed = false, minProduktov = 0, zachovatKatalog = false, podielObnovy = 1,
+} = {}) {
   if (samoobsluzne) {
     const rozpocet = await hasBudget(env, INGEST_MIN_NEURONS);
     if (!rozpocet.ok) return odlozNacitanie(env, tenant, 'denny strop neuronov vycerpany');
   }
   const feedUrl = novyFeed || tenant.feed_url;
+  const meniAdresu = zmenenyFeed || feedUrl !== tenant.feed_url;
 
   // Stiahnutie feedu má vlastný try: jeho chyby sú chyby obchodu (firewall,
   // prihlasovanie, vypnuté REST API) a majiteľ ich vie opraviť, preto dostanú
   // vlastný kód. Chyba až pri vektoroch je naša a hlási sa ako internal.
   let feed;
   try {
-    feed = await fetchFeed(feedUrl, { fetchImpl: env.fetchImpl || fetch, domena: domenaFeeduObchodu(env, tenant) });
+    feed = await fetchFeed(feedUrl, { fetchImpl: env.fetchImpl || fetch, domena: domenaFeeduObchodu(env, tenant, feedUrl) });
   } catch (err) {
     return zlyhanieNacitania(env, tenant, classifyFeedError(err), String((err && err.message) || err));
   }
@@ -270,11 +316,15 @@ async function nacitajFeed(env, tenant, { samoobsluzne = false, rezervovat = sam
   // N-násobne). Teraz sa presný náklad (embed.js znakyProduktov, horná hranica
   // skutočnosti) PRED vektormi atomicky rezervuje (budget.js rezervujObnovu)
   // a po nich sa dorovná len rozdiel.
+  // Kontrola pred prvým vektorom aj zápisom novej adresy.
+  if (feed.products.length < minProduktov) {
+    return zlyhanieNacitania(env, tenant, INGEST_ERRORS.NOT_READABLE, 'feed_product_count_drop');
+  }
   let rezervovane = 0;
   const casRezervacie = Date.now();
   if (rezervovat) {
     const naklad = obnovaZaZnaky(znakyProduktov(feed.products));
-    if (!(await rezervujObnovu(env, naklad, casRezervacie))) return odlozNacitanie(env, tenant, 'denny rozpocet obnovy vycerpany');
+    if (!(await rezervujObnovu(env, naklad, casRezervacie, { podiel: podielObnovy }))) return odlozNacitanie(env, tenant, 'denny rozpocet obnovy vycerpany');
     rezervovane = naklad;
   }
 
@@ -287,10 +337,12 @@ async function nacitajFeed(env, tenant, { samoobsluzne = false, rezervovat = sam
       await setFeedUrl(env.DB, tenant.id, novyFeed);
       tenant.feed_url = novyFeed;
     }
-    // Vektory, ktoré v tomto načítaní nie sú (produkt zmizol, zmenený alebo
-    // cudzí feed), preč z indexu; zoznam id v KV (zivotny-cyklus.js) slúži aj
-    // úplnému výmazu účtu. Chyba mazania nič nezhodí.
-    const vymena = await vymenVektory(env, tenant.id, idsVektorov);
+    // Neúplná obnova rovnakého feedu a oprava ready bez Bearera nič nemažú.
+    // Pri zmene zdroja sa staré produkty odstránia, okrem takejto opravy.
+    const ponechat = zachovatKatalog || (feed.neuplny && !meniAdresu);
+    let vymena = { zmazane: 0 };
+    if (ponechat) await zapamatajVektory(env, tenant.id, idsVektorov);
+    else vymena = await vymenVektory(env, tenant.id, idsVektorov);
     // Spotreba sa zapisuje vždy, aj pri cron obnove, do vlastného rozpočtu
     // obnovy (nie do spoločného stropu chatu) a v skutočných neurónoch
     // bge-m3 podľa dĺžky textov (predtým pevný 1 neurón na kus, asi 4-krát viac).
@@ -298,7 +350,9 @@ async function nacitajFeed(env, tenant, { samoobsluzne = false, rezervovat = sam
     // vektorov (catch nižšie) rezervácia ostáva: časť vektorov mohla bežať a
     // nevieme koľko, radšej započítať viac než menej.
     await dorovnajObnovu(env, obnovaZaZnaky(summary.znakov), rezervovane, casRezervacie);
-    await setProductCount(env.DB, tenant.id, summary.productCount);
+    await setProductCount(env.DB, tenant.id, ponechat
+      ? Math.max(Number(tenant.product_count) || 0, summary.productCount)
+      : summary.productCount);
     // Stav sa prepina ako prvy a bez podmienok. Zakaznik, ktory ma produkty
     // nacitane, nesmie ostat visiet na pending len preto, ze nam nieco
     // spadlo alebo trvalo prilis dlho.
@@ -307,7 +361,7 @@ async function nacitajFeed(env, tenant, { samoobsluzne = false, rezervovat = sam
     // Dopyt je uz len zistenie, ako dlho index potrebuje, nez zacne
     // odpovedat. Nic neblokuje a jeho vysledok ide do summary.
     const probe = await waitForQueryableIndex(env, tenant.id, products);
-    return { ok: true, feedType: type, truncated, ...summary, zmazaneVektory: vymena.zmazane, indexProbe: probe };
+    return { ok: true, feedType: type, truncated, neuplny: feed.neuplny, ...summary, zmazaneVektory: vymena.zmazane, indexProbe: probe };
   } catch (err) {
     // Časť vektorov mohla byť zapísaná: ich id do zoznamu pre výmaz účtu a
     // ďalšie načítanie (nič sa nemaže, katalóg je neúplný).
@@ -594,27 +648,16 @@ export async function jeCerstvaSkuska(env, tenant, now = new Date()) {
  *     bez zmeny a odpoveď nesie feed_treba_overit: true (formulár vtedy pýta
  *     kód a prosí o nové odoslanie).
  *
- * DRUHÉ KOLO 29. 9. 2026 (protivnícka kontrola opravy)
+ * TRETIE KOLO 29. 9. 2026
  *
- * Výnimka 24 h a zhoda e-mailu (e-mail nie je tajomstvo: plugin predvypĺňa
- * admin_email, oslovenia používajú verejnú adresu obchodu) stále pustili
- * cudzí feed na cudziu doménu, a oprava zároveň zablokovala plugin 0.4.0 pri
- * zmene adresy REST aj prechod osloveného obchodu zo snímky na jeho Store
- * API. Príčina bola spoločná: chýbala väzba feedu na doménu obchodu. Odteraz:
- *   - Hostiteľ feedu (aj každý skok presmerovania pri sťahovaní) musí byť
- *     doména obchodu alebo jej subdoména, inak 400 feed_other_domain
- *     (overFeedNaDomene). Výnimka len pre zdroj oslovenie, ktorý smie
- *     nastaviť iba náš skript s admin tokenom (feed ukážky je na našom serveri).
- *   - Feed na doméne obchodu smie majiteľ (zhoda e-mailu) zmeniť aj bez
- *     Bearera: je to katalóg toho istého webu. Bežiaci obchod nový feed
- *     prevezme až po úspešnom načítaní (nacitajFeed novyFeed), takže zlá
- *     adresa mu nevymení funkčný katalóg za chybu.
- *   - Ukážka osloveného obchodu (zdroj oslovenie, kontakt je verejná adresa
- *     obchodu, ktorú sme zadali my) sa pripojí s ľubovoľným e-mailom a prepne
- *     sa na feed z domény obchodu (plugin posiela Store API toho istého webu).
- *     contact_email, jazyk ani overenie sa pri inom e-maile nemenia.
- *   - feed_treba_overit ostáva len pre náš skript oslovení, ktorý by chcel
- *     obchodu mimo oslovení dať feed z iného servera.
+ * Každý skok feedu sa viaže na doménu obchodu. Výnimka oslovenia platí len
+ * pre snímku mimo domény. Prvé pripojenie snímky bez zhody e-mailu prijíma
+ * len kanonický Store API alebo Shopify katalóg, bez filtrov.
+ * Ready obchod bez Bearera mení feed len po chybe, na kanonický katalóg
+ * s aspoň polovicou produktov; pri tejto oprave sa nič nemaže. Prechod zo
+ * snímky je prvé pripojenie: platí polovica produktov, stará snímka sa zmaže.
+ * Overený majiteľ smie zmeniť feed na doméne aj bez predchádzajúcej chyby.
+ * Zamietnutá zmena vráti feed_treba_overit a nespustí žiadne načítanie.
  */
 export async function createTenantFromRequest(env, { feedUrl, domain, email, lang, zdroj, userAgent, overenyEmail = null, povolitOslovenie = false }, { waitUntil, now = new Date() } = {}) {
   // Jazyk e-mailov a odkiaľ účet vznikol (návrh ops/asistent/zivotny-cyklus.md 1.3).
@@ -647,18 +690,28 @@ export async function createTenantFromRequest(env, { feedUrl, domain, email, lan
     const jeMajitel = !!poslanyNorm && bezpecnePorovnaj(poslanyNorm, majitelEmail);
     // Ukážku osloveného obchodu sme založili my s verejnou adresou obchodu;
     // majiteľ ju pripojí pluginom s adresou administrátora (druhé kolo, R2).
-    const oslovenyObchod = jeOslovenieTenant(existing);
-    // Iný e-mail: žiadne id, stav ani plán cudzieho obchodu (nález 2 kontroly 29. 9.).
-    if (!jeMajitel && !oslovenyObchod) throw new DomainTakenError(existing.domain, jazyk);
+    const oslovenyNaSnimke = jeOslovenieTenant(existing) && !feedPatriDomene(existing.feed_url, existing.domain);
+    const cleanFeedUrl = String(feedUrl || '').trim();
+    const kanonicky = jeKanonickyFeed(cleanFeedUrl, existing.domain);
+    const pripojenieSnimky = oslovenyNaSnimke && kanonicky;
+    // Po pripojení vlastného feedu zdroj oslovenie už neudeľuje výnimku.
+    if (!jeMajitel && !pripojenieSnimky && !(nasSkriptOsloveni && oslovenyNaSnimke)) {
+      throw new DomainTakenError(existing.domain, jazyk);
+    }
 
     // overenyMajitel = Bearer pre contact_email (poslaný e-mail je majiteľov a Bearer patrí jemu).
     const overenyMajitel = overeny && jeMajitel;
-    const cleanFeedUrl = String(feedUrl || '').trim();
     const inyFeed = !!cleanFeedUrl && cleanFeedUrl !== existing.feed_url;
-    // Feed na doméne obchodu smie zmeniť každý, kto sa sem dostal (majiteľ, ukážka
-    // oslovenia); overFeedNaDomene vyššie iný ani nepustí. Náš skript oslovení smie
-    // navyše feed zo svojho servera, ale len ukážke oslovenia.
-    const smieFeed = inyFeed && (feedPatriDomene(cleanFeedUrl, existing.domain) || (nasSkriptOsloveni && oslovenyObchod));
+    const bezi = existing.status === TENANT_STATUS.READY;
+    const skriptSnimky = nasSkriptOsloveni && oslovenyNaSnimke;
+    const opravaBezBearera = jeMajitel && !overenyMajitel && !skriptSnimky
+      && !pripojenieSnimky && bezi && kanonicky
+      && (await readIngestError(env, existing.id)) !== null;
+    const smieFeed = inyFeed && (
+      (feedPatriDomene(cleanFeedUrl, existing.domain)
+        && (overenyMajitel || !bezi || pripojenieSnimky || opravaBezBearera))
+      || skriptSnimky
+    );
     // Bežiaci obchod prevezme nový feed až po úspešnom načítaní; ostatné hneď.
     const feedPoNacitani = smieFeed && existing.status === TENANT_STATUS.READY;
     if (smieFeed && !feedPoNacitani) {
@@ -672,7 +725,7 @@ export async function createTenantFromRequest(env, { feedUrl, domain, email, lan
     }
     // Majiteľ, ktorý adresu práve potvrdil kódom: zapísať overenie.
     if (overenyMajitel) await poOvereniMajitela(env, existing, { now, waitUntil });
-    if (smieFeed || isIngestionStale(existing, now)) {
+    if (smieFeed || (!inyFeed && isIngestionStale(existing, now))) {
       // Obchod v stave error sa pri novom pokuse prepne na pending hneď,
       // ešte pred načítaním. Inak by plugin po kliknutí na „Try again“
       // ďalej ukazoval starú chybu, kým načítanie nedobehne, a majiteľ by
@@ -682,7 +735,14 @@ export async function createTenantFromRequest(env, { feedUrl, domain, email, lan
         await setTenantStatus(env.DB, existing.id, TENANT_STATUS.PENDING);
         existing.status = TENANT_STATUS.PENDING;
       }
-      await startIngestion(env, existing, waitUntil, { samoobsluzne: true, novyFeed: feedPoNacitani ? cleanFeedUrl : null });
+      await startIngestion(env, existing, waitUntil, {
+        samoobsluzne: true,
+        novyFeed: feedPoNacitani ? cleanFeedUrl : null,
+        zmenenyFeed: smieFeed,
+        minProduktov: smieFeed && bezi && !overenyMajitel && !skriptSnimky
+          ? Math.ceil((Number(existing.product_count) || 0) / 2) : 0,
+        zachovatKatalog: opravaBezBearera,
+      });
     }
 
     const vysledok = {
@@ -694,7 +754,7 @@ export async function createTenantFromRequest(env, { feedUrl, domain, email, lan
       existing: true,
       overeny: !!overenyMajitel,
     };
-    // Iný feed, ktorý sa zmeniť nesmie (dnes len feed zo servera oslovení pre obchod mimo oslovení).
+    // Zamietnutá zmena sa nenačíta ani pri starom katalógu.
     if (inyFeed && !smieFeed) vysledok.feed_treba_overit = true;
     return vysledok;
   }

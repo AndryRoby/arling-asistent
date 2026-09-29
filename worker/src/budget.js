@@ -438,13 +438,16 @@ export async function spendObnova(env, mili, now = Date.now()) {
  * Volá ju onboarding.js pri samoobslužnom načítaní (bezpečnostná kontrola
  * 29. 9. 2026: do vtedy sa nevolala nikde a brána len čítala).
  */
-export async function rezervujObnovu(env, mili, now = Date.now()) {
+export async function rezervujObnovu(env, mili, now = Date.now(), { podiel = 1 } = {}) {
   const m = Math.max(0, Math.ceil(Number(mili) || 0));
   if (!env || !env.DB) return false;
   if (m === 0) return true;
   try {
     const den = denUtc(now);
-    return (await rezervuj(env.DB, kluce.obnova(den), den, m, Math.floor(obnovaLimit(env) * MILI))) != null;
+    // Cron používa 70 % toho istého denného počítadla. Rezervácia je atomická
+    // aj voči súbežnej registrácii; zvyšných 30 % smie použiť samoobsluha.
+    const strop = Math.floor(obnovaLimit(env) * MILI * Math.max(0, Math.min(1, Number(podiel) || 0)));
+    return (await rezervuj(env.DB, kluce.obnova(den), den, m, strop)) != null;
   } catch (e) {
     console.error('[arling-asistent] rezervacia rozpoctu obnovy zlyhala:', e && e.message);
     return false;

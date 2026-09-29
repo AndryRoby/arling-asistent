@@ -142,7 +142,7 @@ test('1a. iný e-mail nikdy nedostane id ani údaje obchodu a nič nezmení: fee
   assert.equal(DOMENA_OBSADENA_TEXT.sk.includes('@arling.sk') && DOMENA_OBSADENA_TEXT.en.includes('support@arling.sk'), true);
 });
 
-test('1b. majiteľ bez kódu (bez Bearera, s cudzím alebo podvrhnutým) zmení feed bežiaceho obchodu len na feed z domény obchodu (druhé kolo), cudzí nikdy, ani s Bearerom; jazyk len s platným Bearerom pre svoju adresu', async () => {
+test('1b. majiteľ bez platného Bearera zdravý ready nemení; cudzí feed nikdy, jazyk len s platným Bearerom', async () => {
   const env = makeEnv();
   const ulohy = [];
   const ctx = { waitUntil: (p) => ulohy.push(p) };
@@ -180,8 +180,8 @@ test('1b. majiteľ bez kódu (bez Bearera, s cudzím alebo podvrhnutým) zmení 
         assert.equal(telo.id, id, popis);
         assert.equal(telo.existing, true, popis);
         assert.equal(telo.overeny, false, popis);
-        assert.equal(telo.feed_treba_overit, undefined, popis);
-        assert.equal(riadok.feed_url, feed_url, `${popis}: feed z domény obchodu sa po načítaní uložil`);
+        assert.equal(telo.feed_treba_overit, feed_url === 'https://obchod.sk/feed.xml' ? undefined : true, popis);
+        assert.equal(riadok.feed_url, 'https://obchod.sk/feed.xml', `${popis}: zdravý ready ostáva bez zmeny`);
       }
     }
   }
@@ -202,7 +202,7 @@ test('1b. majiteľ bez kódu (bez Bearera, s cudzím alebo podvrhnutým) zmení 
   assert.ok(env.AI.calls.length > aiPred, 'nový feed sa načítal');
 });
 
-test('1c. čerstvá skúška rozhoduje už len o jazyku (druhé kolo): feed z domény obchodu neoverený majiteľ opraví vždy, jazyk len kým obchod nikdy nebol ready a vznikol pred menej ako 24 h; cudzí feed ani v okne 24 h, ani počas pending', async () => {
+test('1c. čerstvá skúška rozhoduje už len o jazyku (druhé kolo): feed bez Bearera opraví v error alebo pending, jazyk len kým obchod nikdy nebol ready a vznikol pred menej ako 24 h; cudzí feed ani v okne 24 h, ani počas pending', async () => {
   const HODINA = 60 * 60 * 1000;
   async function skuska({ feedOk = false } = {}) {
     const env = makeEnv({ feedOk });
@@ -256,10 +256,11 @@ test('1c. čerstvá skúška rozhoduje už len o jazyku (druhé kolo): feed z do
     env.fetchImpl = makeEnv().fetchImpl;
     const pred = { ...(await getTenantById(env.DB, t.id)) };
     const r = await opravi(env, { now });
-    assert.equal(r.feed_treba_overit, undefined, popis);
+    const bezi = pred.status === TENANT_STATUS.READY;
+    assert.equal(r.feed_treba_overit, bezi ? true : undefined, popis);
     assert.equal(r.id, t.id, popis);
     const riadok = await getTenantById(env.DB, t.id);
-    assert.equal(riadok.feed_url, 'https://obchod.sk/spravny.xml', popis);
+    assert.equal(riadok.feed_url, bezi ? pred.feed_url : 'https://obchod.sk/spravny.xml', popis);
     assert.equal(riadok.jazyk, pred.jazyk, popis);
   }
   const { env } = await skuska();
@@ -422,7 +423,7 @@ test('3b. obchod, ktorý už beží, ostane ready, keď majiteľovo opätovné n
   assert.equal(status.last_error, 'ai_budget_exhausted');
 });
 
-test('3c. strop názvu: pre každú dĺžku názvu a popisu je produkt jeden kus textu do ODHAD_ZNAKOV_NA_PRODUKT, id z celého názvu', () => {
+test('3c. strop názvu: pre každú dĺžku názvu a popisu je produkt jeden kus textu do ODHAD_ZNAKOV_NA_PRODUKT, id zo surového názvu do 2 000 znakov', () => {
   for (const dlzkaNazvu of [1, 50, 179, 180, 181, 250, 1000, 20000]) {
     for (const dlzkaPopisu of [0, 10, 599, 600, 601, 5000]) {
       for (const sMedzerami of [false, true]) {
@@ -435,7 +436,7 @@ test('3c. strop názvu: pre každú dĺžku názvu a popisu je produkt jeden kus
           assert.ok(p.title.length <= TITLE_MAX_LEN + 1, popis);
           assert.equal(buildProductChunks(p).length, 1, popis);
           assert.ok(znakyProduktov([p]) <= ODHAD_ZNAKOV_NA_PRODUKT, `${popis}: ${znakyProduktov([p])}`);
-          assert.equal(p.id, rawId || title, popis);
+          assert.equal(p.id, rawId || title.slice(0, 2000).trim(), popis);
           if (title.length <= TITLE_MAX_LEN) assert.equal(p.title, title, popis);
         }
       }

@@ -22,7 +22,7 @@
  */
 
 import { listTenants, aktivneTenantyOd, dayKey, publicPlanName } from './tenants.js';
-import { ingestFeedForTenant, readIngestError, INGEST_ERRORS, TENANT_STATUS } from './onboarding.js';
+import { ingestFeedForTenant, readIngestError, readIngestLimit, INGEST_ERRORS, TENANT_STATUS } from './onboarding.js';
 import { dobeh, dennaUdrzba, jeDemo } from './zivotny-cyklus.js';
 import { hasObnovaBudget, jeOslovenieTenant } from './budget.js';
 import { zmazStare } from './pocty.js';
@@ -45,6 +45,8 @@ export const TYZDENNA_OBNOVA_DEN = 0;
  * rozbehnuté načítanie.
  */
 export const CRON_CAS_SPOLU_MS = 10 * 60 * 1000;
+/** Zvyšok denného rozpočtu obnovy ostáva samoobslužným registráciám. */
+export const CRON_PODIEL_OBNOVY = 0.7;
 
 /**
  * Poradie obnovy: najprv platiace obchody, potom bežiace obchody zákazníkov,
@@ -53,17 +55,23 @@ export const CRON_CAS_SPOLU_MS = 10 * 60 * 1000;
  * pre rozpočet (kód ai_budget_exhausted). Nález 5 druhého kola: odložené
  * obchody (typicky obrovské cudzie feedy) sa predtým načítali v poradí z D1
  * a minuli rozpočet obnovy skôr, než prišli na rad noví zákazníci za nimi.
- * V rámci skupiny ostáva poradie z D1.
+ * V skupine bežiacich zákazníkov majú prednosť skutočné rozhovory. Posledný
+ * časový, CPU alebo veľkostný strop presúva obchod na koniec.
  */
 async function skupinaObnovy(env, tenant) {
-  if (publicPlanName(tenant.plan) !== 'free') return 0;
+  const chyba = await readIngestError(env, tenant.id);
+  if (await readIngestLimit(env, tenant.id)
+    || /^(feed_timeout|feed_too_large|cpu_limit)$/.test(chyba || '')) return 5;
+  if (publicPlanName(tenant.plan) !== 'free' && !jeDemo(env, tenant.domain)) return 0;
   if (tenant.status === TENANT_STATUS.READY) return jeOslovenieTenant(tenant) || jeDemo(env, tenant.domain) ? 2 : 1;
-  return (await readIngestError(env, tenant.id)) === INGEST_ERRORS.AI_BUDGET ? 4 : 3;
+  return chyba === INGEST_ERRORS.AI_BUDGET ? 4 : 3;
 }
 
-export async function poradieObnovy(env, tenants) {
+export async function poradieObnovy(env, tenants, aktivne = new Set()) {
   const sSkupinou = await Promise.all((tenants || []).map(async (tenant, i) => ({ tenant, i, skupina: await skupinaObnovy(env, tenant) })));
-  return sSkupinou.sort((a, b) => a.skupina - b.skupina || a.i - b.i).map((x) => x.tenant);
+  return sSkupinou.sort((a, b) => a.skupina - b.skupina
+    || (a.skupina === 1 ? Number(aktivne?.has(b.tenant.id)) - Number(aktivne?.has(a.tenant.id)) : 0)
+    || a.i - b.i).map((x) => x.tenant);
 }
 
 function posun(now, dni) {
@@ -79,16 +87,14 @@ function posun(now, dni) {
  * nie zo spoločného stropu chatu (nález 8 kontroly kroku 1: štyri cudzie
  * feedy po 5 000 produktov zhodili chat všetkým každú noc). Keď sa rozpočet
  * minie, ostatné obchody sa preskočia bez zmeny stavu a prídu na rad zajtra.
- * Poradie určuje poradieObnovy (bežiace obchody pred odloženými). Obchod,
- * ktorý ešte nebeží, sa načíta len s rezerváciou presného nákladu
- * (onboarding.js rezervovat), teda len keď sa celý zmestí; bežiaci obchod
- * ako doteraz, keď rozpočet ešte nie je minutý. Po CRON_CAS_SPOLU_MS sa
- * ďalšie načítanie nezačne.
+ * Všetky obchody vrátane ready rezervujú náklad pred vektormi. Cron smie
+ * využiť najviac 70 % denného rozpočtu obnovy, zvyšok ostáva registráciám.
+ * Po CRON_CAS_SPOLU_MS sa ďalšie načítanie nezačne.
  * Returns a per-tenant outcome array (used in logs/tests).
  */
 export async function refreshAllFeeds(env, { now = new Date(), casSpoluMs = CRON_CAS_SPOLU_MS, hodiny = Date.now } = {}) {
   const zaciatok = hodiny();
-  const tenants = await poradieObnovy(env, await listTenants(env.DB));
+  const zoznam = await listTenants(env.DB);
   const hranica = posun(now, AKTIVNY_DNI);
   let aktivne = null;
   try {
@@ -96,6 +102,7 @@ export async function refreshAllFeeds(env, { now = new Date(), casSpoluMs = CRON
   } catch (err) {
     console.warn('[arling-asistent] zoznam aktivnych obchodov zlyhal, obnovujem vsetky:', (err && err.message) || err);
   }
+  const tenants = await poradieObnovy(env, zoznam, aktivne);
   const tyzdenna = now.getUTCDay() === TYZDENNA_OBNOVA_DEN;
   const outcomes = [];
   for (const tenant of tenants) {
@@ -110,13 +117,17 @@ export async function refreshAllFeeds(env, { now = new Date(), casSpoluMs = CRON
     }
     // Rozpočet vždy za skutočný dnešok: tam zapisuje aj načítanie (onboarding.js spendObnova).
     const rozpocet = await hasObnovaBudget(env, 0);
-    if (!rozpocet.ok || rozpocet.remaining <= 0) {
+    if (!rozpocet.ok || rozpocet.used >= rozpocet.limit * CRON_PODIEL_OBNOVY) {
       outcomes.push({ tenantId: tenant.id, ok: false, preskocene: 'rozpocet_obnovy' });
       continue;
     }
     try {
-      const result = await ingestFeedForTenant(env, tenant, { rezervovat: tenant.status !== TENANT_STATUS.READY });
-      outcomes.push({ tenantId: tenant.id, ...result });
+      const result = await ingestFeedForTenant(env, tenant, {
+        rezervovat: true, podielObnovy: CRON_PODIEL_OBNOVY,
+      });
+      outcomes.push({ tenantId: tenant.id, ...result,
+        ...(result.code === INGEST_ERRORS.AI_BUDGET ? { preskocene: 'rozpocet_obnovy' } : {}),
+      });
     } catch (err) {
       outcomes.push({ tenantId: tenant.id, ok: false, error: String((err && err.message) || err) });
     }
