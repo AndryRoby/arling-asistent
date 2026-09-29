@@ -189,6 +189,21 @@ export function createMockD1() {
         if (row) { row.jazyk = jazyk; row.zdroj = zdroj; }
         return { success: true, meta: { changes: row ? 1 : 0 } };
       }
+      case ZC_SQL.PREVEZMI_OSLOVENIE: {
+        potrebujStlpec('zdroj');
+        const [email, id, povodnyEmail, feed] = args;
+        const row = tenants.get(id);
+        const ok = row?.zdroj === 'oslovenie' && row.contact_email === povodnyEmail && row.feed_url === feed;
+        if (ok) { row.zdroj = 'prevzate'; row.contact_email = email; }
+        return { success: true, meta: { changes: ok ? 1 : 0 } };
+      }
+      case ZC_SQL.ZAMKNI_VYMAZ_OSLOVENIA: {
+        potrebujStlpec('zdroj');
+        const row = tenants.get(args[0]);
+        const ok = row && ['oslovenie', 'mazanie_oslovenia'].includes(row.zdroj) && row.plan === 'free' && row.billing_ref == null;
+        if (ok) row.zdroj = 'mazanie_oslovenia';
+        return { success: true, meta: { changes: ok ? 1 : 0 } };
+      }
       case ZC_SQL.SET_JAZYK: {
         potrebujStlpec('jazyk');
         const [jazyk, id] = args;

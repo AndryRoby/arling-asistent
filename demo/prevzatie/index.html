@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src https://arling-asistent.arling.workers.dev; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Prevziať Asistenta | ARLing</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f6f2e9;color:#25221e;font:18px/1.6 Georgia,serif}
+main{max-width:640px;margin:48px auto;padding:0 24px}h1{font-size:36px;line-height:1.2}
+fieldset{border:0;padding:0;margin:0}label{display:block;margin-top:16px}
+input,button,textarea{font:inherit;min-height:48px;width:100%;padding:10px 12px;border:1px solid #746d60;border-radius:4px}
+button{margin-top:24px;background:#934019;color:white;cursor:pointer}button:disabled{opacity:.65;cursor:wait}
+:focus-visible{outline:3px solid #934019;outline-offset:3px}a{color:#733518}small{display:block;font-size:15px}
+#sprava{min-height:2em;overflow-wrap:anywhere}#zmenit{background:transparent;color:#25221e}
+</style>
+<script src="prevzatie.js" defer></script>
+</head>
+<body><main>
+<a href="https://arling.sk/asistent/">ARLing Asistent</a>
+<h1>Prevezmite pripravenú ukážku</h1>
+<p>Potvrďte e-mail a pripojte aktuálny zoznam produktov. Pokračujete s tým istým účtom.</p>
+<form id="udaje">
+<fieldset id="polia">
+<label for="domena">Doména obchodu</label><input id="domena" required autocomplete="url" placeholder="obchod.sk">
+<label for="feed">Adresa produktového feedu</label><input id="feed" type="url" required placeholder="https://obchod.sk/feed.xml">
+<label for="email">Váš e-mail</label><input id="email" type="email" required autocomplete="email" aria-describedby="kontakt">
+<small id="kontakt">Použite adresu na doméne obchodu alebo verejný kontakt, na ktorý prišlo oslovenie.</small>
+<button id="poslat">Poslať overovací kód</button>
+</fieldset>
+</form>
+<form id="overenie" hidden>
+<label for="kod">Šesťmiestny kód z e-mailu</label><input id="kod" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
+<button id="prevziat">Potvrdiť a prevziať účet</button>
+</form>
+<button type="button" id="zmenit" hidden>Zmeniť údaje alebo poslať nový kód</button>
+<p id="sprava" role="status" aria-live="polite"></p>
+<p id="hotovo" hidden><a id="ucet">Otvoriť účet a kód na vloženie</a>. Vo WooCommerce pripojte plugin s rovnakým e-mailom. Ak už je pripojený, ponechajte jeho nastavenia.</p>
+<div id="vlozenie" hidden><label for="snippet">Kód na vloženie mimo WooCommerce</label><textarea id="snippet" readonly rows="4"></textarea></div>
+<p><small>Bez platobnej karty. Prevzatie nezapína platený plán.</small></p>
+<noscript>Na overenie kódu zapnite JavaScript alebo napíšte na podpora@arling.sk.</noscript>
+</main></body></html>

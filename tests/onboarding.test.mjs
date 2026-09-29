@@ -283,6 +283,7 @@ test('handleCreateTenantRoute maps a non-domain D1 constraint violation to 409 c
       if (sql === SQL.INSERT_TENANT) {
         return { bind: () => ({ run: async () => { throw new Error('D1_ERROR: UNIQUE constraint failed: tenants.id: SQLITE_CONSTRAINT'); } }) };
       }
+      if (sql === SQL.GET_TENANT_BY_DOMAIN) return { bind: () => ({ first: async () => null }) };
       throw new Error(`mock: unexpected statement for this test: ${sql}`);
     },
   };

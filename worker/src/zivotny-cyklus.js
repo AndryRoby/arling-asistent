@@ -57,7 +57,7 @@
  * berie len hostiteľ a ten sa porovná s doménou obchodu.
  */
 
-import { getTenantById, listTenants, isPrivateHost, monthKey, dayKey, publicPlanName, conversationsUsedThisMonth } from './tenants.js';
+import { getTenantById, listTenants, isPrivateHost, monthKey, dayKey, publicPlanName, conversationsUsedThisMonth, ensureBillingColumns, hostPatriDomene, feedPatriDomene } from './tenants.js';
 import { domainMatches, hostnameFromOrigin, parseAllowedOrigins, bezpecnePorovnaj, corsHeaders, checkRateLimit, SECURITY_HEADERS } from './security.js';
 import { DEFAULT_QUOTA_PING_URL, thresholdsCrossed } from './notify.js';
 import { vytvorEmail, JAZYKY_EMAILOV, WIDGET_ORIGIN, castiDatumu } from './zivotny-cyklus-texty.js';
@@ -147,6 +147,8 @@ export const ZC_SQL = {
   SET_UDALOST_DATA: `UPDATE tenant_udalosti SET data = ? WHERE tenant_id = ? AND kluc = ?`,
   CAS_UDALOST_DATA: `UPDATE tenant_udalosti SET data = ? WHERE tenant_id = ? AND kluc = ? AND data = ?`,
   SET_JAZYK_ZDROJ: `UPDATE tenants SET jazyk = ?, zdroj = ? WHERE id = ?`,
+  PREVEZMI_OSLOVENIE: `UPDATE tenants SET zdroj = 'prevzate', contact_email = ? WHERE id = ? AND zdroj = 'oslovenie' AND contact_email = ? AND feed_url = ?`,
+  ZAMKNI_VYMAZ_OSLOVENIA: `UPDATE tenants SET zdroj = 'mazanie_oslovenia' WHERE id = ? AND zdroj IN ('oslovenie', 'mazanie_oslovenia') AND plan = 'free' AND billing_ref IS NULL`,
   SET_JAZYK: `UPDATE tenants SET jazyk = ? WHERE id = ?`,
   SET_EMAILY_STOP: `UPDATE tenants SET emaily_stop_at = ? WHERE id = ? AND emaily_stop_at IS NULL`,
   INC_WEB_CONVERSATIONS: `UPDATE counters SET web_conversations = web_conversations + 1 WHERE tenant_id = ? AND day = ?`,
@@ -847,6 +849,29 @@ export async function poOvereniMajitela(env, tenant, { now = new Date(), waitUnt
   }
 }
 
+/** Verejný kontakt uložil iba admin pri založení ukážky. Iný kontakt musí patriť obchodu. */
+export function mozePrevziatOslovenie(tenant, email) {
+  const adresa = String(email || '').trim().toLowerCase();
+  if (tenant?.zdroj !== 'oslovenie' || !adresa.includes('@')) return false;
+  if (bezpecnePorovnaj(adresa, String(tenant.contact_email || '').trim().toLowerCase())) return true;
+  const host = adresa.slice(adresa.lastIndexOf('@') + 1);
+  return !VEREJNE_POSTOVE_DOMENY.has(host) && hostPatriDomene(host, tenant.domain);
+}
+
+/** Volajú len cesty s e-mailom z overeného Bearera. Chyba D1 sa nesmie prehltnúť. */
+export async function prevezmiOslovenie(env, tenant, overenyEmail, { now = new Date() } = {}) {
+  if (!mozePrevziatOslovenie(tenant, overenyEmail)) return false;
+  await zabezpecSchemu(env.DB);
+  const email = overenyEmail.trim().toLowerCase();
+  const r = await env.DB.prepare(ZC_SQL.PREVEZMI_OSLOVENIE)
+    .bind(email, tenant.id, tenant.contact_email, tenant.feed_url).run();
+  if (zmeny(r) !== 1) return false; // Súbežný výmaz alebo iný majiteľ vyhral.
+  tenant.contact_email = email;
+  tenant.zdroj = 'prevzate';
+  await zaznamenaj(env, tenant.id, 'prevzaty', 'prevzaty', { sposob: 'kod' }, now);
+  return true;
+}
+
 /** Majiteľ (overený e-mailom) poslal formulár znova s jazykom: zapamätať si ho. */
 export async function nastavJazyk(env, tenantId, jazyk) {
   try {
@@ -1308,12 +1333,18 @@ export async function dennaUdrzba(env, { now = new Date(), maxDopytov = DOBEH_MA
     for (const tenant of await listTenants(envP.DB)) {
       if (pocitadlo.n + 20 > maxDopytov) { vysledok.prerusene = true; break; }
       if (jeDemo(env, tenant.domain) || publicPlanName(tenant.plan) !== 'free') continue;
+      // Bežná neaktivita zákazníka sa ráta najskôr od prevzatia, nie od starej ukážky.
+      if (tenant.zdroj === 'prevzate') {
+        const prevzaty = najdi(await udalostiTenanta(envP.DB, tenant.id), 'prevzaty');
+        const cas = Date.parse(prevzaty?.kedy || '');
+        if (!Number.isFinite(cas) || cas > hranica.getTime()) continue;
+      }
       if (new Date(tenant.created_at || now).getTime() > hranica.getTime()) continue;
       const c = await envP.DB.prepare(ZC_SQL.COUNTERS_OD).bind(tenant.id, dayKey(hranica)).all();
       const rozhovory = ((c && c.results) || []).reduce((s, x) => s + (Number(x.conversations) || 0), 0);
       if (rozhovory > 0) continue;
-      await zmazTenanta(envP, tenant.id, { now });
-      vysledok.zmazane_ucty.push(tenant.id);
+      const vymaz = await zmazTenanta(envP, tenant.id, { now, lenOslovenie: tenant.zdroj === 'oslovenie' || tenant.zdroj === 'mazanie_oslovenia' });
+      if (vymaz.zmazany) vysledok.zmazane_ucty.push(tenant.id);
     }
   } catch (err) {
     varuj('denna udrzba', err);
@@ -1339,8 +1370,14 @@ export async function dennaUdrzba(env, { now = new Date(), maxDopytov = DOBEH_MA
  * samy (24 hodín, 40 dní). Správanie proti ostrému Vectorize: NEOVERENÉ (v
  * testoch len mock).
  */
-export async function zmazTenanta(env, tenantId, { now = new Date() } = {}) {
+export async function zmazTenanta(env, tenantId, { now = new Date(), lenOslovenie = false } = {}) {
   await zabezpecSchemu(env.DB);
+  if (lenOslovenie) {
+    await ensureBillingColumns(env.DB);
+    // Ten istý riadok ako pri prevzatí: víťaza určí D1 pred prvým výmazom vektorov.
+    const zamok = await env.DB.prepare(ZC_SQL.ZAMKNI_VYMAZ_OSLOVENIA).bind(tenantId).run();
+    if (zmeny(zamok) !== 1) return { zmazany: false, error: 'nie_ukazka_oslovenia' };
+  }
   await env.DB.prepare(ZC_SQL.INSERT_ZMAZANY).bind(tenantId, now.toISOString()).run();
   const zmazane = new Set();
   if (env.VECTORIZE && typeof env.VECTORIZE.deleteByIds === 'function') {
@@ -1616,14 +1653,20 @@ export async function handleDeleteTenantRoute(request, env, tenantId) {
   if (!potvrd || potvrd !== String(tenant.domain || '').toLowerCase()) {
     return json({ error: 'validation_failed', issues: ['potvrd must equal the tenant domain'] }, 400);
   }
-  const r = await zmazTenanta(env, tenantId);
-  return json({ id: tenantId, domain: tenant.domain, ...r });
+  const ucel = new URL(request.url).searchParams.get('ucel');
+  if (tenant.zdroj === 'prevzate' && ucel !== 'ucet') {
+    return json({ error: 'prevzaty_ucet' }, 409);
+  }
+  const lenOslovenie = ucel === 'oslovenie' || tenant.zdroj === 'oslovenie' || tenant.zdroj === 'mazanie_oslovenia';
+  const r = await zmazTenanta(env, tenantId, { lenOslovenie });
+  return json({ id: tenantId, domain: tenant.domain, ...r }, r.error ? 409 : 200);
 }
 
 /**
  * POST /v1/tenants/:id/overenie, hlavička Authorization: Bearer <token z POST
  * /v1/ucet/over>. Formulár na arling.sk ho volá po zadaní 6-miestneho kódu.
- * Token musí patriť presne adrese účtu (contact_email). Odpoveď nič
+ * Pri ukážke s pripojeným feedom token overí prevzatie cez doménový alebo uložený
+ * verejný kontakt. Pri zákazníckom účte musí patriť contact_email. Odpoveď nič
  * neprezradí o cudzom účte: iná adresa je 403 bez ďalších údajov.
  */
 export async function handleOverenieRoute(request, env, tenantId, ctx) {
@@ -1639,6 +1682,13 @@ export async function handleOverenieRoute(request, env, tenantId, ctx) {
   const tenant = await getTenantById(env.DB, tenantId);
   if (!tenant) return json({ error: 'not_found' }, 404, cors);
   if (jeDemo(env, tenant.domain)) return json({ error: 'demo' }, 400, cors);
+  if (tenant.zdroj === 'mazanie_oslovenia') return json({ error: 'vymaz_prebieha' }, 409, cors);
+  if (tenant.zdroj === 'oslovenie') {
+    if (!mozePrevziatOslovenie(tenant, email)) return json({ error: 'ina_adresa' }, 403, cors);
+    // Plugin už pripojil kanonický feed; samotná snímka nestačí na aktiváciu.
+    if (!feedPatriDomene(tenant.feed_url, tenant.domain)) return json({ error: 'najprv_pripojte_feed' }, 409, cors);
+    if (!(await prevezmiOslovenie(env, tenant, email))) return json({ error: 'konflikt_prevzatia' }, 409, cors);
+  }
   if (!bezpecnePorovnaj(email, String(tenant.contact_email || '').trim().toLowerCase())) return json({ error: 'ina_adresa' }, 403, cors);
   const waitUntil = ctx && typeof ctx.waitUntil === 'function' ? ctx.waitUntil.bind(ctx) : undefined;
   const r = await poOvereniMajitela(env, tenant, { waitUntil });

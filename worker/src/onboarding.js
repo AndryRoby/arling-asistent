@@ -37,7 +37,7 @@ import { fetchFeed, FeedUrlNotAllowedError, FEED_CHYBY, FEED_INA_DOMENA } from '
 import { embedAndUpsertProducts, embedTexts, znakyProduktov } from './embed.js';
 import { parseAllowedOrigins, corsHeaders, bezpecnePorovnaj, checkRateLimit, SECURITY_HEADERS } from './security.js';
 import { hasBudget, rezervujObnovu, spendObnova, vratObnovu, obnovaZaZnaky, jeOslovenieTenant, jeRezimUkazkyOslovenia } from './budget.js';
-import { poVytvoreni, poNacitani, poZmenePlanu, nastavJazyk, jazykZoVstupu, zdrojZoVstupu, poOvereniMajitela, zapamatajVektory, vymenVektory, udalostiTenanta, jeDemo } from './zivotny-cyklus.js';
+import { poVytvoreni, poNacitani, poZmenePlanu, nastavJazyk, jazykZoVstupu, zdrojZoVstupu, poOvereniMajitela, mozePrevziatOslovenie, prevezmiOslovenie, zapamatajVektory, vymenVektory, udalostiTenanta, jeDemo } from './zivotny-cyklus.js';
 import { overenyEmailZBearer } from './ucet.js';
 
 export const TENANT_STATUS = {
@@ -661,8 +661,11 @@ export async function jeCerstvaSkuska(env, tenant, now = new Date()) {
  * snímky je prvé pripojenie: platí polovica produktov, stará snímka sa zmaže.
  * Overený majiteľ smie zmeniť feed na doméne aj bez predchádzajúcej chyby.
  * Zamietnutá zmena vráti feed_treba_overit a nespustí žiadne načítanie.
+ * Prevzatie: len Bearer pre doménový alebo adminom uložený verejný kontakt.
+ * Kanonický verejný feed bez kódu vlastníctvo nepreukazuje. Príznak prevziat
+ * zakazuje vytvorenie účtu; preberá sa výhradne existujúce ID ukážky.
  */
-export async function createTenantFromRequest(env, { feedUrl, domain, email, lang, zdroj, userAgent, overenyEmail = null, povolitOslovenie = false }, { waitUntil, now = new Date() } = {}) {
+export async function createTenantFromRequest(env, { feedUrl, domain, email, lang, zdroj, userAgent, overenyEmail = null, povolitOslovenie = false, lenPrevzatie = false }, { waitUntil, now = new Date() } = {}) {
   // Jazyk e-mailov a odkiaľ účet vznikol (návrh ops/asistent/zivotny-cyklus.md 1.3).
   // Zdroj `oslovenie` (režim ukážky) len s overeným admin tokenom (nález 1).
   const jazyk = jazykZoVstupu(lang);
@@ -680,15 +683,33 @@ export async function createTenantFromRequest(env, { feedUrl, domain, email, lan
   // (zivotny-cyklus.js mozeIst, adverzárna kontrola 25. 9. 2026).
   const poslanyNorm = String(email || '').trim().toLowerCase();
   const overeny = !!overenyEmail && !!poslanyNorm && bezpecnePorovnaj(String(overenyEmail).trim().toLowerCase(), poslanyNorm);
+  if (lenPrevzatie && !overeny) throw new DomainTakenError(normaliseDomain(domain), jazyk);
+  // WordPress môže poslať www; existujúcu ukážku tej istej domény nesmieme duplikovať.
+  const host = bezWwwHost(normaliseDomain(domain));
+  const bezWww = await getTenantByDomain(env.DB, host);
+  const sWww = await getTenantByDomain(env.DB, 'www.' + host);
+  if (bezWww && sWww && bezWww.id !== sWww.id) throw new DomainTakenError(host, jazyk);
+  domain = (bezWww || sWww)?.domain || host;
   let tenant;
   try {
+    // Formulár prevzatia nikdy nezakladá účet, ani keď ukážku súbežne niekto vymazal.
+    if (lenPrevzatie) throw new DuplicateDomainError(normaliseDomain(domain));
     tenant = await createTenant(env.DB, { domain, feedUrl, contactEmail: email });
   } catch (err) {
     if (!(err instanceof DuplicateDomainError)) throw err;
 
     const existing = await getTenantByDomain(env.DB, domain);
+    if (!existing && lenPrevzatie) throw new DomainTakenError(normaliseDomain(domain), jazyk);
+    if (lenPrevzatie && existing && !['oslovenie', 'prevzate'].includes(existing.zdroj)) throw new DomainTakenError(existing.domain, jazyk);
     if (!existing) throw err; // should not happen (the row that caused the conflict must exist), but never swallow silently
 
+    if (existing.zdroj === 'mazanie_oslovenia') throw new DomainTakenError(existing.domain, jazyk);
+    if (lenPrevzatie && existing.zdroj === 'oslovenie' && !mozePrevziatOslovenie(existing, poslanyNorm)) throw new DomainTakenError(existing.domain, jazyk);
+    const prevzatie = !nasSkriptOsloveni && overeny && mozePrevziatOslovenie(existing, poslanyNorm);
+    if (prevzatie && !(await prevezmiOslovenie(env, existing, poslanyNorm, { now }))) {
+      throw new DomainTakenError(existing.domain, jazyk);
+    }
+    // Od tejto chvíle je kontakt zmenený len po kóde; ďalšie pokusy iných adries zlyhajú.
     const majitelEmail = String(existing.contact_email || '').trim().toLowerCase();
     const jeMajitel = !!poslanyNorm && bezpecnePorovnaj(poslanyNorm, majitelEmail);
     // Ukážku osloveného obchodu sme založili my s verejnou adresou obchodu;
@@ -756,6 +777,7 @@ export async function createTenantFromRequest(env, { feedUrl, domain, email, lan
       monthly_quota: existing.monthly_quota,
       existing: true,
       overeny: !!overenyMajitel,
+      prevzate: existing.zdroj === 'prevzate',
     };
     // Zamietnutá zmena sa nenačíta ani pri starom katalógu.
     if (inyFeed && !smieFeed) vysledok.feed_treba_overit = true;
@@ -849,6 +871,7 @@ export async function tenantStatusResponse(env, tenantId, { now = new Date(), in
     // zoznamu“ len vtedy). Doplnené 29. 9. 2026, staré polia sa nemenia.
     live_demo: zivaUkazkaPovolena(tenant),
     outreach_demo: jeRezimUkazkyOslovenia(tenant),
+    feed_pripojeny: feedPatriDomene(tenant.feed_url, tenant.domain),
   };
   if (includeBilling) {
     body.billing_ref = tenant.billing_ref || null;
@@ -929,6 +952,7 @@ export async function handleCreateTenantRoute(request, env, ctx) {
         email: body && body.email,
         lang: body && body.lang,
         zdroj: body && body.zdroj,
+        lenPrevzatie: body?.prevziat === true,
         userAgent: request.headers.get('User-Agent') || '',
         overenyEmail: await overenyEmailZBearer(request, env),
         // Režim ukážky osloveného obchodu smie zapnúť len náš autorizovaný
@@ -946,7 +970,7 @@ export async function handleCreateTenantRoute(request, env, ctx) {
     // `existing: true` set, and gets 200 instead of 201, same shape otherwise.
     // Anyone else gets 409 domain_taken below.
     if (tenant.existing) {
-      const telo = { id: tenant.id, domain: tenant.domain, status: tenant.status, plan: tenant.plan, monthly_quota: tenant.monthly_quota, existing: true, overeny: !!tenant.overeny };
+      const telo = { id: tenant.id, domain: tenant.domain, status: tenant.status, plan: tenant.plan, monthly_quota: tenant.monthly_quota, existing: true, overeny: !!tenant.overeny, prevzate: !!tenant.prevzate };
       if (tenant.feed_treba_overit) telo.feed_treba_overit = true;
       return jsonResponse(telo, 200, headers);
     }
