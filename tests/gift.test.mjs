@@ -302,8 +302,17 @@ test('bezDetskychPreDospeleho: dospelému bez detských výrobkov, dieťaťu a z
     assert.deepEqual(bezDetskychPreDospeleho([c[2], c[0], c[3], c[1]], kto, '').map((x) => x.title), [c[0].title, c[1].title, c[2].title, c[3].title], kto);
   }
   assert.equal(bezDetskychPreDospeleho(c, 'Mama', 'hračky pre vnúča').length, 4); // záujmy výslovne o deťoch
+  for (const z of ['hracky pre vnuca', 'something for the grandkids', 'Spielzeug für den Enkel', 'kids crafts']) {
+    assert.equal(bezDetskychPreDospeleho(c, 'Mama', z).length, 4, z);
+  }
+  // zápor nie je záujem (brána 29. 9., pokus 2, nález 4)
+  for (const z of ['bez detských hračiek', 'nie pre deti', 'no toys please', 'nothing for kids', 'keine Kinder Sachen', 'ohne Spielzeug']) {
+    assert.equal(bezDetskychPreDospeleho(c, 'Mama', z).length, 2, z);
+  }
+  // keď ostanú len detské výrobky, výber je prázdny, nevhodné sa nevracajú
   const lenDetske = c.slice(0, 2);
-  assert.equal(bezDetskychPreDospeleho(lenDetske, 'Mama', '').length, 2); // obchod len s detským tovarom: radšej výber než nič
+  assert.deepEqual(bezDetskychPreDospeleho(lenDetske, 'Mama', ''), []);
+  assert.deepEqual(bezDetskychPreDospeleho([...lenDetske].reverse(), 'Kolega', 'bez hračiek'), []);
 });
 
 test('cistyDovod zahodí dôvod, ktorý je len cena, a skutočný dôvod nechá', () => {

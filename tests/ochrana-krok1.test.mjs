@@ -587,7 +587,7 @@ test('krok 1: zneuzitie pri limite IP, raz za den a obchod', async () => {
   for (let i = 0; i < DENNY_LIMIT_IP_ROZHOVORY + 3; i++) await worker.fetch(chatReq(tenant, { ip: '7.7.7.7' }), env, {});
   const z = pingy(env, 'zneuzitie');
   assert.equal(z.length, 1);
-  assert.equal(z[0].url, `https://server.invalid/subscribe/api/ping?e=zneuzitie&t=${tenant.id}&p=0`);
+  assert.equal(z[0].url, `https://api.arling.workers.dev/subscribe/api/ping?e=zneuzitie&t=${tenant.id}&p=0`);
 });
 
 test('krok 1: naklady_den pri 80 % stropu a obchod_marza pre platiaci obchod nad 50 % denneho prijmu', async () => {

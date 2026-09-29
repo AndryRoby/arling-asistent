@@ -16,7 +16,7 @@
 
   function pingOwner(evt, plan) {
     try {
-      var url = 'https://server.invalid/subscribe/api/ping?e=' + encodeURIComponent(evt) + '&t=' + SLUG + (plan ? '&p=' + encodeURIComponent(plan) : '');
+      var url = 'https://api.arling.workers.dev/subscribe/api/ping?e=' + encodeURIComponent(evt) + '&t=' + SLUG + (plan ? '&p=' + encodeURIComponent(plan) : '');
       if (navigator.sendBeacon) { navigator.sendBeacon(url); }
       else if (window.fetch) { fetch(url, { keepalive: true, mode: 'no-cors' }).catch(function () {}); }
     } catch (e) {}

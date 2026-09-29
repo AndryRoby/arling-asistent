@@ -137,7 +137,8 @@ test('buildUserPrompt adds a shop_categories shop_fact only when real categories
     lang: 'sk',
   });
   assert.doesNotMatch(withoutCategories, /shop_categories/);
-  assert.match(withoutCategories, /contact_email: obchod@shop\.sk/); // the other shop_fact is unaffected
+  assert.match(withoutCategories, /shop_contact: the contact page/); // the other shop_fact is unaffected
+  assert.doesNotMatch(withoutCategories, /obchod@shop\.sk/); // never the account e-mail, even when a caller passes one
 });
 
 test('topCategoryNames ranks by frequency, ignores blanks, and defaults to SHOP_FACTS_CATEGORY_LIMIT (6)', () => {
@@ -210,7 +211,7 @@ test('extractLastUserMessage finds the most recent user turn, ignoring assistant
   assert.equal(extractLastUserMessage([{ role: 'assistant', content: 'only assistant' }]), '');
 });
 
-test('buildUserPrompt wraps product data as an untrusted data block and includes the contact email as a shop fact', () => {
+test('buildUserPrompt wraps product data as an untrusted data block and includes the shop contact page (never the account e-mail) as a shop fact', () => {
   const prompt = buildUserPrompt({
     question: 'Mate cervene tenisky?',
     candidates: [{ id: 'p1', title: 'Cervene tenisky', price: 60, currency: 'EUR', availability: 'in_stock', category: 'Obuv', url: 'https://x/1', description: 'Popis' }],
@@ -219,7 +220,8 @@ test('buildUserPrompt wraps product data as an untrusted data block and includes
   });
   assert.match(prompt, /<shop_products>/);
   assert.match(prompt, /Cervene tenisky/);
-  assert.match(prompt, /contact_email: shop@example.sk/);
+  assert.match(prompt, /shop_contact: the contact page/);
+  assert.doesNotMatch(prompt, /shop@example\.sk|contact_email/);
   assert.match(prompt, /Mate cervene tenisky\?/);
 });
 
@@ -289,24 +291,26 @@ test('reconcileProducts de-duplicates repeated mentions of the same product', ()
   assert.equal(result.length, 1);
 });
 
-test('noMatchFallback returns a language-specific "I do not know" message including the shop contact', () => {
-  const sk = noMatchFallback('sk', 'obchod@example.sk');
-  assert.match(sk.answer, /obchod@example\.sk/);
+test('noMatchFallback returns a language-specific "I do not know" message that points to the shop contact page, never an e-mail address (29 Sep 2026)', () => {
+  const sk = noMatchFallback('sk');
+  assert.match(sk.answer, /kontaktnú stránku/);
+  assert.doesNotMatch(sk.answer, /@/);
   assert.deepEqual(sk.products, []);
-  const en = noMatchFallback('en', 'shop@example.com');
-  assert.match(en.answer, /shop@example\.com/);
+  const en = noMatchFallback('en');
+  assert.match(en.answer, /contact page/);
+  assert.doesNotMatch(en.answer, /@/);
   assert.notEqual(sk.answer, en.answer);
 });
 
 test('noMatchFallback with lang "auto" picks the fallback language from the user message text', () => {
-  const sk = noMatchFallback('auto', 'obchod@example.sk', 'Máte čierne tričko so zľavou?');
-  assert.equal(sk.answer, noMatchFallback('sk', 'obchod@example.sk').answer);
+  const sk = noMatchFallback('auto', 'Máte čierne tričko so zľavou?');
+  assert.equal(sk.answer, noMatchFallback('sk').answer);
 
-  const de = noMatchFallback('auto', 'shop@example.de', 'Haben Sie das in Größe M?');
-  assert.equal(de.answer, noMatchFallback('de', 'shop@example.de').answer);
+  const de = noMatchFallback('auto', 'Haben Sie das in Größe M?');
+  assert.equal(de.answer, noMatchFallback('de').answer);
 
-  const en = noMatchFallback('auto', 'shop@example.com', 'Do you have this in blue?');
-  assert.equal(en.answer, noMatchFallback('en', 'shop@example.com').answer);
+  const en = noMatchFallback('auto', 'Do you have this in blue?');
+  assert.equal(en.answer, noMatchFallback('en').answer);
 });
 
 test('retrieveCandidates queries Vectorize filtered by tenant and deduplicates by product id keeping the best score', async () => {
@@ -405,7 +409,8 @@ test('runChat returns the "I do not know" fallback (and never calls the chat mod
   const tenant = { id: 'tenant-empty', contact_email: 'obchod@shop.sk' };
 
   const result = await runChat(env, { tenant, messages: [{ role: 'user', content: 'Mate nieco?' }], lang: 'sk' });
-  assert.match(result.answer, /obchod@shop\.sk/);
+  assert.equal(result.answer, noMatchFallback('sk').answer);
+  assert.doesNotMatch(result.answer, /obchod@shop\.sk/); // never the account e-mail (29 Sep 2026)
   assert.deepEqual(result.products, []);
   assert.equal(ai.calls.length, 1); // only the embedding call, no chat call
 });
@@ -427,7 +432,8 @@ test('runChat falls back gracefully when the model returns unparsable output', a
   // an empty model reply still falls back to the contact message
   const ai2 = createMockAI({ embedDim: 2, chatResponse: '' });
   const result2 = await runChat({ AI: ai2, VECTORIZE: vectorize }, { tenant, messages: [{ role: 'user', content: 'otazka' }], lang: 'en' });
-  assert.match(result2.answer, /obchod@shop\.sk/);
+  assert.equal(result2.answer, noMatchFallback('en').answer);
+  assert.doesNotMatch(result2.answer, /obchod@shop\.sk/);
   assert.equal(result2.meta.parseError, true);
 });
 
@@ -456,7 +462,7 @@ test('runChat with lang "auto" sends the auto system prompt to the model and use
     messages: [{ role: 'user', content: 'Haben Sie das in Größe M?' }],
     lang: 'auto',
   });
-  assert.equal(noMatchResult.answer, noMatchFallback('de', 'shop@example.de').answer);
+  assert.equal(noMatchResult.answer, noMatchFallback('de').answer);
 });
 
 test('extractModelText handles string, {response}, object response and OpenAI shapes', () => {
@@ -625,8 +631,9 @@ test('runChat: starsie nacitanie nez okno nechava povodny fallback s kontaktom n
 
   const result = await runChat(env, { tenant, messages: [{ role: 'user', content: 'Mate nieco?' }], lang: 'sk' });
 
-  assert.equal(result.answer, noMatchFallback('sk', 'obchod@shop.sk').answer);
-  assert.match(result.answer, /obchod@shop\.sk/);
+  assert.equal(result.answer, noMatchFallback('sk').answer);
+  assert.match(result.answer, /kontaktnú stránku/);
+  assert.doesNotMatch(result.answer, /obchod@shop\.sk/); // e-mail účtu sa návštevníkovi neukazuje (29. 9. 2026)
   assert.equal(result.meta.indexWarming, undefined);
   assert.deepEqual(result.products, []);
 });
@@ -652,7 +659,7 @@ test('indexWarmingReply ma text vo vsetkych styroch jazykoch, bez produktov a be
     assert.ok(answer.length > 20, `${lang}: ${answer}`);
     assert.deepEqual(products, [], lang);
     assert.ok(!/[\u2014\u2013]/.test(answer), `${lang} obsahuje em-dash: ${answer}`);
-    assert.notEqual(answer, noMatchFallback(lang, 'obchod@shop.sk').answer, lang);
+    assert.notEqual(answer, noMatchFallback(lang).answer, lang);
   }
   // Neznamy jazyk padne na anglictinu, rovnako ako normaliseLang.
   assert.equal(indexWarmingReply('fr').answer, indexWarmingReply('en').answer);

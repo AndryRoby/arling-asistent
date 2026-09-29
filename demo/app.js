@@ -40,6 +40,8 @@
     payload_too_large: 'Požiadavka je príliš veľká.',
     quota_exceeded: 'Dnešný limit skúšobných účtov bol dosiahnutý.',
     internal_error: 'Nastala chyba na strane servera.',
+    // 29. 9. 2026: doménu má obchod s iným e-mailom; vysvetlenie s ďalším krokom príde v issues.
+    domain_taken: 'Obchod je už pripojený',
   };
 
   /** Turn a POST /v1/tenants error response body into a Slovak-language detail string, or null if there is nothing usable to show. */

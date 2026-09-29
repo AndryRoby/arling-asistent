@@ -25,7 +25,8 @@
  * testable without any network access (see tests/feed.test.mjs).
  */
 
-import { isPrivateHost } from './tenants.js';
+import { isPrivateHost, hostPatriDomene } from './tenants.js';
+import { citajTelo } from './eshop-kontrola.js';
 
 export const MAX_PRODUCTS = 5000;
 
@@ -59,19 +60,81 @@ export function decodeXmlEntities(text) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Lineárny čas na každom vstupe (bezpečnostná kontrola 29. 9. 2026, druhé kolo)
+//
+// Feed posiela ktokoľvek a parsovanie beží synchrónne, takže ho časovač
+// sťahovania nezastaví. Regulárne výrazy tvaru <tag>[\s\S]*?</tag> sú pri
+// otváracích značkách bez zatváracej kvadratické: '<rss>' + '<item>'.repeat(n)
+// trvalo pri 240 kB 6 s a pri 1 MB odhadom 100 s, čo v nočnom cron zhodilo
+// celý beh (ostatné obchody sa neobnovili). Preto sa bloky, CDATA aj skripty v
+// popise hľadajú cez indexOf a regulárne výrazy bez spätného prehľadávania
+// obsahu: keď za prvou otváracou značkou chýba zatváracia, nemá ju ani žiadna
+// ďalšia, takže hľadanie skončí namiesto skúšania každej ďalšej.
+// ---------------------------------------------------------------------------
+
 export function stripCdata(text) {
   if (!text) return '';
-  return String(text).replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1');
+  const s = String(text);
+  if (s.indexOf('<![CDATA[') < 0) return s;
+  let out = '';
+  let pos = 0;
+  for (;;) {
+    const od = s.indexOf('<![CDATA[', pos);
+    if (od < 0) break;
+    const po = s.indexOf(']]>', od + 9);
+    if (po < 0) break; // nedokončená CDATA ostáva ako text, rovnako ako predtým
+    out += s.slice(pos, od) + s.slice(od + 9, po);
+    pos = po + 3;
+  }
+  return out + s.slice(pos);
+}
+
+/** <script>…</script> a <style>…</style> nahradí medzerou, lineárne (pozri úvod sekcie). */
+function odstranSkriptyAStyly(s) {
+  const otvor = /<(script|style)/gi;
+  const bezZatvorenia = { script: false, style: false };
+  let out = '';
+  let pos = 0;
+  let hladaj = 0;
+  for (;;) {
+    otvor.lastIndex = hladaj;
+    const m = otvor.exec(s);
+    if (!m) break;
+    const meno = m[1].toLowerCase();
+    hladaj = m.index + 1;
+    if (bezZatvorenia[meno]) continue;
+    const gt = s.indexOf('>', m.index + m[0].length);
+    if (gt < 0) break; // za touto ani žiadnou ďalšou otváracou značkou už nie je '>'
+    const zatvor = new RegExp(`</${meno}>`, 'gi');
+    zatvor.lastIndex = gt + 1;
+    const z = zatvor.exec(s);
+    if (!z) {
+      bezZatvorenia[meno] = true;
+      if (bezZatvorenia.script && bezZatvorenia.style) break;
+      continue;
+    }
+    out += s.slice(pos, m.index) + ' ';
+    pos = z.index + z[0].length;
+    hladaj = pos;
+  }
+  return out + s.slice(pos);
 }
 
 /** Strip HTML tags from a description and collapse whitespace to plain text. */
 export function stripHtml(text) {
   if (!text) return '';
-  const withoutTags = String(text)
-    .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, ' ')
+  const bezSkriptov = odstranSkriptyAStyly(String(text));
+  // Značka <…> sa dá dokončiť len po posledný '>'. Za ním ostáva text bez
+  // zmeny (tak ako predtým), len ho regulárny výraz neprechádza pre každé
+  // osamelé '<' znova až do konca.
+  const posledny = bezSkriptov.lastIndexOf('>');
+  const hlava = posledny >= 0 ? bezSkriptov.slice(0, posledny + 1) : '';
+  const chvost = posledny >= 0 ? bezSkriptov.slice(posledny + 1) : bezSkriptov;
+  const withoutTags = hlava
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/(p|div|li)>/gi, '\n')
-    .replace(/<[^>]+>/g, ' ');
+    .replace(/<[^>]+>/g, ' ') + chvost;
   return decodeXmlEntities(withoutTags)
     .replace(/[ \t]+/g, ' ')
     .replace(/ +([.,!?;:])/g, '$1')
@@ -88,15 +151,47 @@ export function truncate(text, maxLen) {
 }
 
 // ---------------------------------------------------------------------------
-// XML tag extraction (regex based, namespace-tolerant)
+// XML tag extraction (namespace-tolerant, linear time, see stripCdata above)
 // ---------------------------------------------------------------------------
+
+const vzoryZnaciek = new Map();
+
+/** Otváracia značka <tag …> (za menom medzera alebo '>') a zatváracia </tag>, bez ohľadu na veľkosť písmen. */
+function vzoryZnacky(tagName) {
+  const kluc = String(tagName);
+  let vzory = vzoryZnaciek.get(kluc);
+  if (!vzory) {
+    const t = kluc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    vzory = { otvor: new RegExp(`<${t}(?=[\\s>])`, 'gi'), zatvor: new RegExp(`</${t}>`, 'gi') };
+    vzoryZnaciek.set(kluc, vzory);
+  }
+  return vzory;
+}
+
+/**
+ * Prvý celý blok <tag …>…</tag> od pozície `od`: {zaciatok, obsahOd, obsahDo,
+ * koniec}, alebo null. To isté, čo predtým regulárny výraz
+ * <tag(?:\s[^>]*)?>([\s\S]*?)</tag>, ale lineárne: keď za prvou otváracou
+ * značkou nie je zatváracia, nie je ani za žiadnou ďalšou, takže sa končí.
+ */
+function najdiBlok(text, vzory, od = 0) {
+  vzory.otvor.lastIndex = od;
+  const o = vzory.otvor.exec(text);
+  if (!o) return null;
+  const koniecOtvorenia = text.indexOf('>', o.index + o[0].length);
+  if (koniecOtvorenia < 0) return null;
+  vzory.zatvor.lastIndex = koniecOtvorenia + 1;
+  const z = vzory.zatvor.exec(text);
+  if (!z) return null;
+  return { zaciatok: o.index, obsahOd: koniecOtvorenia + 1, obsahDo: z.index, koniec: z.index + z[0].length };
+}
 
 /** Extract the first <tag>...</tag> content from an XML fragment (self-closing tags return ''). */
 export function extractTag(xml, tagName) {
-  const re = new RegExp(`<${tagName}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tagName}>`, 'i');
-  const m = xml.match(re);
-  if (!m) return '';
-  return decodeXmlEntities(stripCdata(m[1])).trim();
+  const text = String(xml || '');
+  const b = najdiBlok(text, vzoryZnacky(tagName), 0);
+  if (!b) return '';
+  return decodeXmlEntities(stripCdata(text.slice(b.obsahOd, b.obsahDo))).trim();
 }
 
 /** Extract an attribute value from the first matching self-closing/opening tag, e.g. <g:image_link href="..."/>. */
@@ -106,14 +201,21 @@ export function extractAttr(xml, tagName, attrName) {
   return m ? decodeXmlEntities(m[1]) : '';
 }
 
-/** Split an XML document into repeated top-level blocks (e.g. <item>...</item> or <entry>...</entry>). */
-export function extractBlocks(xml, blockTag) {
-  const re = new RegExp(`<${blockTag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${blockTag}>`, 'gi');
+/**
+ * Split an XML document into repeated top-level blocks (e.g. <item>...</item>
+ * or <entry>...</entry>), at most `max`. Lineárne cez najdiBlok: každý znak sa
+ * prejde najviac raz, aj keď otváracie značky nemajú zatváracie.
+ */
+export function extractBlocks(xml, blockTag, max = MAX_PRODUCTS) {
+  const text = String(xml || '');
+  const vzory = vzoryZnacky(blockTag);
   const blocks = [];
-  let m;
-  while ((m = re.exec(xml)) !== null) {
-    blocks.push(m[0]);
-    if (blocks.length >= MAX_PRODUCTS) break;
+  let pos = 0;
+  while (blocks.length < max) {
+    const b = najdiBlok(text, vzory, pos);
+    if (!b) break;
+    blocks.push(text.slice(b.zaciatok, b.koniec));
+    pos = b.koniec;
   }
   return blocks;
 }
@@ -135,32 +237,98 @@ export const FEED_TYPES = {
   GENERIC_XML: 'generic-xml',
 };
 
-/** Root <SHOP> followed by at least one <SHOPITEM>: Heureka.sk/.cz and Zbozi.cz share these element names. */
-const HEUREKA_SHAPE = /<SHOP(?:\s[^>]*)?>[\s\S]*?<SHOPITEM(?:\s[^>]*)?>/i;
+/**
+ * Root <SHOP> followed by at least one <SHOPITEM>: Heureka.sk/.cz and Zbozi.cz
+ * share these element names. To isté ako predtým výraz
+ * /<SHOP(?:\s[^>]*)?>[\s\S]*?<SHOPITEM(?:\s[^>]*)?>/i, ale lineárne: stačí
+ * prvé <SHOP …>; keď za ním <SHOPITEM> nie je, nie je ani za ďalším.
+ */
+function jeHeurekaTvar(text) {
+  const shop = /<SHOP(?=[\s>])/gi;
+  const m = shop.exec(text);
+  if (!m) return false;
+  const gt = text.indexOf('>', m.index + m[0].length);
+  if (gt < 0) return false;
+  const polozka = /<SHOPITEM(?=[\s>])/gi;
+  polozka.lastIndex = gt + 1;
+  const p = polozka.exec(text);
+  return !!p && text.indexOf('>', p.index + p[0].length) >= 0;
+}
 
-export function detectFeedType(rawText) {
+// ---------------------------------------------------------------------------
+// Strop JSON (bezpečnostná kontrola 29. 9. 2026, druhé kolo): JSON.parse 20 MB
+// tela tvaru [{},{},…] zabral v meraní 468 MB haldy, izolát má 128 MB. Jedna
+// JSON odpoveď (aj jedna strana stránkovania) má preto najviac
+// MAX_JSON_NA_STRANU bajtov a MAX_JSON_OBJEKTOV znakov '{' a '[' (horná hranica
+// objektov a polí po parsovaní; tie v reťazcoch sa rátajú tiež, teda radšej
+// viac). Parsuje sa raz: rozpoznajFeed vráti typ aj hotový objekt.
+// Skutočné strany sú ďaleko pod stropom: WooCommerce Store API 100 produktov
+// asi 0,3 až 1 MB, Shopify 250 produktov bežne 1 až 2 MB.
+// ---------------------------------------------------------------------------
+
+export const MAX_JSON_NA_STRANU = 4 * 1024 * 1024;
+export const MAX_JSON_OBJEKTOV = 300000;
+
+/** Počet znakov '{' a '[' v texte; skončí hneď, keď prekročí `strop`. */
+export function pocetJsonObjektov(text, strop = Infinity) {
+  const s = String(text || '');
+  let n = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c === 123 || c === 91) {
+      n += 1;
+      if (n > strop) return n;
+    }
+  }
+  return n;
+}
+
+/** JSON.parse so stropom znakov a objektov; nad stropom chyba FEED_CHYBY.PRILIS_VELKY (kód feed_too_large). */
+export function parsujJsonSoStropom(text, { maxZnakov = MAX_JSON_NA_STRANU, maxObjektov = MAX_JSON_OBJEKTOV } = {}) {
+  const s = String(text || '');
+  if (s.length > maxZnakov || pocetJsonObjektov(s, maxObjektov) > maxObjektov) throw new Error(FEED_CHYBY.PRILIS_VELKY);
+  return JSON.parse(s);
+}
+
+/**
+ * Typ feedu a pri JSON aj rozparsovaný objekt: {type, json} alebo null.
+ * JSON nad stropom vyhodí FEED_CHYBY.PRILIS_VELKY (nie null), aby majiteľ
+ * dostal kód feed_too_large a nie „nečitateľný feed“.
+ */
+export function rozpoznajFeed(rawText, strop = {}) {
   const text = String(rawText || '').trim();
   if (!text) return null;
 
   if (text[0] === '{' || text[0] === '[') {
-    let parsed;
+    let json;
     try {
-      parsed = JSON.parse(text);
+      json = parsujJsonSoStropom(text, strop);
     } catch (e) {
+      if (e && e.message === FEED_CHYBY.PRILIS_VELKY) throw e;
       return null;
     }
-    if (Array.isArray(parsed)) return FEED_TYPES.WOOCOMMERCE;
-    if (parsed && Array.isArray(parsed.products)) return FEED_TYPES.SHOPIFY;
+    if (Array.isArray(json)) return { type: FEED_TYPES.WOOCOMMERCE, json };
+    if (json && Array.isArray(json.products)) return { type: FEED_TYPES.SHOPIFY, json };
     return null;
   }
 
   if (text[0] === '<') {
-    if (HEUREKA_SHAPE.test(text)) return FEED_TYPES.HEUREKA;
-    if (/xmlns:g=|<g:/i.test(text)) return FEED_TYPES.GOOGLE_SHOPPING;
-    return FEED_TYPES.GENERIC_XML;
+    if (jeHeurekaTvar(text)) return { type: FEED_TYPES.HEUREKA, json: null };
+    if (/xmlns:g=|<g:/i.test(text)) return { type: FEED_TYPES.GOOGLE_SHOPPING, json: null };
+    return { type: FEED_TYPES.GENERIC_XML, json: null };
   }
 
   return null;
+}
+
+/** Len typ feedu (reťazec z FEED_TYPES) alebo null; JSON nad stropom je tiež null. */
+export function detectFeedType(rawText) {
+  try {
+    const r = rozpoznajFeed(rawText);
+    return r ? r.type : null;
+  } catch (e) {
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -275,8 +443,7 @@ export function heurekaAvailability(deliveryDate) {
 }
 
 function heurekaParamLines(block) {
-  return extractBlocks(block, 'PARAM')
-    .slice(0, HEUREKA_MAX_PARAMS)
+  return extractBlocks(block, 'PARAM', HEUREKA_MAX_PARAMS)
     .map((param) => {
       const name = extractTag(param, 'PARAM_NAME');
       const value = extractTags(param, 'VAL').filter(Boolean).join(', ');
@@ -336,10 +503,19 @@ function absoluteUrl(maybeRelative, baseUrl) {
   }
 }
 
+/** Text JSON alebo už rozparsovaný objekt (rozpoznajFeed, stránkovanie): JSON sa neparsuje druhýkrát. */
+function jsonObjekt(jsonTextOrObject) {
+  return typeof jsonTextOrObject === 'string' ? JSON.parse(jsonTextOrObject) : jsonTextOrObject;
+}
+
 export function parseShopifyJson(jsonText, feedUrl) {
-  const parsed = JSON.parse(jsonText);
-  const products = Array.isArray(parsed.products) ? parsed.products : [];
-  return products.slice(0, MAX_PRODUCTS).map((p) => {
+  const parsed = jsonObjekt(jsonText);
+  return mapShopifyProducts(parsed && Array.isArray(parsed.products) ? parsed.products : [], feedUrl);
+}
+
+/** Pole produktov z Shopify products.json -> surové položky (aj pre každú stranu stránkovania zvlášť). */
+function mapShopifyProducts(products, feedUrl) {
+  return products.filter((p) => p && typeof p === 'object').slice(0, MAX_PRODUCTS).map((p) => {
     const variants = Array.isArray(p.variants) ? p.variants : [];
     const firstVariant = variants[0] || {};
     const inStock = variants.some((v) => v.available === true) || (variants.length === 0 && false);
@@ -359,9 +535,13 @@ export function parseShopifyJson(jsonText, feedUrl) {
 }
 
 export function parseWooCommerceJson(jsonText, feedUrl) {
-  const parsed = JSON.parse(jsonText);
-  const products = Array.isArray(parsed) ? parsed : [];
-  return products.slice(0, MAX_PRODUCTS).map((p) => {
+  const parsed = jsonObjekt(jsonText);
+  return mapWooCommerceProducts(Array.isArray(parsed) ? parsed : [], feedUrl);
+}
+
+/** Pole produktov WooCommerce (Store API aj REST v2/v3) -> surové položky. */
+function mapWooCommerceProducts(products, feedUrl) {
+  return products.filter((p) => p && typeof p === 'object').slice(0, MAX_PRODUCTS).map((p) => {
     let price = '';
     let currency = '';
     if (p.prices && typeof p.prices === 'object') {
@@ -416,9 +596,21 @@ export function normaliseAvailability(raw) {
 /** Optional raw fields carried through when a parser provides them (today only Heureka: MANUFACTURER, EAN, ITEMGROUP_ID). */
 const OPTIONAL_PRODUCT_FIELDS = ['brand', 'gtin', 'group'];
 
+/**
+ * Najdlhší názov produktu (znaky). Bezpečnostná kontrola 29. 9. 2026: názov
+ * nemal strop a embed.js ho opakuje v každom kuse textu, takže jeden feed s
+ * obrovskými názvami minul viac rozpočtu obnovy, než sa pred vektormi
+ * rezervovalo. So stropom 180 a popisom do 600 (plus „…“) je jeden produkt
+ * najviac 180 + 1 + 2 + 601 = 784 znakov, teda jeden kus textu a nikdy viac
+ * ako onboarding.js ODHAD_ZNAKOV_NA_PRODUKT (800).
+ */
+export const TITLE_MAX_LEN = 180;
+
 export function normaliseProduct(raw, { defaultCurrency = 'EUR', descriptionMaxLen = 600 } = {}) {
-  const title = String(raw.title || '').trim();
-  const id = String(raw.id || '').trim() || title;
+  const celyTitul = String(raw.title || '').trim();
+  const title = truncate(celyTitul, TITLE_MAX_LEN);
+  // Id z celého názvu, nie orezaného: produkty bez id si nechajú ten istý vektor.
+  const id = String(raw.id || '').trim() || celyTitul;
   const description = truncate(stripHtml(raw.description || ''), descriptionMaxLen);
   const priceNumber = parseFloat(String(raw.price || '').replace(/[^0-9.,]/g, '').replace(',', '.'));
   const product = {
@@ -444,19 +636,33 @@ export function normaliseProduct(raw, { defaultCurrency = 'EUR', descriptionMaxL
  * `feedUrl` is used to resolve relative product URLs (e.g. Shopify handles).
  */
 export function parseFeed(rawText, feedUrl, options = {}) {
-  const type = detectFeedType(rawText);
-  if (!type) {
+  return parsujRozpoznany(rozpoznajFeed(rawText), rawText, feedUrl, options);
+}
+
+/** Výsledok rozpoznajFeed -> {type, products, truncated}. JSON sa parsuje raz, parsery dostanú hotový objekt. */
+function parsujRozpoznany(rozpoznane, rawText, feedUrl, options = {}) {
+  if (!rozpoznane) {
     throw new Error('unrecognised_feed_format');
   }
+  const { type, json } = rozpoznane;
   let rawItems;
   if (type === FEED_TYPES.HEUREKA) rawItems = parseHeurekaXml(rawText, feedUrl);
   else if (type === FEED_TYPES.GOOGLE_SHOPPING) rawItems = parseGoogleShoppingXml(rawText);
   else if (type === FEED_TYPES.GENERIC_XML) rawItems = parseGenericXml(rawText);
-  else if (type === FEED_TYPES.SHOPIFY) rawItems = parseShopifyJson(rawText, feedUrl);
-  else if (type === FEED_TYPES.WOOCOMMERCE) rawItems = parseWooCommerceJson(rawText, feedUrl);
+  else if (type === FEED_TYPES.SHOPIFY) rawItems = parseShopifyJson(json, feedUrl);
+  else if (type === FEED_TYPES.WOOCOMMERCE) rawItems = parseWooCommerceJson(json, feedUrl);
   else rawItems = [];
+  return hotovyFeed(type, rawItems, options);
+}
 
-  const truncated = rawItems.length >= MAX_PRODUCTS;
+/**
+ * Surové položky -> {type, products, truncated}. `orezane` = sťahovanie
+ * skončilo na strope bajtov alebo času (XML po posledný celý záznam, alebo
+ * stránkovanie bez posledných strán): katalóg je neúplný, aj keď má menej
+ * ako MAX_PRODUCTS produktov.
+ */
+function hotovyFeed(type, rawItems, options = {}, { orezane = false } = {}) {
+  const truncated = orezane || rawItems.length >= MAX_PRODUCTS;
   const products = rawItems
     .slice(0, MAX_PRODUCTS)
     .map((raw) => normaliseProduct(raw, options))
@@ -512,21 +718,152 @@ function locationHeader(res) {
   return headers.get('location') || headers.get('Location') || '';
 }
 
+// ---------------------------------------------------------------------------
+// Strop veľkosti a času pri sťahovaní feedu (bezpečnostná kontrola 29. 9. 2026)
+//
+// Do vtedy sa telo čítalo cez `await res.text()` celé, bez stropu bajtov aj
+// bez časového limitu. Adresu feedu zadáva ktokoľvek (POST /v1/tenants), takže
+// odpoveď so stovkami MB (alebo malý gzip, ktorý fetch sám rozbalí) minula
+// pamäť izolátu a pomalá odpoveď držala spojenie; v nočnom cron to zastavilo
+// obnovu všetkých obchodov po útočníkovom. MAX_PRODUCTS obmedzoval až
+// rozparsované produkty, nie surové bajty. Teraz:
+//   - telo sa číta po kusoch najviac do MAX_FEED_BAJTOV (rozbalené bajty, vzor
+//     citajTelo v eshop-kontrola.js). XML nad stropom sa spracuje po posledný
+//     celý záznam a výsledok má truncated: true (druhé kolo kontroly: Heureka
+//     XML s tisíckami produktov má 15 až 30 MB a predtým dal aspoň prvých
+//     5 000, nie chybu). JSON nad stropom a XML bez jediného celého záznamu
+//     skončia chybou FEED_CHYBY.PRILIS_VELKY, onboarding.js ju hlási ako
+//     feed_too_large,
+//   - každá požiadavka (všetky skoky presmerovaní aj čítanie tela) má časový
+//     limit CAS_NA_FEED_MS cez AbortController a celý feed vrátane strán
+//     stránkovania CAS_FEED_SPOLU_MS; po ňom chyba FEED_CHYBY.CAS,
+//   - pri stránkovaní platí strop bajtov pre súčet všetkých strán a každá
+//     strana má najviac MAX_JSON_NA_STRANU; stránkovanie ukončené stropom
+//     vráti truncated: true,
+//   - s voľbou `domena` musí byť každý skok (aj prvá adresa) na doméne obchodu
+//     alebo jej subdoméne (tenants.js hostPatriDomene), inak chyba
+//     FeedUrlNotAllowedError('feed_other_domain').
+// ---------------------------------------------------------------------------
+
+export const MAX_FEED_BAJTOV = 20 * 1024 * 1024;
+export const CAS_NA_FEED_MS = 20 * 1000;
+export const CAS_FEED_SPOLU_MS = 60 * 1000;
+
+/** Chyby sťahovania; onboarding.js classifyFeedError ich prekladá na stabilné kódy. */
+export const FEED_CHYBY = {
+  PRILIS_VELKY: 'feed_too_large', // -> feed_too_large
+  CAS: 'feed_timeout', // -> feed_unreachable
+};
+
+/** Dôvod FeedUrlNotAllowedError, keď adresa alebo skok presmerovania nie je na doméne obchodu. */
+export const FEED_INA_DOMENA = 'feed_other_domain';
+
+/** Prísľub, ktorý sa pri prerušení `signal` hneď zamietne chybou FEED_CHYBY.CAS (aj keď fetchImpl signal ignoruje). */
+function sCasom(prisluba, signal) {
+  if (!signal) return prisluba;
+  if (signal.aborted) return Promise.reject(new Error(FEED_CHYBY.CAS));
+  return new Promise((resolve, reject) => {
+    const priPreruseni = () => reject(new Error(FEED_CHYBY.CAS));
+    signal.addEventListener('abort', priPreruseni, { once: true });
+    Promise.resolve(prisluba).then(
+      (hodnota) => { signal.removeEventListener('abort', priPreruseni); resolve(hodnota); },
+      (chyba) => { signal.removeEventListener('abort', priPreruseni); reject(signal.aborted ? new Error(FEED_CHYBY.CAS) : chyba); }
+    );
+  });
+}
+
+/** Zahodí nečítané telo odpovede (presmerovanie, chybový stav), aby nedržalo spojenie. */
+function zahodTelo(res) {
+  try {
+    if (res && res.body && typeof res.body.cancel === 'function') res.body.cancel().catch(() => {});
+  } catch (e) {
+    // nič: telo už mohlo byť zamknuté alebo prečítané
+  }
+}
+
+/** Adresa (URL objekt) na doméne obchodu, alebo FeedUrlNotAllowedError(feed_other_domain). Bez `domena` sa nekontroluje. */
+function naDomene(u, domena) {
+  if (domena && !hostPatriDomene(u.hostname, domena)) throw new FeedUrlNotAllowedError(FEED_INA_DOMENA);
+  return u;
+}
+
 /**
  * fetch s ručným sledovaním presmerovaní, kde každý skok prejde
  * assertFetchableUrl. Odpoveď vracia rovnako ako obyčajný fetch, takže
- * volajúci sa nemení.
+ * volajúci sa nemení. `init.signal` (AbortController so časovým limitom zo
+ * stiahniFeed) platí pre všetky skoky; po prerušení vyhodí FEED_CHYBY.CAS.
+ * S `domena` musí byť prvá adresa aj každý skok na doméne obchodu alebo jej
+ * subdoméne (druhé kolo bezpečnostnej kontroly 29. 9. 2026: otvorené
+ * presmerovanie na webe obete inak viedlo na cudzí feed).
  */
-export async function guardedFetch(rawUrl, fetchImpl, init = {}) {
-  let current = assertFetchableUrl(rawUrl).toString();
+export async function guardedFetch(rawUrl, fetchImpl, init = {}, { domena = null } = {}) {
+  let current = naDomene(assertFetchableUrl(rawUrl), domena).toString();
+  const signal = init && init.signal;
   for (let hop = 0; hop <= MAX_FEED_REDIRECTS; hop++) {
-    const res = await fetchImpl(current, { ...init, redirect: 'manual' });
+    const res = await sCasom(fetchImpl(current, { ...init, redirect: 'manual' }), signal);
     const status = res && res.status;
     const location = locationHeader(res);
     if (!(Number.isFinite(status) && status >= 300 && status < 400 && location)) return res;
-    current = assertFetchableUrl(location, { base: current }).toString();
+    zahodTelo(res);
+    current = naDomene(assertFetchableUrl(location, { base: current }), domena).toString();
   }
   throw new FeedUrlNotAllowedError('feed_too_many_redirects');
+}
+
+/** Zatváracie značky záznamov, po ktoré sa oreže XML nad stropom (Heureka, Google a všeobecné RSS, Atom). */
+const KONCE_ZAZNAMOV = ['</SHOPITEM>', '</shopitem>', '</Shopitem>', '</item>', '</ITEM>', '</Item>', '</entry>', '</ENTRY>'];
+
+/**
+ * XML orezané na strope bajtov -> text po koniec posledného celého záznamu,
+ * alebo null (nie je to XML, alebo v ňom nie je ani jeden celý záznam).
+ * Parsery berú len celé bloky, takže nedokončený koreň nevadí.
+ */
+export function xmlPoPoslednyZaznam(text) {
+  const s = String(text || '');
+  if (!/^[\s﻿]*</.test(s.slice(0, 1024))) return null;
+  let koniec = -1;
+  for (const znacka of KONCE_ZAZNAMOV) {
+    const i = s.lastIndexOf(znacka);
+    if (i >= 0 && i + znacka.length > koniec) koniec = i + znacka.length;
+  }
+  return koniec > 0 ? s.slice(0, koniec) : null;
+}
+
+/**
+ * Prečíta telo odpovede najviac do `limit` bajtov. Text je UTF-8 ako pri
+ * res.text(). Nad stropom: s `orezatXml` XML po posledný celý záznam
+ * (orezane: true), inak chyba FEED_CHYBY.PRILIS_VELKY.
+ */
+async function citajTeloFeedu(res, limit, signal, { orezatXml = false } = {}) {
+  const { bajty, orezane } = await sCasom(citajTelo(res, Math.max(0, limit)), signal);
+  const text = new TextDecoder('utf-8').decode(bajty);
+  if (!orezane) return { text, bajtov: bajty.byteLength, orezane: false };
+  const cast = orezatXml ? xmlPoPoslednyZaznam(text) : null;
+  if (cast == null) throw new Error(FEED_CHYBY.PRILIS_VELKY);
+  return { text: cast, bajtov: bajty.byteLength, orezane: true };
+}
+
+/**
+ * Jedna požiadavka feedu so všetkým naraz: presmerovania cez guardedFetch
+ * (s `domena` len na doméne obchodu), časový limit `casMs` na skoky aj čítanie
+ * tela a strop `maxBajtov`. Vracia {res, text, bajtov, orezane}; pri stave
+ * mimo 2xx je text null a telo sa zahodí nečítané.
+ */
+async function stiahniFeed(url, fetchImpl, { maxBajtov, casMs, orezatXml = false, domena = null }) {
+  if (!(casMs > 0)) throw new Error(FEED_CHYBY.CAS);
+  const ac = new AbortController();
+  const casovac = setTimeout(() => ac.abort(), casMs);
+  try {
+    const res = await guardedFetch(url, fetchImpl, { headers: FEED_FETCH_HEADERS, signal: ac.signal }, { domena });
+    if (!res.ok) {
+      zahodTelo(res);
+      return { res, text: null, bajtov: 0, orezane: false };
+    }
+    const { text, bajtov, orezane } = await citajTeloFeedu(res, maxBajtov, ac.signal, { orezatXml });
+    return { res, text, bajtov, orezane };
+  } finally {
+    clearTimeout(casovac);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -587,67 +924,119 @@ export function isWooCommerceStoreApiUrl(feedUrl) {
  * param and `page`. Stops when a page returns fewer than `pageSize` items,
  * MAX_PRODUCTS is reached, a non-first page is not ok, or `maxPages` is hit.
  * Throws (like a plain single-page fetch would) if the first page fails.
+ *
+ * Strop bajtov `limity.maxBajtov` platí pre súčet všetkých strán, každá
+ * strana má navyše najviac `limity.maxJsonBajtov` (MAX_JSON_NA_STRANU) a
+ * MAX_JSON_OBJEKTOV, a čas `limity.casSpoluMs` platí pre celé stránkovanie
+ * (každá strana najviac `limity.casMs`). Prvá strana nad stropom alebo po čase
+ * vyhodí chybu ako každé iné zlyhanie prvej strany; neskoršia strana
+ * stránkovanie len ukončí, ostane to, čo sa už stiahlo, a výsledok má
+ * `orezane: true` (feed je neúplný).
+ *
+ * Každá strana sa hneď zmení na malé surové položky (`mapItems`) a jej
+ * rozparsovaný JSON sa zahodí: v pamäti sa nedrží celý katalóg ako JSON a
+ * nerobí sa JSON.stringify s druhým JSON.parse (predtým áno).
  */
-async function fetchPaginatedJsonList(feedUrl, fetchImpl, { sizeParam, pageSize, extractItems }) {
+async function fetchPaginatedJsonList(feedUrl, fetchImpl, { sizeParam, pageSize, extractItems, mapItems }, limity) {
   const items = [];
   const maxPages = Math.ceil(MAX_PRODUCTS / pageSize) + 1; // safety valve: never loop forever
+  const koniec = limity.now() + limity.casSpoluMs;
+  let bajtovSpolu = 0;
+  let orezane = false;
   for (let page = 1; page <= maxPages; page++) {
     const pageUrl = new URL(feedUrl);
     pageUrl.searchParams.set(sizeParam, String(pageSize));
     pageUrl.searchParams.set('page', String(page));
 
-    const res = await guardedFetch(pageUrl.toString(), fetchImpl, { headers: FEED_FETCH_HEADERS });
+    let stiahnute;
+    try {
+      stiahnute = await stiahniFeed(pageUrl.toString(), fetchImpl, {
+        maxBajtov: Math.min(limity.maxJsonBajtov, limity.maxBajtov - bajtovSpolu),
+        casMs: Math.min(limity.casMs, koniec - limity.now()),
+        domena: limity.domena,
+      });
+    } catch (e) {
+      const limit = e && (e.message === FEED_CHYBY.PRILIS_VELKY || e.message === FEED_CHYBY.CAS);
+      if (page === 1 || !limit) throw e;
+      orezane = true;
+      break; // strop bajtov alebo času na neskoršej strane: nechať, čo už je stiahnuté
+    }
+    const { res, text, bajtov } = stiahnute;
     if (!res.ok) {
       if (page === 1) throw new Error(`feed_fetch_failed_${res.status}`);
       break; // stop on non-200: keep whatever was already fetched
     }
+    bajtovSpolu += bajtov;
 
     let pageItems;
     try {
-      pageItems = extractItems(JSON.parse(await res.text()));
+      pageItems = extractItems(parsujJsonSoStropom(text, { maxZnakov: limity.maxJsonBajtov }));
     } catch (e) {
       if (page === 1) throw e;
+      if (e && e.message === FEED_CHYBY.PRILIS_VELKY) orezane = true;
       break;
     }
 
-    items.push(...pageItems);
+    items.push(...mapItems(pageItems.slice(0, Math.max(0, MAX_PRODUCTS - items.length)), feedUrl));
     if (pageItems.length < pageSize) break; // short page: this was the last one
     if (items.length >= MAX_PRODUCTS) break; // cap reached
   }
-  return items;
+  return { items, orezane };
 }
 
-function fetchShopifyProductsPaginated(feedUrl, fetchImpl) {
+function fetchShopifyProductsPaginated(feedUrl, fetchImpl, limity) {
   return fetchPaginatedJsonList(feedUrl, fetchImpl, {
     sizeParam: 'limit',
     pageSize: SHOPIFY_PRODUCTS_JSON_PAGE_SIZE,
     extractItems: (parsed) => (parsed && Array.isArray(parsed.products) ? parsed.products : []),
-  });
+    mapItems: mapShopifyProducts,
+  }, limity);
 }
 
-function fetchWooCommerceStoreApiPaginated(feedUrl, fetchImpl) {
+function fetchWooCommerceStoreApiPaginated(feedUrl, fetchImpl, limity) {
   return fetchPaginatedJsonList(feedUrl, fetchImpl, {
     sizeParam: 'per_page',
     pageSize: WOOCOMMERCE_STORE_API_PAGE_SIZE,
     extractItems: (parsed) => (Array.isArray(parsed) ? parsed : []),
-  });
+    mapItems: mapWooCommerceProducts,
+  }, limity);
 }
 
-/** Fetch a feed URL and parse it. `fetchImpl` is injectable for tests. */
-export async function fetchFeed(feedUrl, { fetchImpl = fetch, ...options } = {}) {
+/**
+ * Fetch a feed URL and parse it. `fetchImpl` is injectable for tests, and so
+ * are the limits (`maxBajtov`, `maxJsonBajtov`, `casMs`, `casSpoluMs`, `now`)
+ * and `domena` (doména obchodu: prvá adresa aj každý skok presmerovania musí
+ * byť na nej, onboarding.js ju posiela pre každý obchod okrem ukážok
+ * oslovení a demo obchodu); everything else in the options goes to parseFeed
+ * as before. Výsledok má `truncated: true` aj vtedy, keď sťahovanie skončilo
+ * na strope bajtov alebo času a katalóg je preto neúplný.
+ */
+export async function fetchFeed(feedUrl, {
+  fetchImpl = fetch,
+  maxBajtov = MAX_FEED_BAJTOV,
+  maxJsonBajtov = MAX_JSON_NA_STRANU,
+  casMs = CAS_NA_FEED_MS,
+  casSpoluMs = CAS_FEED_SPOLU_MS,
+  now = Date.now,
+  domena = null,
+  ...options
+} = {}) {
+  const limity = { maxBajtov, maxJsonBajtov, casMs, casSpoluMs, now, domena };
   if (isShopifyProductsJsonUrl(feedUrl)) {
-    const products = await fetchShopifyProductsPaginated(feedUrl, fetchImpl);
-    return parseFeed(JSON.stringify({ products }), feedUrl, options);
+    const { items, orezane } = await fetchShopifyProductsPaginated(feedUrl, fetchImpl, limity);
+    return hotovyFeed(FEED_TYPES.SHOPIFY, items, options, { orezane });
   }
   if (isWooCommerceStoreApiUrl(feedUrl)) {
-    const products = await fetchWooCommerceStoreApiPaginated(feedUrl, fetchImpl);
-    return parseFeed(JSON.stringify(products), feedUrl, options);
+    const { items, orezane } = await fetchWooCommerceStoreApiPaginated(feedUrl, fetchImpl, limity);
+    return hotovyFeed(FEED_TYPES.WOOCOMMERCE, items, options, { orezane });
   }
 
-  const res = await guardedFetch(feedUrl, fetchImpl, { headers: FEED_FETCH_HEADERS });
+  const { res, text, orezane } = await stiahniFeed(feedUrl, fetchImpl, { maxBajtov, casMs: Math.min(casMs, casSpoluMs), orezatXml: true, domena });
   if (!res.ok) {
     throw new Error(`feed_fetch_failed_${res.status}`);
   }
-  const text = await res.text();
-  return parseFeed(text, feedUrl, options);
+  // Jeden JSON (nie stránkovaný) má ten istý strop ako jedna strana.
+  const vysledok = parsujRozpoznany(rozpoznajFeed(text, { maxZnakov: maxJsonBajtov }), text, feedUrl, options);
+  if (orezane) vysledok.truncated = true;
+  return vysledok;
 }

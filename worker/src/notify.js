@@ -20,7 +20,7 @@
 import { monthKey, usagePercent } from './tenants.js';
 import { pripocitaj, rezervuj, kluce } from './pocty.js';
 
-export const DEFAULT_QUOTA_PING_URL = 'https://server.invalid/subscribe/api/ping';
+export const DEFAULT_QUOTA_PING_URL = 'https://api.arling.workers.dev/subscribe/api/ping';
 export const QUOTA_THRESHOLDS = [80, 100];
 // KV reminder lives a little longer than the longest month, so the "already
 // notified" marker cannot expire mid-month; the key name carries the month,

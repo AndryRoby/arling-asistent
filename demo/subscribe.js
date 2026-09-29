@@ -1,7 +1,7 @@
 /*
  * Shared "notify me about new tools" subscribe form.
- * Wires every <form data-subscribe> on the page to the ARLing homelab
- * subscribe API. No inline handlers (CSP script-src has no 'unsafe-inline').
+ * Wires every <form data-subscribe> on the page to the ARLing
+ * subscribe API (through the api.arling.workers.dev worker, same as the hub). No inline handlers (CSP script-src has no 'unsafe-inline').
  *
  * Expected markup per form:
  *   <form data-subscribe data-source="..." data-lang="en"
@@ -16,7 +16,7 @@
 (function () {
   'use strict';
 
-  var ENDPOINT = 'https://server.invalid/subscribe/api/subscribe';
+  var ENDPOINT = 'https://api.arling.workers.dev/subscribe/api/subscribe';
 
   function trackSubscribe(source) {
     try {

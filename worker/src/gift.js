@@ -292,19 +292,30 @@ export function jeDieta(recipient) {
   return DIETA_RE.test(bezDiakritiky(recipient));
 }
 
+// Záujem o deti v poli záujmov: slovo o deťoch alebo vnúčatách, pred ktorým (do troch slov) nie je zápor.
+// „hračky pre vnúča“ áno; „bez detských hračiek“, „no toys“, „keine Kinder“ nie (brána 29. 9., pokus 2, nález 4).
+const DETSKY_ZAUJEM_RE = /^(deti|detsk\p{L}*|dieta|dietatu|deticky|dojc\p{L}*|batol\p{L}*|babatk\p{L}*|miminko|miminka|hrack\p{L}*|hracky|kinder\p{L}*|kind|baby|babies|toddlers?|child|children|kids?|toys?|spielzeug\p{L}*|skolk\p{L}*|vnuc\p{L}*|vnouc\p{L}*|vnuk\p{L}*|grandkids?|grandchild\p{L}*|grandson|granddaughter|enkel\p{L}*|synovec|neter|nephew|niece)$/u;
+const ZAPOR = new Set(['bez', 'nie', 'ziadne', 'ziadnu', 'ziadny', 'nechcem', 'nechce', 'ne', 'zadne', 'no', 'not', 'without', 'nothing', 'ohne', 'kein', 'keine', 'keinen', 'nicht']);
+
+export function chceDetske(interests) {
+  const slova = bezDiakritiky(interests).split(/[^\p{L}]+/u).filter(Boolean);
+  return slova.some((w, i) => DETSKY_ZAUJEM_RE.test(w) && !slova.slice(Math.max(0, i - 3), i).some((p) => ZAPOR.has(p)));
+}
+
 /**
- * Výber podľa veku obdarovaného: dospelému bez detských výrobkov (ak záujmy
- * deti nespomínajú; keď by neostalo nič, zoznam ostane celý), dieťaťu detské
- * výrobky dopredu, poradie inak ostáva (výber bez modelu berie prvých päť).
+ * Výber podľa veku obdarovaného: dospelému bez detských výrobkov, ak záujmy
+ * výslovne nežiadajú niečo pre deti; keď by neostalo nič, ostane prázdny
+ * zoznam (widget povie, že nič vhodné nie je), nikdy sa nevrátia nevhodné.
+ * Dieťaťu idú detské výrobky dopredu, poradie inak ostáva (výber bez modelu
+ * berie prvých päť). Rovnaký zoznam ide aj do ďalších kandidátov.
  */
 export function bezDetskychPreDospeleho(candidates, recipient, interests) {
   const zoznam = candidates || [];
   if (jeDieta(recipient) && !jeDospely(recipient)) {
     return [...zoznam.filter((c) => jeDetskyVyrobok(c)), ...zoznam.filter((c) => !jeDetskyVyrobok(c))];
   }
-  if (!jeDospely(recipient) || DETSKE_RE.test(bezDiakritiky(interests))) return zoznam;
-  const ostatne = zoznam.filter((c) => !jeDetskyVyrobok(c));
-  return ostatne.length ? ostatne : zoznam;
+  if (!jeDospely(recipient) || chceDetske(interests)) return zoznam;
+  return zoznam.filter((c) => !jeDetskyVyrobok(c));
 }
 
 // Slová, ktoré v dôvode nič nepridajú k cene na karte.

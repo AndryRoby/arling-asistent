@@ -76,6 +76,20 @@ export function buildProductChunks(product) {
   }));
 }
 
+/**
+ * Presný počet znakov, ktoré embedAndUpsertProducts pošle do vektorov (tie
+ * isté kusy z buildProductChunks, teda to isté `znakov` ako v jeho súhrne).
+ * Podľa neho onboarding.js rezervuje rozpočet obnovy PRED vektormi
+ * (budget.js rezervujObnovu), takže rezervácia je horná hranica skutočnosti.
+ */
+export function znakyProduktov(products) {
+  let spolu = 0;
+  for (const product of products || []) {
+    for (const chunk of buildProductChunks(product)) spolu += String(chunk.text || '').length;
+  }
+  return spolu;
+}
+
 /** Call the embedding model for a batch of texts, returning one vector per input, in order. */
 export async function embedTexts(ai, texts) {
   if (texts.length === 0) return [];
@@ -118,6 +132,7 @@ export async function embedAndUpsertProducts(env, tenantId, products, { batchSiz
 
   // znakov: dĺžka všetkých textov poslaných do vektorov, pre skutočný náklad
   // načítania (budget.js obnovaZaZnaky) namiesto pevného 1 neurónu na kus.
+  // Rovnaký súčet ako znakyProduktov vyššie (rezervácia pred vektormi).
   const znakov = allChunks.reduce((s, c) => s + String(c.text || '').length, 0);
   return { productCount: products.length, chunkCount: allChunks.length, upserted, znakov };
 }

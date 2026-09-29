@@ -100,7 +100,9 @@ test('A: sonda Astry: bezplatny obchod pri plnom bazene 2 700 odpovedi bez model
       assert.equal(d.meta.bezAi, true);
       assert.equal(d.meta.bezVypoctu, true, 'bez vektora');
       assert.deepEqual(d.products, []);
-      assert.match(d.answer, /info@free\.sk/);
+      // Odkáže na obchod, ale nikdy nie e-mailom účtu (bezpečnostná kontrola 29. 9. 2026, nález 3).
+      assert.match(d.answer, /kontaktnú stránku/);
+      assert.doesNotMatch(d.answer, /info@free\.sk/);
     }
   }
   assert.equal(embedCalls(env), 0, 'ani jeden vektor');

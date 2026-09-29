@@ -8,7 +8,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import worker from '../worker/src/index.js';
-import { createTenant, setTenantStatus } from '../worker/src/tenants.js';
+import { createTenant, setTenantStatus, getTenantById } from '../worker/src/tenants.js';
 import { createMockD1 } from './helpers/mock-d1.mjs';
 import { createMockAI, createMockVectorize, createMockKV } from './helpers/mock-cf.mjs';
 
@@ -243,7 +243,7 @@ test('POST /v1/tenants/:id/reingest is wired up end to end: unauthorized without
   const unauthorized = await worker.fetch(new Request(`https://asistent.arling.sk/v1/tenants/${tenant.id}/reingest`, { method: 'POST' }), env, {});
   assert.equal(unauthorized.status, 401);
 
-  env.fetchImpl = async () => ({ ok: true, status: 200, text: async () => '<products></products>' });
+  env.fetchImpl = async () => ({ ok: true, status: 200, text: async () => '<products><item><id>1</id><name>Test produkt</name><price>1</price><url>https://shop7.sk/p/1</url></item></products>' });
   const ok = await worker.fetch(new Request(`https://asistent.arling.sk/v1/tenants/${tenant.id}/reingest`, {
     method: 'POST',
     headers: { 'X-Admin-Token': 'test-admin-token' },
@@ -251,6 +251,18 @@ test('POST /v1/tenants/:id/reingest is wired up end to end: unauthorized without
   assert.equal(ok.status, 200);
   const body = await ok.json();
   assert.equal(body.ok, true);
+
+  // Prázdny feed (druhé kolo kontroly 29. 9. 2026): 502 s kódom, obchod ostáva ready.
+  env.fetchImpl = async () => ({ ok: true, status: 200, text: async () => '<products></products>' });
+  const prazdny = await worker.fetch(new Request(`https://asistent.arling.sk/v1/tenants/${tenant.id}/reingest`, {
+    method: 'POST',
+    headers: { 'X-Admin-Token': 'test-admin-token' },
+  }), env, {});
+  assert.equal(prazdny.status, 502);
+  const telo = await prazdny.json();
+  assert.equal(telo.code, 'no_products');
+  assert.equal(telo.ponechanyReady, true);
+  assert.equal((await getTenantById(env.DB, tenant.id)).status, 'ready');
 });
 
 test('PATCH /v1/tenants/:id/plan is wired up end to end: unauthorized without the admin token, changes plan and quota with it', async () => {
@@ -373,7 +385,7 @@ test('POST /v1/chat pings the homelab at 80 % and 100 % of the monthly quota, ea
   assert.equal((await worker.fetch(chatRequest(tenant, { session: sessions[3] }), env, ctx)).status, 200);
   await Promise.all(background);
   assert.equal(env.outbound.length, 1);
-  assert.equal(env.outbound[0].url, `https://server.invalid/subscribe/api/ping?e=quota_80&t=${tenant.id}&p=80`);
+  assert.equal(env.outbound[0].url, `https://api.arling.workers.dev/subscribe/api/ping?e=quota_80&t=${tenant.id}&p=80`);
 
   // A follow-up in an already-counted session moves nothing and pings nothing.
   assert.equal((await worker.fetch(chatRequest(tenant, { session: sessions[3] }), env, ctx)).status, 200);
@@ -383,7 +395,7 @@ test('POST /v1/chat pings the homelab at 80 % and 100 % of the monthly quota, ea
   assert.equal((await worker.fetch(chatRequest(tenant, { session: sessions[4] }), env, ctx)).status, 200);
   await Promise.all(background);
   assert.equal(env.outbound.length, 2);
-  assert.equal(env.outbound[1].url, `https://server.invalid/subscribe/api/ping?e=quota_100&t=${tenant.id}&p=100`);
+  assert.equal(env.outbound[1].url, `https://api.arling.workers.dev/subscribe/api/ping?e=quota_100&t=${tenant.id}&p=100`);
 
   // Quota is now full: a new session gets the calm 429, and no third ping goes out.
   const refused = await worker.fetch(chatRequest(tenant, { session: 'ffffffffffffffff' }), env, ctx);

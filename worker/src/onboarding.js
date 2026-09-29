@@ -18,6 +18,12 @@ import {
   setTenantPlan,
   getTenantById,
   getTenantByDomain,
+  validateTenantInput,
+  normaliseDomain,
+  hostPatriDomene,
+  feedPatriDomene,
+  jeVerejnaPripona,
+  bezWwwHost,
   ValidationError,
   DuplicateDomainError,
   D1ConstraintError,
@@ -27,11 +33,11 @@ import {
   usagePercent,
   publicPlanName,
 } from './tenants.js';
-import { fetchFeed, FeedUrlNotAllowedError } from './feed.js';
-import { embedAndUpsertProducts, embedTexts } from './embed.js';
+import { fetchFeed, FeedUrlNotAllowedError, FEED_CHYBY, FEED_INA_DOMENA } from './feed.js';
+import { embedAndUpsertProducts, embedTexts, znakyProduktov } from './embed.js';
 import { parseAllowedOrigins, corsHeaders, bezpecnePorovnaj, checkRateLimit, SECURITY_HEADERS } from './security.js';
-import { hasBudget, hasObnovaBudget, spendObnova, obnovaZaZnaky, MILI } from './budget.js';
-import { poVytvoreni, poNacitani, poZmenePlanu, nastavJazyk, jazykZoVstupu, zdrojZoVstupu, poOvereniMajitela, zapamatajVektory } from './zivotny-cyklus.js';
+import { hasBudget, rezervujObnovu, spendObnova, vratObnovu, obnovaZaZnaky, jeOslovenieTenant, jeRezimUkazkyOslovenia } from './budget.js';
+import { poVytvoreni, poNacitani, poZmenePlanu, nastavJazyk, jazykZoVstupu, zdrojZoVstupu, poOvereniMajitela, zapamatajVektory, vymenVektory, udalostiTenanta, jeDemo } from './zivotny-cyklus.js';
 import { overenyEmailZBearer } from './ucet.js';
 
 export const TENANT_STATUS = {
@@ -128,15 +134,18 @@ export async function waitForQueryableIndex(env, tenantId, products, opts = {}) 
 export const INGEST_MIN_NEURONS = 200;
 
 /**
- * Odhad znakov na produkt pred vektormi (kus textu je názov, cena, popis),
- * len na bránu samoobslužného načítania voči rozpočtu obnovy. Skutočný
- * náklad sa po vektoroch zapíše zo skutočnej dĺžky textov (embed.js znakov).
+ * Horná hranica znakov jedného produktu pred vektormi (názov najviac
+ * feed.js TITLE_MAX_LEN, popis najviac 600, spolu jeden kus textu). Pred
+ * samoobslužným načítaním sa rezervuje presný počet znakov (embed.js
+ * znakyProduktov), ktorý nikdy nie je väčší ako produkty krát táto hodnota.
  */
 export const ODHAD_ZNAKOV_NA_PRODUKT = 800;
 
 /**
  * Download the tenant's feed, embed every product, and flip status to
- * ready/error. Safe to call again (re-ingestion on cron).
+ * ready/error. Safe to call again (re-ingestion on cron). Obchod, ktorý už
+ * je ready, pri zlyhaní ready ostáva (zlyhanieNacitania, druhé kolo
+ * kontroly 29. 9. 2026).
  *
  * `samoobsluzne` je true len pri načítaní, ktoré spustil formulár z internetu
  * (POST /v1/tenants). Vtedy sa pred prácou pozrie na denný strop neurónov;
@@ -153,69 +162,142 @@ export async function ingestFeedForTenant(env, tenant, opts = {}) {
   return result;
 }
 
-async function nacitajFeed(env, tenant, { samoobsluzne = false } = {}) {
+/**
+ * Samoobslužné načítanie sa pre rozpočet odkladá na neskôr. Obchod, ktorý
+ * ešte nebeží, dostane stav error s kódom ai_budget_exhausted (majiteľ vidí
+ * prečo a skúsi znova). Obchod v stave ready ostáva ready (bezpečnostná
+ * kontrola 29. 9. 2026): jeho katalóg vo Vectorize platí ďalej a vyčerpaný
+ * rozpočet nesmie vypnúť asistenta, ktorý zákazníkom už odpovedá.
+ */
+async function odlozNacitanie(env, tenant, dovod) {
+  console.warn(`[arling-asistent] ${dovod}, samoobsluzne nacitanie feedu odlozene`);
+  if (tenant.status !== TENANT_STATUS.READY) {
+    await setTenantStatus(env.DB, tenant.id, TENANT_STATUS.ERROR);
+    await zapisChybuNacitania(env, tenant.id, INGEST_ERRORS.AI_BUDGET);
+  }
+  return { ok: false, error: 'ai_budget_exhausted', code: INGEST_ERRORS.AI_BUDGET };
+}
+
+/**
+ * Po vektoroch dorovná rezerváciu obnovy na skutočnosť: zvyšok vráti, chýbajúce
+ * pripočíta (len rozdiel, nič sa nerátá dvakrát). Bez rezervácie (cron, admin)
+ * sa pripočíta celý skutočný náklad ako doteraz.
+ */
+async function dorovnajObnovu(env, skutocne, rezervovane, casRezervacie) {
+  // Deň rezervácie, aby sa rozdiel nezapísal do nového dňa po polnoci; bez
+  // rezervácie ako doteraz (deň zápisu).
+  const kedy = rezervovane > 0 ? casRezervacie : undefined;
+  if (skutocne > rezervovane) await spendObnova(env, skutocne - rezervovane, kedy);
+  else if (rezervovane > skutocne) await vratObnovu(env, rezervovane - skutocne, kedy);
+}
+
+/**
+ * Doména, na ktorej musí byť feed aj každý skok presmerovania (feed.js
+ * guardedFetch), alebo null bez kontroly: ukážka osloveného obchodu (feed na
+ * našom serveri, zakladá ju len vytvor-ukazku.py s admin tokenom) a demo
+ * obchod ARLing (README „Demo tenanti“).
+ */
+export function domenaFeeduObchodu(env, tenant) {
+  if (!tenant || jeOslovenieTenant(tenant) || jeDemo(env, tenant.domain)) return null;
+  return tenant.domain;
+}
+
+/**
+ * Načítanie zlyhalo. Obchod, ktorý bol ready, ostáva ready s doterajším
+ * katalógom a len sa zapíše kód chyby (druhé kolo bezpečnostnej kontroly
+ * 29. 9. 2026, nález 1c): predtým ho zlyhané sťahovanie, prázdny feed alebo
+ * chyba vektorov prepli na error a chat všetkým jeho zákazníkom vracal 404.
+ * To vedel spustiť ktokoľvek so zhodným e-mailom (samoobslužné načítanie) aj
+ * nočný cron pri výpadku feedu. Obchod, ktorý ešte nebeží, dostane error s
+ * kódom ako doteraz, aby majiteľ videl, čo opraviť.
+ */
+async function zlyhanieNacitania(env, tenant, code, error, { feedType = null, nulaProduktov = false } = {}) {
+  const vysledok = { ok: false, error, code };
+  if (feedType) vysledok.feedType = feedType;
+  if (tenant.status === TENANT_STATUS.READY) {
+    console.warn(`[arling-asistent] nacitanie feedu obchodu ${tenant.id} zlyhalo (${code}), obchod ostava ready s doterajsim katalogom`);
+    await zapisChybuNacitania(env, tenant.id, code);
+    vysledok.ponechanyReady = true;
+    return vysledok;
+  }
+  if (nulaProduktov) await setProductCount(env.DB, tenant.id, 0);
+  await setTenantStatus(env.DB, tenant.id, TENANT_STATUS.ERROR);
+  await zapisChybuNacitania(env, tenant.id, code);
+  return vysledok;
+}
+
+/**
+ * `samoobsluzne`: načítanie spustil formulár alebo plugin (kontrola denného
+ * stropu chatu). `rezervovat`: pred vektormi sa atomicky rezervuje presný
+ * náklad z rozpočtu obnovy (samoobsluha vždy, nočný cron tiež, cron.js).
+ * `novyFeed`: adresa, ktorú obchod prevezme až po úspešnom načítaní
+ * (bežiaci obchod mení feed, createTenantFromRequest); pri zlyhaní ostáva
+ * doterajší feed aj katalóg.
+ */
+async function nacitajFeed(env, tenant, { samoobsluzne = false, rezervovat = samoobsluzne, novyFeed = null } = {}) {
   if (samoobsluzne) {
     const rozpocet = await hasBudget(env, INGEST_MIN_NEURONS);
-    if (!rozpocet.ok) {
-      console.warn('[arling-asistent] denny strop neuronov vycerpany, samoobsluzne nacitanie feedu odlozene:', rozpocet);
-      await setTenantStatus(env.DB, tenant.id, TENANT_STATUS.ERROR);
-      await zapisChybuNacitania(env, tenant.id, INGEST_ERRORS.AI_BUDGET);
-      return { ok: false, error: 'ai_budget_exhausted', code: INGEST_ERRORS.AI_BUDGET };
-    }
+    if (!rozpocet.ok) return odlozNacitanie(env, tenant, 'denny strop neuronov vycerpany');
   }
+  const feedUrl = novyFeed || tenant.feed_url;
 
   // Stiahnutie feedu má vlastný try: jeho chyby sú chyby obchodu (firewall,
   // prihlasovanie, vypnuté REST API) a majiteľ ich vie opraviť, preto dostanú
   // vlastný kód. Chyba až pri vektoroch je naša a hlási sa ako internal.
   let feed;
   try {
-    feed = await fetchFeed(tenant.feed_url, { fetchImpl: env.fetchImpl || fetch });
+    feed = await fetchFeed(feedUrl, { fetchImpl: env.fetchImpl || fetch, domena: domenaFeeduObchodu(env, tenant) });
   } catch (err) {
-    const code = classifyFeedError(err);
-    await setTenantStatus(env.DB, tenant.id, TENANT_STATUS.ERROR);
-    await zapisChybuNacitania(env, tenant.id, code);
-    return { ok: false, error: String((err && err.message) || err), code };
+    return zlyhanieNacitania(env, tenant, classifyFeedError(err), String((err && err.message) || err));
   }
 
   // Prázdny katalóg: nový obchod bez produktov (typický prvý test pluginu)
   // dostal doteraz stav ready a asistent potom na všetko odpovedal „neviem“.
   // Človek, ktorý to vidí, plugin zmaže. Poctivé je povedať mu, že nemáme čo
-  // čítať. Obchod, ktorý už bežal, sa pri dennej obnove kvôli jednej prázdnej
-  // odpovedi nevypína: vo Vectorize ostávajú jeho produkty a asistent nimi
-  // odpovedá ďalej.
-  if (feed.products.length === 0 && (samoobsluzne || tenant.status !== TENANT_STATUS.READY)) {
-    await setProductCount(env.DB, tenant.id, 0);
-    await setTenantStatus(env.DB, tenant.id, TENANT_STATUS.ERROR);
-    await zapisChybuNacitania(env, tenant.id, INGEST_ERRORS.NO_PRODUCTS);
-    return { ok: false, error: INGEST_ERRORS.NO_PRODUCTS, code: INGEST_ERRORS.NO_PRODUCTS, feedType: feed.type };
+  // čítať. Obchod, ktorý už bežal, sa kvôli jednej prázdnej odpovedi
+  // nevypína (zlyhanieNacitania): vo Vectorize ostávajú jeho produkty a
+  // asistent nimi odpovedá ďalej; nič sa ani nemaže.
+  if (feed.products.length === 0) {
+    return zlyhanieNacitania(env, tenant, INGEST_ERRORS.NO_PRODUCTS, INGEST_ERRORS.NO_PRODUCTS, { feedType: feed.type, nulaProduktov: true });
   }
 
   // Rozpočet obnovy (plán 2.2 bod 8, nález 8 kontroly kroku 1): načítanie z
-  // internetového formulára sa pustí, len keď sa odhad celého feedu zmestí do
-  // dnešného rozpočtu obnovy. Chat tento rozpočet nečíta, takže cudzie feedy
-  // mu strop neminú.
-  if (samoobsluzne) {
-    const odhad = obnovaZaZnaky(feed.products.length * ODHAD_ZNAKOV_NA_PRODUKT) / MILI;
-    const obnova = await hasObnovaBudget(env, odhad);
-    if (!obnova.ok) {
-      console.warn('[arling-asistent] denny rozpocet obnovy vycerpany, samoobsluzne nacitanie feedu odlozene:', obnova);
-      await setTenantStatus(env.DB, tenant.id, TENANT_STATUS.ERROR);
-      await zapisChybuNacitania(env, tenant.id, INGEST_ERRORS.AI_BUDGET);
-      return { ok: false, error: 'ai_budget_exhausted', code: INGEST_ERRORS.AI_BUDGET };
-    }
+  // internetového formulára sa pustí, len keď sa celý feed zmestí do dnešného
+  // rozpočtu obnovy. Chat tento rozpočet nečíta, takže cudzie feedy mu strop
+  // neminú. Bezpečnostná kontrola 29. 9. 2026: predtým sa rozpočet len
+  // prečítal a spotreba zapísala až po vektoroch, takže súbežné registrácie
+  // prečítali tú istú nízku spotrebu a prešli všetky (strop sa prekročil
+  // N-násobne). Teraz sa presný náklad (embed.js znakyProduktov, horná hranica
+  // skutočnosti) PRED vektormi atomicky rezervuje (budget.js rezervujObnovu)
+  // a po nich sa dorovná len rozdiel.
+  let rezervovane = 0;
+  const casRezervacie = Date.now();
+  if (rezervovat) {
+    const naklad = obnovaZaZnaky(znakyProduktov(feed.products));
+    if (!(await rezervujObnovu(env, naklad, casRezervacie))) return odlozNacitanie(env, tenant, 'denny rozpocet obnovy vycerpany');
+    rezervovane = naklad;
   }
 
+  const idsVektorov = [];
   try {
     const { products, type, truncated } = feed;
-    const idsVektorov = [];
     const summary = await embedAndUpsertProducts(env, tenant.id, products, { ids: idsVektorov });
-    // Zoznam id vektorov pre úplný výmaz účtu (zivotny-cyklus.js zmazTenanta):
-    // Vectorize nevie vypísať vektory podľa metadát. Chyba zápisu nič nezhodí.
-    await zapamatajVektory(env, tenant.id, idsVektorov);
+    // Nový feed bežiaceho obchodu platí až teraz, keď z neho sú vektory.
+    if (novyFeed && novyFeed !== tenant.feed_url) {
+      await setFeedUrl(env.DB, tenant.id, novyFeed);
+      tenant.feed_url = novyFeed;
+    }
+    // Vektory, ktoré v tomto načítaní nie sú (produkt zmizol, zmenený alebo
+    // cudzí feed), preč z indexu; zoznam id v KV (zivotny-cyklus.js) slúži aj
+    // úplnému výmazu účtu. Chyba mazania nič nezhodí.
+    const vymena = await vymenVektory(env, tenant.id, idsVektorov);
     // Spotreba sa zapisuje vždy, aj pri cron obnove, do vlastného rozpočtu
     // obnovy (nie do spoločného stropu chatu) a v skutočných neurónoch
     // bge-m3 podľa dĺžky textov (predtým pevný 1 neurón na kus, asi 4-krát viac).
-    await spendObnova(env, obnovaZaZnaky(summary.znakov));
+    // Pri samoobsluhe je už rezervovaná, dorovná sa len rozdiel. Pri chybe
+    // vektorov (catch nižšie) rezervácia ostáva: časť vektorov mohla bežať a
+    // nevieme koľko, radšej započítať viac než menej.
+    await dorovnajObnovu(env, obnovaZaZnaky(summary.znakov), rezervovane, casRezervacie);
     await setProductCount(env.DB, tenant.id, summary.productCount);
     // Stav sa prepina ako prvy a bez podmienok. Zakaznik, ktory ma produkty
     // nacitane, nesmie ostat visiet na pending len preto, ze nam nieco
@@ -225,12 +307,13 @@ async function nacitajFeed(env, tenant, { samoobsluzne = false } = {}) {
     // Dopyt je uz len zistenie, ako dlho index potrebuje, nez zacne
     // odpovedat. Nic neblokuje a jeho vysledok ide do summary.
     const probe = await waitForQueryableIndex(env, tenant.id, products);
-    return { ok: true, feedType: type, truncated, ...summary, indexProbe: probe };
+    return { ok: true, feedType: type, truncated, ...summary, zmazaneVektory: vymena.zmazane, indexProbe: probe };
   } catch (err) {
+    // Časť vektorov mohla byť zapísaná: ich id do zoznamu pre výmaz účtu a
+    // ďalšie načítanie (nič sa nemaže, katalóg je neúplný).
+    await zapamatajVektory(env, tenant.id, idsVektorov);
     const code = isAiCapacityMessage(err) ? INGEST_ERRORS.AI_BUDGET : INGEST_ERRORS.INTERNAL;
-    await setTenantStatus(env.DB, tenant.id, TENANT_STATUS.ERROR);
-    await zapisChybuNacitania(env, tenant.id, code);
-    return { ok: false, error: String((err && err.message) || err), code };
+    return zlyhanieNacitania(env, tenant, code, String((err && err.message) || err));
   }
 }
 
@@ -250,6 +333,12 @@ export const INGEST_ERRORS = {
   NO_PRODUCTS: 'no_products',
   NOT_READABLE: 'feed_not_readable',
   UNREACHABLE: 'feed_unreachable',
+  // Druhé kolo kontroly 29. 9. 2026: feed nad stropom (JSON nad 4 MB na stranu,
+  // XML nad 20 MB bez jediného celého záznamu). Predtým feed_not_readable,
+  // ktorý majiteľa posielal hľadať HTML stránku a firewall.
+  TOO_LARGE: 'feed_too_large',
+  // Adresa feedu alebo jej presmerovanie mimo domény obchodu.
+  OTHER_DOMAIN: FEED_INA_DOMENA,
   AI_BUDGET: 'ai_budget_exhausted',
   INTERNAL: 'internal',
 };
@@ -268,7 +357,10 @@ function isAiCapacityMessage(err) {
 /**
  * Chyba z fetchFeed -> stabilný kód:
  *   feed_url_private_host, feed_url_scheme, feed_url_invalid,
- *   feed_too_many_redirects  (adresu sme odmietli ešte pred stiahnutím)
+ *   feed_too_many_redirects, feed_other_domain
+ *                            (adresu alebo skok presmerovania sme odmietli
+ *                             ešte pred stiahnutím)
+ *   feed_too_large           (telo nad stropom, feed.js FEED_CHYBY.PRILIS_VELKY)
  *   feed_http_NNN            (obchod odpovedal chybovým kódom HTTP)
  *   feed_not_readable        (odpoveď nie je JSON ani známy XML feed,
  *                             typicky HTML stránka firewallu či prihlásenia)
@@ -279,7 +371,11 @@ export function classifyFeedError(err) {
   const message = String((err && err.message) || err || '');
   const http = message.match(/^feed_fetch_failed_(\d{3})$/);
   if (http) return `feed_http_${http[1]}`;
+  // Telo nad stropom (feed.js MAX_FEED_BAJTOV, MAX_JSON_NA_STRANU): vlastný kód, nie „nečitateľný“.
+  if (message === FEED_CHYBY.PRILIS_VELKY) return INGEST_ERRORS.TOO_LARGE;
   if (message === 'unrecognised_feed_format' || err instanceof SyntaxError) return INGEST_ERRORS.NOT_READABLE;
+  // Časový limit sťahovania (feed.js CAS_NA_FEED_MS) je pre majiteľa to isté ako nedostupný server.
+  if (message === FEED_CHYBY.CAS) return INGEST_ERRORS.UNREACHABLE;
   return INGEST_ERRORS.UNREACHABLE;
 }
 
@@ -322,6 +418,123 @@ async function startIngestion(env, tenant, waitUntil, opts = {}) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Obsadená doména a čerstvá skúška (bezpečnostná kontrola 29. 9. 2026)
+// ---------------------------------------------------------------------------
+
+/**
+ * Vysvetlenie pre 409 domain_taken v jazyku žiadosti (formulár posiela jazyk
+ * stránky, plugin jazyk WordPressu; bez jazyka angličtina). Plugin 0.4.0 ho
+ * ukáže za vetou „Could not connect to ARLing Shopping Assistant:“ (pole
+ * issues), formulár na arling.sk má vlastný text (app.js) a issues pri tomto
+ * kóde nepripája. Nikdy neobsahuje adresu majiteľa.
+ */
+export const DOMENA_OBSADENA_TEXT = {
+  sk: 'Tento obchod už má Asistenta ARLing, založeného s inou e-mailovou adresou. Pripojiť ho alebo zmeniť môže len majiteľ tej adresy. Ak je obchod váš a adresu nepoznáte, napíšte na podpora@arling.sk.',
+  cs: 'Tento obchod už má Asistenta ARLing, založeného s jinou e-mailovou adresou. Připojit ho nebo změnit může jen majitel té adresy. Pokud je obchod váš a adresu neznáte, napište na podpora@arling.sk.',
+  en: 'This shop already has an ARLing assistant, set up with a different e-mail address. Only the owner of that address can connect it or change it. If the shop is yours and you do not know the address, write to support@arling.sk.',
+  de: 'Für diesen Shop gibt es bereits einen ARLing-Assistenten, eingerichtet mit einer anderen E-Mail-Adresse. Verbinden oder ändern kann ihn nur der Inhaber dieser Adresse. Wenn der Shop Ihnen gehört und Sie die Adresse nicht kennen, schreiben Sie an support@arling.sk.',
+};
+
+/**
+ * Vysvetlenie pre 400 feed_other_domain v jazyku žiadosti (plugin 0.4.0 ho
+ * ukáže za „Could not connect to ARLing Shopping Assistant:“, formulár na
+ * arling.sk má vlastný text v app.js). `domena` je doména obchodu bez www.
+ * Druhý tvar je pre doménu na úrovni verejnej prípony (sk, myshopify.com),
+ * pod ktorou majú weby rôzni majitelia.
+ */
+export const FEED_INA_DOMENA_TEXT = {
+  sk: (d) => `Adresa feedu musí byť na doméne obchodu ${d} alebo jej subdoméne, aby pod menom obchodu nemohol nikto pripojiť cudzí katalóg. Zadajte adresu zoznamu produktov z webu obchodu. Ak váš feed vytvára iná služba na inej adrese, napíšte na podpora@arling.sk.`,
+  cs: (d) => `Adresa feedu musí být na doméně obchodu ${d} nebo její subdoméně, aby pod jménem obchodu nemohl nikdo připojit cizí katalog. Zadejte adresu seznamu produktů z webu obchodu. Pokud váš feed vytváří jiná služba na jiné adrese, napište na podpora@arling.sk.`,
+  en: (d) => `The product feed must be on the shop's own domain ${d} or one of its subdomains, so that nobody can connect a different catalogue under the shop's name. Use the product list address from the shop's own website. If another service creates your feed at a different address, write to support@arling.sk.`,
+  de: (d) => `Die Feed-Adresse muss auf der Domain des Shops ${d} oder einer ihrer Subdomains liegen, damit niemand unter dem Namen des Shops einen fremden Katalog verbinden kann. Verwenden Sie die Adresse der Produktliste von der Website des Shops. Wenn ein anderer Dienst Ihren Feed unter einer anderen Adresse erstellt, schreiben Sie an support@arling.sk.`,
+};
+
+export const SPOLOCNA_DOMENA_TEXT = {
+  sk: (d) => `${d} je spoločná doména mnohých webov, nie doména jedného obchodu. Zadajte vlastnú doménu obchodu a feed na nej, alebo napíšte na podpora@arling.sk.`,
+  cs: (d) => `${d} je společná doména mnoha webů, ne doména jednoho obchodu. Zadejte vlastní doménu obchodu a feed na ní, nebo napište na podpora@arling.sk.`,
+  en: (d) => `${d} is a domain shared by many websites, not the domain of one shop. Use the shop's own domain and a feed on it, or write to support@arling.sk.`,
+  de: (d) => `${d} ist eine gemeinsame Domain vieler Websites, nicht die Domain eines Shops. Verwenden Sie die eigene Domain des Shops und einen Feed darauf, oder schreiben Sie an support@arling.sk.`,
+};
+
+/**
+ * Adresa feedu nie je na doméne obchodu ani jej subdoméne, alebo je doména
+ * obchodu len verejnou príponou (druhé kolo bezpečnostnej kontroly
+ * 29. 9. 2026, nález 1a a 2a). HTTP 400 feed_other_domain, nič sa nezaloží
+ * ani nezmení a odpoveď neprezradí, či doména už má obchod.
+ */
+export class FeedOtherDomainError extends Error {
+  constructor(domena, jazyk = null) {
+    super(`feed_other_domain: ${domena}`);
+    this.name = 'FeedOtherDomainError';
+    this.domain = domena;
+    const texty = jeVerejnaPripona(domena) ? SPOLOCNA_DOMENA_TEXT : FEED_INA_DOMENA_TEXT;
+    this.sprava = (texty[jazyk] || texty.en)(domena);
+  }
+}
+
+/**
+ * Samoobslužné založenie alebo zmena: hostiteľ feedu musí byť doména obchodu
+ * alebo jej subdoména (tenants.js hostPatriDomene, bez www, nie verejná
+ * prípona), inak FeedOtherDomainError. Výnimka: demo obchod ARLing, keď je
+ * naša (ALLOWED_ORIGINS) doména obchodu aj adresa feedu (ukazka.arling.sk s
+ * feedom na arling.sk, README „Demo tenanti“). Neplatné vstupy nechá na
+ * validateTenantInput (400 validation_failed ako doteraz).
+ */
+export function overFeedNaDomene(feedUrl, domain, jazyk = null, env = null) {
+  const domena = normaliseDomain(domain);
+  let feedHost = '';
+  try {
+    feedHost = new URL(String(feedUrl || '').trim()).hostname;
+  } catch (e) {
+    return;
+  }
+  if (!domena || !feedHost) return;
+  if (hostPatriDomene(feedHost, domena)) return;
+  if (env && jeDemo(env, domena) && jeDemo(env, feedHost)) return;
+  throw new FeedOtherDomainError(bezWwwHost(domena), jazyk);
+}
+
+/**
+ * Doména už patrí obchodu s iným e-mailom. Do 29. 9. 2026 dostal taký
+ * odosielateľ id existujúceho obchodu (existing: true): útočník, ktorý doménu
+ * obsadil skôr, tak skutočnému majiteľovi podstrčil vlastný katalóg, lebo
+ * plugin aj formulár vrátené id bez otázok vložili na jeho web.
+ */
+export class DomainTakenError extends Error {
+  constructor(domain, jazyk = null) {
+    super(`domain_taken: ${domain}`);
+    this.name = 'DomainTakenError';
+    this.domain = domain;
+    this.sprava = DOMENA_OBSADENA_TEXT[jazyk] || DOMENA_OBSADENA_TEXT.en;
+  }
+}
+
+/** Ako dlho po založení smie neoverený majiteľ opraviť feed skúšky, ktorá nikdy nebežala. */
+export const SKUSKA_OPRAVA_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Čerstvá skúška: obchod ešte nikdy nemal úspešné načítanie (nie je ready,
+ * nemá produkty ani udalosť ready) a vznikol pred menej ako SKUSKA_OPRAVA_MS.
+ * Od druhého kola kontroly 29. 9. 2026 rozhoduje už len o jazyku e-mailov:
+ * ten smie neoverený majiteľ (zhoda e-mailu) zmeniť len čerstvej skúške. Feed
+ * mení podľa domény (createTenantFromRequest), nie podľa tejto výnimky, takže
+ * cudzí feed ňou už neprejde. Chyba pri čítaní udalostí = nie.
+ */
+export async function jeCerstvaSkuska(env, tenant, now = new Date()) {
+  if (!tenant || tenant.status === TENANT_STATUS.READY) return false;
+  if (Number(tenant.product_count) > 0) return false;
+  const vznik = new Date(tenant.created_at || '').getTime();
+  if (!Number.isFinite(vznik) || now.getTime() - vznik >= SKUSKA_OPRAVA_MS) return false;
+  try {
+    const udalosti = await udalostiTenanta(env.DB, tenant.id);
+    if (udalosti.some((u) => u.typ === 'ready' || u.kluc === 'ready')) return false;
+  } catch (e) {
+    return false;
+  }
+  return true;
+}
+
 /**
  * POST /v1/tenants handler logic. `waitUntil` is Workers' ctx.waitUntil (or
  * a synchronous test stub).
@@ -357,12 +570,65 @@ async function startIngestion(env, tenant, waitUntil, opts = {}) {
  * katalógu, takže cudzí človek sa z odpovede ani nedozvie, kto obchod
  * vlastní. Pravidelnú obnovu feedu naďalej robí denný cron, ten na nikoho
  * nečaká.
+ *
+ * OPRAVA 29. 9. 2026 (bezpečnostná kontrola pred oslovením e-shopov)
+ *
+ * Zhoda e-mailu nestačila: chat ten istý contact_email ukazoval každému
+ * návštevníkovi (chat.js, opravené v ten istý deň), takže útočník ho zistil
+ * jednou prázdnou otázkou a s ním vymenil feed platiaceho obchodu. A kto
+ * doménu obsadil prvý, tomu patril asistent: skutočný majiteľ s iným
+ * e-mailom dostal id cudzieho obchodu a plugin aj formulár si ho potichu
+ * vložili na jeho web. Odteraz:
+ *   - Iný e-mail než majiteľov nedostane id ani nič iné o obchode, len
+ *     DomainTakenError (HTTP 409 domain_taken s vysvetlením v jazyku žiadosti).
+ *   - Feed, jazyk a ďalšie nastavenia mení len OVERENÝ majiteľ: Bearer token
+ *     z /v1/ucet/over pre contact_email (premenná overeny).
+ *   - Výnimka pre opravu feedu hneď po skúške (formulár arling.sk/asistent po
+ *     chybe feedu pošle tú istú doménu a e-mail s opravenou adresou): smie aj
+ *     neoverený majiteľ, len kým obchod nikdy nebol ready a vznikol pred
+ *     menej ako SKUSKA_OPRAVA_MS (jeCerstvaSkuska).
+ *   - Opätovné načítanie ULOŽENÉHO feedu (plugin „Try again“, obchod v chybe
+ *     alebo 24 h bez načítania) ostáva pri zhode e-mailu: číta len vlastný
+ *     feed obchodu a strážia ho limity rozpočtu.
+ *   - Keď neoverený majiteľ pošle iný feed, ktorý meniť nesmie, obchod ostane
+ *     bez zmeny a odpoveď nesie feed_treba_overit: true (formulár vtedy pýta
+ *     kód a prosí o nové odoslanie).
+ *
+ * DRUHÉ KOLO 29. 9. 2026 (protivnícka kontrola opravy)
+ *
+ * Výnimka 24 h a zhoda e-mailu (e-mail nie je tajomstvo: plugin predvypĺňa
+ * admin_email, oslovenia používajú verejnú adresu obchodu) stále pustili
+ * cudzí feed na cudziu doménu, a oprava zároveň zablokovala plugin 0.4.0 pri
+ * zmene adresy REST aj prechod osloveného obchodu zo snímky na jeho Store
+ * API. Príčina bola spoločná: chýbala väzba feedu na doménu obchodu. Odteraz:
+ *   - Hostiteľ feedu (aj každý skok presmerovania pri sťahovaní) musí byť
+ *     doména obchodu alebo jej subdoména, inak 400 feed_other_domain
+ *     (overFeedNaDomene). Výnimka len pre zdroj oslovenie, ktorý smie
+ *     nastaviť iba náš skript s admin tokenom (feed ukážky je na našom serveri).
+ *   - Feed na doméne obchodu smie majiteľ (zhoda e-mailu) zmeniť aj bez
+ *     Bearera: je to katalóg toho istého webu. Bežiaci obchod nový feed
+ *     prevezme až po úspešnom načítaní (nacitajFeed novyFeed), takže zlá
+ *     adresa mu nevymení funkčný katalóg za chybu.
+ *   - Ukážka osloveného obchodu (zdroj oslovenie, kontakt je verejná adresa
+ *     obchodu, ktorú sme zadali my) sa pripojí s ľubovoľným e-mailom a prepne
+ *     sa na feed z domény obchodu (plugin posiela Store API toho istého webu).
+ *     contact_email, jazyk ani overenie sa pri inom e-maile nemenia.
+ *   - feed_treba_overit ostáva len pre náš skript oslovení, ktorý by chcel
+ *     obchodu mimo oslovení dať feed z iného servera.
  */
 export async function createTenantFromRequest(env, { feedUrl, domain, email, lang, zdroj, userAgent, overenyEmail = null, povolitOslovenie = false }, { waitUntil, now = new Date() } = {}) {
   // Jazyk e-mailov a odkiaľ účet vznikol (návrh ops/asistent/zivotny-cyklus.md 1.3).
   // Zdroj `oslovenie` (režim ukážky) len s overeným admin tokenom (nález 1).
   const jazyk = jazykZoVstupu(lang);
   const zdrojUctu = zdrojZoVstupu(zdroj, userAgent, { povolitOslovenie });
+  // Zdroj oslovenie vznikne len s admin tokenom (zdrojZoVstupu): náš skript
+  // vytvor-ukazku.py, ktorého feed je na našom serveri, nie na doméne obchodu.
+  const nasSkriptOsloveni = zdrojUctu === 'oslovenie';
+  // Neplatné vstupy najprv ako doteraz (400 validation_failed), potom väzba
+  // feedu na doménu (400 feed_other_domain). Obe pred čímkoľvek v D1, takže
+  // odpoveď ani neprezradí, či doména už má obchod.
+  validateTenantInput({ domain, feedUrl, contactEmail: email });
+  if (!nasSkriptOsloveni) overFeedNaDomene(feedUrl, domain, jazyk, env);
   // Adresa potvrdená 6-miestnym kódom (Bearer z /v1/ucet/over). Len vtedy
   // smú ísť automatické e-maily E0 a E1 bez ďalších podmienok
   // (zivotny-cyklus.js mozeIst, adverzárna kontrola 25. 9. 2026).
@@ -377,24 +643,36 @@ export async function createTenantFromRequest(env, { feedUrl, domain, email, lan
     const existing = await getTenantByDomain(env.DB, domain);
     if (!existing) throw err; // should not happen (the row that caused the conflict must exist), but never swallow silently
 
-    const poslanyEmail = String(email || '').trim().toLowerCase();
     const majitelEmail = String(existing.contact_email || '').trim().toLowerCase();
-    const jeMajitel = !!poslanyEmail && bezpecnePorovnaj(poslanyEmail, majitelEmail);
+    const jeMajitel = !!poslanyNorm && bezpecnePorovnaj(poslanyNorm, majitelEmail);
+    // Ukážku osloveného obchodu sme založili my s verejnou adresou obchodu;
+    // majiteľ ju pripojí pluginom s adresou administrátora (druhé kolo, R2).
+    const oslovenyObchod = jeOslovenieTenant(existing);
+    // Iný e-mail: žiadne id, stav ani plán cudzieho obchodu (nález 2 kontroly 29. 9.).
+    if (!jeMajitel && !oslovenyObchod) throw new DomainTakenError(existing.domain, jazyk);
 
+    // overenyMajitel = Bearer pre contact_email (poslaný e-mail je majiteľov a Bearer patrí jemu).
+    const overenyMajitel = overeny && jeMajitel;
     const cleanFeedUrl = String(feedUrl || '').trim();
-    const feedUrlChanged = jeMajitel && cleanFeedUrl && cleanFeedUrl !== existing.feed_url;
-    if (feedUrlChanged) {
+    const inyFeed = !!cleanFeedUrl && cleanFeedUrl !== existing.feed_url;
+    // Feed na doméne obchodu smie zmeniť každý, kto sa sem dostal (majiteľ, ukážka
+    // oslovenia); overFeedNaDomene vyššie iný ani nepustí. Náš skript oslovení smie
+    // navyše feed zo svojho servera, ale len ukážke oslovenia.
+    const smieFeed = inyFeed && (feedPatriDomene(cleanFeedUrl, existing.domain) || (nasSkriptOsloveni && oslovenyObchod));
+    // Bežiaci obchod prevezme nový feed až po úspešnom načítaní; ostatné hneď.
+    const feedPoNacitani = smieFeed && existing.status === TENANT_STATUS.READY;
+    if (smieFeed && !feedPoNacitani) {
       await setFeedUrl(env.DB, existing.id, cleanFeedUrl);
       existing.feed_url = cleanFeedUrl;
     }
-    // Len overený majiteľ smie zmeniť jazyk našich e-mailov.
-    if (jeMajitel && jazyk) {
+    // Jazyk našich e-mailov len overený majiteľ alebo čerstvá skúška (zhoda e-mailu).
+    if (jazyk && (overenyMajitel || (jeMajitel && (await jeCerstvaSkuska(env, existing, now))))) {
       await nastavJazyk(env, existing.id, jazyk);
       existing.jazyk = jazyk;
     }
     // Majiteľ, ktorý adresu práve potvrdil kódom: zapísať overenie.
-    if (jeMajitel && overeny) await poOvereniMajitela(env, existing, { now, waitUntil });
-    if (jeMajitel && (feedUrlChanged || isIngestionStale(existing, now))) {
+    if (overenyMajitel) await poOvereniMajitela(env, existing, { now, waitUntil });
+    if (smieFeed || isIngestionStale(existing, now)) {
       // Obchod v stave error sa pri novom pokuse prepne na pending hneď,
       // ešte pred načítaním. Inak by plugin po kliknutí na „Try again“
       // ďalej ukazoval starú chybu, kým načítanie nedobehne, a majiteľ by
@@ -404,23 +682,29 @@ export async function createTenantFromRequest(env, { feedUrl, domain, email, lan
         await setTenantStatus(env.DB, existing.id, TENANT_STATUS.PENDING);
         existing.status = TENANT_STATUS.PENDING;
       }
-      await startIngestion(env, existing, waitUntil, { samoobsluzne: true });
+      await startIngestion(env, existing, waitUntil, { samoobsluzne: true, novyFeed: feedPoNacitani ? cleanFeedUrl : null });
     }
 
-    return {
+    const vysledok = {
       id: existing.id,
       domain: existing.domain,
       status: existing.status,
       plan: existing.plan,
       monthly_quota: existing.monthly_quota,
       existing: true,
-      overeny: !!(jeMajitel && overeny),
+      overeny: !!overenyMajitel,
     };
+    // Iný feed, ktorý sa zmeniť nesmie (dnes len feed zo servera oslovení pre obchod mimo oslovení).
+    if (inyFeed && !smieFeed) vysledok.feed_treba_overit = true;
+    return vysledok;
   }
 
   // Najprv udalosť vytvoreny (a jazyk, zdroj), až potom načítanie: E1 po
-  // prvom ready sa pozerá práve na ňu.
+  // prvom ready sa pozerá práve na ňu. Zdroj aj na objekte, keby ho
+  // poVytvoreni pri chybe D1 nestihol nastaviť: podľa neho sa pri sťahovaní
+  // rozhoduje o väzbe na doménu (domenaFeeduObchodu).
   await poVytvoreni(env, tenant, { jazyk, zdroj: zdrojUctu, overeny, now, waitUntil });
+  if (!tenant.zdroj) tenant.zdroj = zdrojUctu;
   await startIngestion(env, tenant, waitUntil, { samoobsluzne: true });
   tenant.overeny = overeny;
   return tenant;
@@ -440,11 +724,35 @@ export async function createTenantFromRequest(env, { feedUrl, domain, email, lan
  *     (integer 0..100), period_start ("YYYY-MM-01"), period_end (first day
  *     of next month), product_count, valid_until (or null), last_ingest
  *     (ISO or null), last_error (stable code while status is "error",
- *     otherwise null) }
+ *     otherwise null), live_demo and outreach_demo (booleans for the live
+ *     demo page, see zivaUkazkaPovolena) }
  * `used_this_month` and `last_ingested_at` are kept as aliases of
  * conversations_used / last_ingest for the WordPress plugin and the Shopify
  * admin page, which still read the older names.
  */
+/**
+ * Smie živá ukážka na arling.sk/asistent/live/ ukázať tento obchod pod jeho
+ * doménou? (bezpečnostná kontrola 29. 9. 2026, nález 4.) Stránka predtým
+ * brala id aj meno obchodu z odkazu, takže ktokoľvek s vlastným účtom a
+ * vlastným feedom ukázal svoje karty a odkazy pod menom cudzieho obchodu a
+ * pod značkou ARLing. Áno len pre:
+ *   - ukážku osloveného obchodu (zdroj oslovenie vzniká len s admin tokenom,
+ *     ops/oslovenia/vytvor-ukazku.py),
+ *   - obchod, ktorého feed leží na jeho vlastnej doméne alebo jej subdoméne
+ *     (formulár odvodzuje doménu z feedu, plugin posiela Store API toho istého
+ *     webu): taký obchod ukáže len skutočné produkty tej domény, takže
+ *     odkaz „Vyskúšať Asistenta“ z e-mailu E1 funguje ďalej.
+ * Feed na cudzej adrese (útočník s doménou obete) nie. Doména na úrovni
+ * verejnej prípony (sk, myshopify.com) tiež nie (druhé kolo kontroly
+ * 29. 9. 2026): pod ňou by „subdoménou“ bol ľubovoľný cudzí web. Demo obchod
+ * a obchod z vlastnej skúšky v tom istom prehliadači povoľuje live.js sám.
+ */
+export function zivaUkazkaPovolena(tenant) {
+  if (!tenant) return false;
+  if (jeOslovenieTenant(tenant)) return true;
+  return feedPatriDomene(tenant.feed_url, tenant.domain);
+}
+
 export async function tenantStatusResponse(env, tenantId, { now = new Date(), includeBilling = false } = {}) {
   const tenant = await getTenantById(env.DB, tenantId);
   if (!tenant) return null;
@@ -473,6 +781,11 @@ export async function tenantStatusResponse(env, tenantId, { now = new Date(), in
     last_error: tenant.status === TENANT_STATUS.ERROR ? await readIngestError(env, tenant.id) : null,
     used_this_month: conversationsUsed,
     last_ingested_at: lastIngest,
+    // Živá ukážka na arling.sk (live.js): smie obchod ukázať pod jeho doménou
+    // a je to ukážka pre oslovený obchod (text „pripravili sme z verejného
+    // zoznamu“ len vtedy). Doplnené 29. 9. 2026, staré polia sa nemenia.
+    live_demo: zivaUkazkaPovolena(tenant),
+    outreach_demo: jeRezimUkazkyOslovenia(tenant),
   };
   if (includeBilling) {
     body.billing_ref = tenant.billing_ref || null;
@@ -564,18 +877,30 @@ export async function handleCreateTenantRoute(request, env, ctx) {
       { waitUntil: ctx && ctx.waitUntil ? ctx.waitUntil.bind(ctx) : undefined }
     );
     const headers = corsHeadersForRequest(request, env, [tenant.domain]);
-    // A repeat submission for an already-known domain (see
-    // createTenantFromRequest's DuplicateDomainError handling) is not an
-    // error: it comes back here as the existing tenant with `existing: true`
-    // set, and gets 200 instead of 201, same shape otherwise.
+    // A repeat submission for an already-known domain by its owner (same
+    // e-mail, see createTenantFromRequest's DuplicateDomainError handling) is
+    // not an error: it comes back here as the existing tenant with
+    // `existing: true` set, and gets 200 instead of 201, same shape otherwise.
+    // Anyone else gets 409 domain_taken below.
     if (tenant.existing) {
-      return jsonResponse({ id: tenant.id, domain: tenant.domain, status: tenant.status, plan: tenant.plan, monthly_quota: tenant.monthly_quota, existing: true, overeny: !!tenant.overeny }, 200, headers);
+      const telo = { id: tenant.id, domain: tenant.domain, status: tenant.status, plan: tenant.plan, monthly_quota: tenant.monthly_quota, existing: true, overeny: !!tenant.overeny };
+      if (tenant.feed_treba_overit) telo.feed_treba_overit = true;
+      return jsonResponse(telo, 200, headers);
     }
     return jsonResponse({ id: tenant.id, domain: tenant.domain, status: tenant.status, plan: tenant.plan, monthly_quota: tenant.monthly_quota, overeny: !!tenant.overeny }, 201, headers);
   } catch (err) {
     const headers = corsHeadersForRequest(request, env);
     if (err instanceof ValidationError) {
       return jsonResponse({ error: 'validation_failed', issues: err.issues }, 400, headers);
+    }
+    // Doména patrí obchodu s iným e-mailom: bez id a bez údajov obchodu. Plugin
+    // 0.4.0 berie 409 ako chybu a ukáže vetu z issues (nie „Reconnected“).
+    if (err instanceof DomainTakenError) {
+      return jsonResponse({ error: 'domain_taken', issues: [err.sprava] }, 409, headers);
+    }
+    // Feed mimo domény obchodu: plugin 0.4.0 ukáže vetu z issues ako chybu pripojenia.
+    if (err instanceof FeedOtherDomainError) {
+      return jsonResponse({ error: 'feed_other_domain', issues: [err.sprava] }, 400, headers);
     }
     // Any D1 constraint violation that is not the domain-uniqueness case
     // above (which createTenantFromRequest already turns into a 200/201, not

@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 
 import worker from '../worker/src/index.js';
 import cronHandler from '../worker/src/cron.js';
-import { createTenantFromRequest, ingestFeedForTenant, handleSetPlanRoute } from '../worker/src/onboarding.js';
+import { createTenantFromRequest, ingestFeedForTenant, handleSetPlanRoute, FeedOtherDomainError } from '../worker/src/onboarding.js';
 import { createTenant, setTenantStatus, getTenantById } from '../worker/src/tenants.js';
 import {
   ZC_SQL,
@@ -156,13 +156,19 @@ test('3. INSERT OR IGNORE s tým istým kľúčom vráti false a vedľajší ú�
 test('4. nový obchod dostane vytvoreny raz, s jazykom a zdrojom; opakovaný POST ho nezdvojí; fr je en; WordPress podľa User-Agent', async () => {
   const env = makeEnv({ emaily: false, ntfy: true });
   const t = await createTenantFromRequest(env, { feedUrl: 'https://novy.sk/feed.xml', domain: 'novy.sk', email: 'a@novy.sk', lang: 'sk', zdroj: 'formular' });
-  await createTenantFromRequest(env, { feedUrl: 'https://novy.sk/feed.xml', domain: 'novy.sk', email: 'a@novy.sk', lang: 'cs', zdroj: 'formular' });
+  // Obchod už beží: bez potvrdenia kódom (Bearer) jazyk nezmení ani majiteľ (29. 9. 2026).
+  await createTenantFromRequest(env, { feedUrl: 'https://novy.sk/feed.xml', domain: 'novy.sk', email: 'a@novy.sk', lang: 'de', zdroj: 'formular' });
+  assert.equal(env.DB._tenants.get(t.id).jazyk, 'sk');
+  await createTenantFromRequest(env, { feedUrl: 'https://novy.sk/feed.xml', domain: 'novy.sk', email: 'a@novy.sk', lang: 'cs', zdroj: 'formular', overenyEmail: 'a@novy.sk' });
   const u = (await udalostiTenanta(env.DB, t.id)).filter((x) => x.typ === 'vytvoreny');
   assert.equal(u.length, 1);
   assert.deepEqual({ zdroj: u[0].data.zdroj, jazyk: u[0].data.jazyk, feed_host: u[0].data.feed_host }, { zdroj: 'formular', jazyk: 'sk', feed_host: 'novy.sk' });
-  // Majiteľ (ten istý e-mail) smie zmeniť jazyk, cudzí nie.
+  // Overený majiteľ (ten istý e-mail s kódom) smie zmeniť jazyk, cudzí nie (a nedostane ani id).
   assert.equal(env.DB._tenants.get(t.id).jazyk, 'cs');
-  await createTenantFromRequest(env, { feedUrl: 'https://novy.sk/feed.xml', domain: 'novy.sk', email: 'cudzi@x.sk', lang: 'de' });
+  await assert.rejects(
+    () => createTenantFromRequest(env, { feedUrl: 'https://novy.sk/feed.xml', domain: 'novy.sk', email: 'cudzi@x.sk', lang: 'de' }),
+    (err) => err && err.name === 'DomainTakenError'
+  );
   assert.equal(env.DB._tenants.get(t.id).jazyk, 'cs');
   const novyPing = env.pingy.filter((p) => p.url.searchParams.get('e') === 'asistent_novy');
   assert.equal(novyPing.length, 1);
@@ -720,7 +726,7 @@ test('23. ping nesie presné e, doménu s bodkami v t a X-Ping-Token; chyba ping
   const env = makeEnv();
   assert.equal(await pingni(env, 'asistent_zapojeny', { domena: 'www.ludovka.eu', p: 'widget_js' }), true);
   const p = env.pingy[0];
-  assert.equal(p.url.origin + p.url.pathname, 'https://server.invalid/subscribe/api/ping');
+  assert.equal(p.url.origin + p.url.pathname, 'https://api.arling.workers.dev/subscribe/api/ping');
   assert.equal(p.url.searchParams.get('e'), 'asistent_zapojeny');
   assert.equal(p.url.searchParams.get('t'), 'www.ludovka.eu');
   assert.equal(p.opts.headers['X-Ping-Token'], 'ping-tajne');
@@ -1045,11 +1051,12 @@ test('A3. zhoda domén: firemná adresa a feed na doméne obchodu stačí na E1,
   assert.ok(ok.id);
   const pripady = [
     { feedUrl: 'https://gmailovy.sk/feed.xml', domain: 'gmailovy.sk', email: 'majitel@gmail.com' },
-    { feedUrl: 'https://utocnik.example/feed.xml', domain: 'obet.sk', email: 'info@obet.sk' },
     { feedUrl: 'https://gmail.com/feed.xml', domain: 'gmail.com', email: 'obet@gmail.com' },
     { feedUrl: 'https://x.gmail.com/feed.xml', domain: 'x.gmail.com', email: 'obet@gmail.com' },
   ];
   for (const p of pripady) await createTenantFromRequest(env, { ...p, lang: 'sk' });
+  // Cudzí feed pre obet.sk sa od druhého kola kontroly 29. 9. 2026 ani nezaloží (feed_other_domain).
+  await assert.rejects(() => createTenantFromRequest(env, { feedUrl: 'https://utocnik.example/feed.xml', domain: 'obet.sk', email: 'info@obet.sk', lang: 'sk' }), FeedOtherDomainError);
   assert.equal(env.odoslane.length, 1, 'žiadny ďalší e-mail');
   // E0 pri zhode domén nie (E0 ide aj bez feedu).
   const e0 = makeEnv({ feedOk: false });

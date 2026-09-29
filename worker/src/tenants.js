@@ -303,6 +303,69 @@ export function isPrivateHost(hostname) {
   return false;
 }
 
+// ---------------------------------------------------------------------------
+// Feed patrí doméne obchodu (bezpečnostná kontrola 29. 9. 2026, druhé kolo)
+//
+// Doménu obchodu aj adresu feedu posiela ktokoľvek (POST /v1/tenants). Bez
+// väzby medzi nimi vedel útočník založiť alebo prepnúť obchod obet.sk s feedom
+// https://utocnik.example/feed.xml a na webe obete potom Asistent ponúkal
+// cudzie produkty a odkazy. Odteraz musí byť hostiteľ feedu (aj každý skok
+// presmerovania, feed.js guardedFetch) doména obchodu alebo jej subdoména.
+// Doména na úrovni verejnej prípony (sk, myshopify.com) sa nepočíta: pod ňou
+// majú subdomény rôzni majitelia, takže „subdoména“ by nebola nič.
+// ---------------------------------------------------------------------------
+
+/**
+ * Domény, pod ktorými patria subdomény rôznym ľuďom: viacúrovňové národné
+ * prípony a platformy webov a e-shopov (výber zo zoznamu publicsuffix.org,
+ * ktorý sa u nás reálne vyskytne). Jednoslovná doména (sk, com) je príponou
+ * vždy, tú netreba vypisovať.
+ */
+export const VEREJNE_PRIPONY = new Set([
+  // národné druhé úrovne
+  'co.uk', 'org.uk', 'me.uk', 'ltd.uk', 'plc.uk', 'net.uk', 'ac.uk', 'gov.uk',
+  'com.au', 'net.au', 'org.au', 'co.nz', 'co.at', 'or.at', 'ac.at', 'gv.at',
+  'com.pl', 'net.pl', 'org.pl', 'co.cz', 'co.hu', 'com.ua', 'com.tr', 'com.br', 'co.jp', 'co.in',
+  // e-shopy a tvorba webov
+  'myshopify.com', 'myshoptet.com', 'wixsite.com', 'wix.com', 'webnode.sk', 'webnode.cz', 'webnode.com', 'webnode.page',
+  'wordpress.com', 'wpcomstaging.com', 'blogspot.com', 'weebly.com', 'jimdosite.com', 'jimdofree.com', 'squarespace.com',
+  'square.site', 'company.site', 'mybigcommerce.com', 'webflow.io', 'framer.website', 'framer.app', 'tilda.ws', 'carrd.co',
+  // hosting a nasadenie
+  'github.io', 'gitlab.io', 'pages.dev', 'workers.dev', 'netlify.app', 'vercel.app', 'herokuapp.com', 'onrender.com',
+  'fly.dev', 'r2.dev', 'web.app', 'firebaseapp.com', 'appspot.com', 'azurewebsites.net', 'cloudfront.net',
+  's3.amazonaws.com', 'pantheonsite.io', 'wpengine.com', 'cloudwaysapps.com', '000webhostapp.com',
+  'trycloudflare.com', 'ngrok.io', 'ngrok-free.app', 'ngrok.app', 'ts.net',
+]);
+
+/** Hostiteľ alebo doména malými písmenami, bez koncovej bodky a bez úvodného www. */
+export function bezWwwHost(host) {
+  return String(host || '').trim().toLowerCase().replace(/\.$/, '').replace(/^www\./, '');
+}
+
+/** Je doména len verejnou príponou (jednoslovná alebo zo zoznamu VEREJNE_PRIPONY), nie doménou jedného obchodu? */
+export function jeVerejnaPripona(domena) {
+  const d = bezWwwHost(domena);
+  if (!d || !d.includes('.')) return true;
+  return VEREJNE_PRIPONY.has(d);
+}
+
+/** Hostiteľ je doména obchodu alebo jej subdoména (obe bez www); doména na úrovni verejnej prípony nikdy. */
+export function hostPatriDomene(host, domena) {
+  const h = bezWwwHost(host);
+  const d = bezWwwHost(domena);
+  if (!h || !d || jeVerejnaPripona(d)) return false;
+  return h === d || h.endsWith(`.${d}`);
+}
+
+/** Adresa feedu leží na doméne obchodu alebo jej subdoméne (hostPatriDomene); neplatná adresa nie. */
+export function feedPatriDomene(feedUrl, domena) {
+  try {
+    return hostPatriDomene(new URL(String(feedUrl || '').trim()).hostname, domena);
+  } catch (e) {
+    return false;
+  }
+}
+
 export function validateTenantInput({ domain, feedUrl, contactEmail } = {}) {
   const issues = [];
   const normalisedDomain = normaliseDomain(domain);

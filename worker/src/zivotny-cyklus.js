@@ -876,6 +876,58 @@ export async function zapamatajVektory(env, tenantId, ids) {
   }
 }
 
+/**
+ * Po úspešnom načítaní feedu: zmaže vektory obchodu, ktoré v novom načítaní
+ * nie sú, a zoznam v KV nastaví na nové id (bezpečnostná kontrola 29. 9. 2026,
+ * druhé kolo, nález 1b). Predtým sa nemazalo nikdy: po zmene feedu ostali v
+ * indexe produkty starého (aj cudzieho) feedu a chat ich ukazoval ako karty,
+ * rovnako produkty, ktoré z feedu obchodu medzitým zmizli. Id, ktoré sa
+ * zmazať nepodarilo, ostanú v zozname pre ďalšie načítanie a úplný výmaz
+ * účtu. Keď sa zoznam nedá prečítať, nič sa nemaže a nové id sa len pridajú
+ * (ako zapamatajVektory). Vektory spred zavedenia zoznamu tu vidieť nie sú
+ * (Vectorize nevie vypísať vektory podľa metadát). Nikdy nevyhodí.
+ */
+export async function vymenVektory(env, tenantId, noveIds) {
+  const vysledok = { zmazane: 0, nezmazane: 0 };
+  try {
+    const kv = env && env.ASISTENT_CACHE;
+    if (!kv || !Array.isArray(noveIds) || noveIds.length === 0) return vysledok;
+    let stare;
+    try {
+      const raw = await kv.get(`vektory:${tenantId}`);
+      const v = raw ? JSON.parse(raw) : [];
+      stare = Array.isArray(v) ? v.filter((id) => String(id).startsWith(`${tenantId}::`)) : [];
+    } catch (e) {
+      await zapamatajVektory(env, tenantId, noveIds);
+      return vysledok;
+    }
+    const nove = new Set(noveIds);
+    const navyse = stare.filter((id) => !nove.has(id));
+    const nezmazane = [];
+    const vectorize = env.VECTORIZE;
+    if (navyse.length && vectorize && typeof vectorize.deleteByIds === 'function') {
+      for (let i = 0; i < navyse.length; i += 500) {
+        const davka = navyse.slice(i, i + 500);
+        try {
+          await vectorize.deleteByIds(davka);
+          vysledok.zmazane += davka.length;
+        } catch (e) {
+          varuj('mazanie starych vektorov', e);
+          nezmazane.push(...navyse.slice(i));
+          break;
+        }
+      }
+    } else {
+      nezmazane.push(...navyse);
+    }
+    vysledok.nezmazane = nezmazane.length;
+    await kv.put(`vektory:${tenantId}`, JSON.stringify(Array.from(new Set([...noveIds, ...nezmazane])).slice(0, VEKTORY_MAX)));
+  } catch (err) {
+    varuj('vymena vektorov', err);
+  }
+  return vysledok;
+}
+
 async function nacitajIdsVektorov(env, tenantId) {
   const kv = env && env.ASISTENT_CACHE;
   if (!kv) return [];

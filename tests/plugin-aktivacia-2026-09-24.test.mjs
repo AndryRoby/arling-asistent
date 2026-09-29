@@ -97,13 +97,22 @@ test('a new shop whose product list is empty ends in error with last_error no_pr
 
 test('the daily refresh of a shop that is already ready does not switch it off over one empty answer', async () => {
   const env = makeEnv();
-  const tenant = await createTenantFromRequest(env, { feedUrl: 'https://shop.sk/feed.xml', domain: 'keep.sk', email: 'a@keep.sk' });
+  const tenant = await createTenantFromRequest(env, { feedUrl: 'https://keep.sk/feed.xml', domain: 'keep.sk', email: 'a@keep.sk' });
   assert.equal((await getTenantById(env.DB, tenant.id)).status, TENANT_STATUS.READY);
 
+  const pred = await getTenantById(env.DB, tenant.id);
+  const vektoryPred = env.VECTORIZE._store.size;
   env.fetchImpl = async () => ({ ok: true, status: 200, text: async () => '<products></products>' });
-  const result = await ingestFeedForTenant(env, await getTenantById(env.DB, tenant.id));
-  assert.equal(result.ok, true);
-  assert.equal((await getTenantById(env.DB, tenant.id)).status, TENANT_STATUS.READY);
+  const result = await ingestFeedForTenant(env, pred);
+  // Od 29. 9. 2026 (druhé kolo kontroly): prázdna odpoveď je neúspešné načítanie s kódom,
+  // obchod ostáva ready s doterajším počtom produktov aj vektormi.
+  assert.equal(result.ok, false);
+  assert.equal(result.code, INGEST_ERRORS.NO_PRODUCTS);
+  assert.equal(result.ponechanyReady, true);
+  const po = await getTenantById(env.DB, tenant.id);
+  assert.equal(po.status, TENANT_STATUS.READY);
+  assert.equal(po.product_count, pred.product_count);
+  assert.equal(env.VECTORIZE._store.size, vektoryPred);
 });
 
 test('a firewall answer (HTTP 403) is reported as last_error feed_http_403', async () => {
@@ -177,8 +186,11 @@ test('a resubmission with a different e-mail neither retries nor flips the shop 
   const env = makeEnv({ fetchImpl: async () => ({ ok: false, status: 403, text: async () => '' }) });
   const tenant = await createTenantFromRequest(env, { feedUrl: 'https://other.sk/feed.xml', domain: 'other.sk', email: 'owner@other.sk' });
   env.fetchImpl = async () => ({ ok: true, status: 200, text: async () => GENERIC_XML });
-  const again = await createTenantFromRequest(env, { feedUrl: 'https://other.sk/feed.xml', domain: 'other.sk', email: 'stranger@example.com' });
-  assert.equal(again.status, TENANT_STATUS.ERROR);
+  // Od 29. 9. 2026 cudzí e-mail nedostane ani stav obchodu: 409 domain_taken.
+  await assert.rejects(
+    () => createTenantFromRequest(env, { feedUrl: 'https://other.sk/feed.xml', domain: 'other.sk', email: 'stranger@example.com' }),
+    (err) => err && err.name === 'DomainTakenError'
+  );
   assert.equal((await getTenantById(env.DB, tenant.id)).status, TENANT_STATUS.ERROR);
 });
 

@@ -21,6 +21,7 @@ import {
   rozlisSkCs,
   doplnKartyZTextu,
   bezPrikladovOtazok,
+  detectLangFromText,
   noMatchFallback,
   runChat,
   CHAT_MODEL_OPTIONS,
@@ -114,6 +115,34 @@ test('doplnKartyZTextu pridá karty k výrobkom, ktoré odpoveď menuje, len z k
   assert.deepEqual(doplnKartyZTextu([], 'Máme kávovar Orava.', c), []); // nič menované, nič pridané
 });
 
+// Brána 29. 9., pokus 2, nález 3: spoločný skrátený názov variantov nesmie priradiť zlý variant, v žiadnom poradí.
+test('doplnKartyZTextu pri variantoch s rovnakým skráteným názvom pridá len menovaný variant, nikdy iný', () => {
+  const cerveny = { title: 'Kapsulový kávovar Orava Mini, červený', url: 'k3', price: 89.9 };
+  const biely = { title: 'Kapsulový kávovar Orava Mini, biely', url: 'k4', price: 89.9 };
+  const hrniec20 = { title: 'Ferrum Hron Inox FH-20, 20 cm, 3,5 l', url: 'h20', price: 34.9 };
+  const hrniec24 = { title: 'Ferrum Hron Inox FH-24, 24 cm, 6 l', url: 'h24', price: 44.9 };
+  for (const poradie of [[cerveny, biely], [biely, cerveny]]) {
+    assert.deepEqual(doplnKartyZTextu([], 'Odporúčam Kapsulový kávovar Orava Mini, biely.', poradie).map((p) => p.url), ['k4']);
+    assert.deepEqual(doplnKartyZTextu([], 'Kapsulový kávovar Orava Mini máme v červenej aj bielej.', poradie).map((p) => p.url), []); // variant nemenovaný presne
+    assert.deepEqual(doplnKartyZTextu([], 'Kapsulový kávovar Orava Mini, červený alebo Kapsulový kávovar Orava Mini, biely.', poradie).map((p) => p.url), ['k3', 'k4']);
+  }
+  for (const poradie of [[hrniec20, hrniec24], [hrniec24, hrniec20]]) {
+    assert.deepEqual(doplnKartyZTextu([], 'Na indukciu je vhodný Ferrum Hron Inox FH-24, 24 cm, 6 l za 44,90 €.', poradie).map((p) => p.url), ['h24']);
+  }
+  // jediný kandidát so skráteným názvom: stačí skrátený názov
+  assert.deepEqual(doplnKartyZTextu([], 'Skúste Kapsulový kávovar Orava Mini.', [biely]).map((p) => p.url), ['k4']);
+});
+
+test('detectLangFromText: čeština so spoločnou diakritikou je čeština, slovenčina ostáva slovenčinou', () => {
+  assert.equal(detectLangFromText('Jaký kávovar máte?'), 'cs');
+  assert.equal(detectLangFromText('Který hrnec je na indukci?'), 'cs');
+  assert.equal(detectLangFromText('Aký kávovar máte?'), 'sk');
+  assert.equal(detectLangFromText('Máte čierne tričko so zľavou?'), 'sk');
+  assert.equal(detectLangFromText('Řekněte mi tu cenu'), 'cs');
+  assert.equal(detectLangFromText('Haben Sie das in Größe M?'), 'de');
+  assert.equal(detectLangFromText('Máte mäso aj pre psa?'), 'sk');
+});
+
 test('bezPrikladovOtazok odstrihne príklady otázok z odpovede o výrobkoch vo všetkých jazykoch, krátku odpoveď nechá', () => {
   const zaklad = 'Dobrú kávu si pripravíte v kanvici na filtrovanú kávu za 39.90 EUR.';
   assert.equal(bezPrikladovOtazok(zaklad + ' Príkladom môže byť otázka: Aké kávovary máte?'), zaklad);
@@ -149,7 +178,7 @@ test("runChat: an empty model answer becomes the worker's own contact message in
   await vectorize.upsert([{ id: 't::p::0', values: [1, 0], metadata: { tenant: 't', productId: 'p', title: 'Hrniec', url: 'https://x/1', price: 34.9, currency: 'EUR', availability: 'in_stock', description: 'Vhodný na indukciu.' } }]);
   const ai = createMockAI({ embedDim: 2, chatResponse: JSON.stringify({ answer: '  ', products: [{ title: 'Hrniec', url: 'https://x/1' }] }) });
   const result = await runChat({ AI: ai, VECTORIZE: vectorize }, { tenant: { id: 't', contact_email: 'obchod@shop.sk' }, messages: [{ role: 'user', content: 'Aké je počasie?' }], lang: 'sk' });
-  assert.equal(result.answer, noMatchFallback('sk', 'obchod@shop.sk').answer);
+  assert.equal(result.answer, noMatchFallback('sk').answer);
   assert.match(result.answer, /neviem odpovedať/);
   assert.deepEqual(result.products, []);
   assert.equal(result.meta.noAnswer, true);

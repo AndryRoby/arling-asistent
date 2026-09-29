@@ -41,7 +41,7 @@
 
 import { publicPlanName, PLANS, dayKey } from './tenants.js';
 import { bezpecnePorovnaj, parseAllowedOrigins, domainMatches } from './security.js';
-import { citaj, pripocitaj, rezervuj, kluce } from './pocty.js';
+import { citaj, pripocitaj, rezervuj, vrat, kluce } from './pocty.js';
 
 export const DEFAULT_DAILY_BUDGET = 9500;
 /** Vlastný denný rozpočet načítania feedov v skutočných neurónoch (AI_DAILY_OBNOVA_BUDGET). */
@@ -435,6 +435,8 @@ export async function spendObnova(env, mili, now = Date.now()) {
  * kolo, nález 5): počet znakov je známy z embed.js znakyProduktov, takže
  * súbežné registrácie s veľkými feedmi už neprejdú všetky na jedno čítanie.
  * Vracia true, keď sa zmestí. Chyba D1 = false (radšej zajtra ako bez limitu).
+ * Volá ju onboarding.js pri samoobslužnom načítaní (bezpečnostná kontrola
+ * 29. 9. 2026: do vtedy sa nevolala nikde a brána len čítala).
  */
 export async function rezervujObnovu(env, mili, now = Date.now()) {
   const m = Math.max(0, Math.ceil(Number(mili) || 0));
@@ -446,6 +448,21 @@ export async function rezervujObnovu(env, mili, now = Date.now()) {
   } catch (e) {
     console.error('[arling-asistent] rezervacia rozpoctu obnovy zlyhala:', e && e.message);
     return false;
+  }
+}
+
+/**
+ * Vráti nevyužitú časť rezervácie obnovy (tisíciny neurónu) do toho istého
+ * dňa, v ktorom sa rezervovala (`now` rezervácie). Nikdy pod nulu, chyba D1
+ * nič nezhodí.
+ */
+export async function vratObnovu(env, mili, now = Date.now()) {
+  const m = Math.max(0, Math.floor(Number(mili) || 0));
+  if (!env || !env.DB || m === 0) return;
+  try {
+    await vrat(env.DB, kluce.obnova(denUtc(now)), m);
+  } catch (e) {
+    console.error('[arling-asistent] vratenie rezervacie obnovy zlyhalo:', e && e.message);
   }
 }
 

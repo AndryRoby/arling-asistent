@@ -103,8 +103,9 @@ const CS_BEZ_DIAKRITIKY = new Set(['jaky', 'jaka', 'jake', 'ktery', 'ktera', 'kt
 
 export function detectLangFromText(text) {
   const s = String(text || '');
-  if (/[ľščťžýáíéô]/i.test(s)) return 'sk';
-  if (/[řěů]/i.test(s)) return 'cs';
+  // Spoločná diakritika (á í é ý š č ž) je aj v češtine: rozhodnú znaky a slová len jedného jazyka
+  // (brána 29. 9., pokus 2: „Jaký kávovar máte?“ bolo sk); pri remíze ostáva pôvodné poradie.
+  if (/[ľščťžýáíéôřěůĺŕ]/i.test(s)) return rozlisSkCs(s) || (/[řěů]/i.test(s) ? 'cs' : 'sk');
   if (/[äöüß]/i.test(s) || /\b(wie|und|nicht)\b/i.test(s)) return 'de';
   let sk = 0;
   let cs = 0;
@@ -251,17 +252,25 @@ export function topCategoryNames(candidates, limit = SHOP_FACTS_CATEGORY_LIMIT) 
 }
 
 /**
- * shop_facts always carries contact_email; shop_categories is added only
+ * Kontakt obchodu pre model: kontaktná stránka na webe obchodu, nikdy e-mail
+ * účtu (bezpečnostná kontrola 29. 9. 2026, nález 3; do vtedy tu bol
+ * contact_email a model ho v režime auto písal zákazníkom).
+ */
+export const SHOP_CONTACT_FACT = "shop_contact: the contact page on the shop's own website";
+
+/**
+ * shop_facts always carries shop_contact (never an e-mail address, whatever
+ * the caller passes); shop_categories is added only
  * when the caller has at least one real category name (a tenant whose feed
  * never sets g:product_type/category simply gets the line omitted, never a
  * fabricated one), letting the system prompt tell the model to build its two
  * example questions from real category names instead of guessing.
  */
-export function buildUserPrompt({ question, candidates, contactEmail, lang, categories }) {
+export function buildUserPrompt({ question, candidates, lang, categories }) {
   const productsBlock = candidates.length
     ? candidates.map(formatCandidateForPrompt).join('\n')
     : '(no products retrieved for this question)';
-  const factsLines = [`contact_email: ${contactEmail || 'n/a'}`];
+  const factsLines = [SHOP_CONTACT_FACT];
   const categoryList = (Array.isArray(categories) ? categories : []).map((c) => String(c || '').trim()).filter(Boolean);
   if (categoryList.length) factsLines.push(`shop_categories: ${categoryList.join(', ')}`);
   const factsBlock = factsLines.join('\n');
@@ -556,12 +565,25 @@ export function doplnKartyZTextu(products, answer, candidates) {
   const text = bezDiakritikyChat(answer);
   const uz = new Set(out.map((p) => p.url));
   const najdene = [];
+  // Skrátený názov (pred prvou čiarkou) majú často varianty jedného výrobku (Orava Mini, červený a biely).
+  // Úplný názov má prednosť; skrátený stačí len vtedy, keď ho má jediný kandidát, inak musí text menovať
+  // aj variant za čiarkou. Radšej žiadna karta než karta zlého variantu (brána 29. 9., pokus 2, nález 3).
+  const hlavne = new Map();
+  for (const c of candidates || []) {
+    if (!c || !c.title) continue;
+    const h = bezDiakritikyChat(c.title).trim().split(',')[0].trim();
+    hlavne.set(h, (hlavne.get(h) || 0) + 1);
+  }
   for (const c of candidates || []) {
     if (!c || !c.title || !c.url || uz.has(c.url)) continue;
     const cely = bezDiakritikyChat(c.title).trim();
-    const hlavny = cely.split(',')[0].trim();
+    const [hlavny, ...zvysok] = cely.split(',').map((x) => x.trim());
     let i = cely.length >= 8 ? text.indexOf(cely) : -1;
-    if (i < 0 && hlavny.split(' ').length >= 3) i = text.indexOf(hlavny);
+    if (i < 0 && hlavny.split(' ').length >= 3) {
+      const j = text.indexOf(hlavny);
+      const variant = zvysok.join(', ');
+      if (j >= 0 && (hlavne.get(hlavny) === 1 || (variant && text.indexOf(variant, j) >= 0))) i = j;
+    }
     if (i >= 0) najdene.push({ i, c });
   }
   najdene.sort((a, b) => a.i - b.i);
@@ -619,21 +641,30 @@ export function reconcileProducts(modelProducts, candidates) {
 // "I don't know" fallback (no retrieval, or model failure)
 // ---------------------------------------------------------------------------
 
+/*
+ * Bez e-mailu majiteľa (bezpečnostná kontrola 29. 9. 2026, nález 3): do vtedy
+ * tieto vety vkladali tenants.contact_email, teda prihlasovaciu adresu účtu
+ * (pri plugine často osobný e-mail administrátora WordPressu, ktorému plugin
+ * sľubuje „never shared“), a stačila na to prázdna otázka. Ten istý e-mail bol
+ * zároveň jediný dôkaz majiteľa pri zmene feedu (onboarding.js). Verejný
+ * kontakt obchodu tenant nemá (tabuľka tenants nemá také pole), preto vety
+ * posielajú zákazníka na kontaktnú stránku obchodu, ktorú má každý e-shop.
+ */
 const FALLBACK_BY_LANG = {
-  sk: (email) => `Na túto otázku z produktov obchodu neviem odpovedať s istotou. Napíšte prosím priamo obchodu${email ? ` na ${email}` : ''}.`,
-  cs: (email) => `Na tuto otázku z produktů obchodu neumím odpovědět s jistotou. Napište prosím přímo obchodu${email ? ` na ${email}` : ''}.`,
-  en: (email) => `I do not have a confident answer to that from this shop's products. Please contact the shop directly${email ? ` at ${email}` : ''}.`,
-  de: (email) => `Dazu habe ich in den Produkten dieses Shops keine sichere Antwort. Bitte wenden Sie sich direkt an den Shop${email ? ` (${email})` : ''}.`,
+  sk: 'Na túto otázku z produktov obchodu neviem odpovedať s istotou. Napíšte prosím obchodu cez kontaktnú stránku na jeho webe.',
+  cs: 'Na tuto otázku z produktů obchodu neumím odpovědět s jistotou. Napište prosím obchodu přes kontaktní stránku na jeho webu.',
+  en: "I do not have a confident answer to that from this shop's products. Please contact the shop through the contact page on its website.",
+  de: 'Dazu habe ich in den Produkten dieses Shops keine sichere Antwort. Bitte wenden Sie sich über die Kontaktseite auf seiner Website an den Shop.',
 };
 
 /**
  * `userMessage` is only consulted when lang is "auto" (see
  * detectLangFromText above); for a fixed lang code it is ignored and that
  * language is used exactly as requested, same as before "auto" existed.
+ * Never carries the account's contact e-mail (see FALLBACK_BY_LANG).
  */
-export function noMatchFallback(lang, contactEmail, userMessage) {
-  const fn = FALLBACK_BY_LANG[resolveLangForFallback(lang, userMessage)];
-  return { answer: fn(contactEmail), products: [] };
+export function noMatchFallback(lang, userMessage) {
+  return { answer: FALLBACK_BY_LANG[resolveLangForFallback(lang, userMessage)], products: [] };
 }
 
 // ---------------------------------------------------------------------------
@@ -736,24 +767,25 @@ const BEZ_AI_VETA = {
  * čas obnovenia, len odkáže na obchod.
  */
 const BEZ_VYPOCTU_VETA = {
-  sk: (email) => `Produkty k tejto otázke teraz neviem vyhľadať. Napíšte prosím priamo obchodu${email ? ` na ${email}` : ''}.`,
-  cs: (email) => `Produkty k této otázce teď neumím vyhledat. Napište prosím přímo obchodu${email ? ` na ${email}` : ''}.`,
-  en: (email) => `I cannot search the products for this question right now. Please contact the shop directly${email ? ` at ${email}` : ''}.`,
-  de: (email) => `Ich kann die Produkte zu dieser Frage gerade nicht durchsuchen. Bitte wenden Sie sich direkt an den Shop${email ? ` (${email})` : ''}.`,
+  sk: 'Produkty k tejto otázke teraz neviem vyhľadať. Napíšte prosím obchodu cez kontaktnú stránku na jeho webe.',
+  cs: 'Produkty k této otázce teď neumím vyhledat. Napište prosím obchodu přes kontaktní stránku na jeho webu.',
+  en: 'I cannot search the products for this question right now. Please contact the shop through the contact page on its website.',
+  de: 'Ich kann die Produkte zu dieser Frage gerade nicht durchsuchen. Bitte wenden Sie sich über die Kontaktseite auf seiner Website an den Shop.',
 };
 
-export function bezVypoctuOdpoved(lang, contactEmail, userMessage) {
-  return { answer: BEZ_VYPOCTU_VETA[resolveLangForFallback(lang, userMessage)](contactEmail), products: [] };
+/** Bez e-mailu majiteľa, rovnako ako noMatchFallback (FALLBACK_BY_LANG). */
+export function bezVypoctuOdpoved(lang, userMessage) {
+  return { answer: BEZ_VYPOCTU_VETA[resolveLangForFallback(lang, userMessage)], products: [] };
 }
 
 export async function runChatBezAI(env, { tenant, messages, lang, predVektorom = null, stopa = { volania: [], vektory: [] } } = {}) {
   const question = skratText(extractLastUserMessage(messages), MAX_MESSAGE_CHARS);
   const hotovo = (res) => ({ ...res, meta: { ...(res.meta || {}), bezAi: true, naklady: spocitajNaklady(stopa) } });
-  if (!question.trim()) return hotovo({ ...noMatchFallback(lang, tenant.contact_email, question), meta: { candidateCount: 0 } });
+  if (!question.trim()) return hotovo({ ...noMatchFallback(lang, question), meta: { candidateCount: 0 } });
   // Aj vektor stojí neuróny: rezervuje sa pred volaním proti tým istým stropom
   // ako model (nález A). Nezmestí sa: odpoveď bez vektora, nič sa neminie.
   if (typeof predVektorom === 'function' && !(await predVektorom(vektorMili([question])))) {
-    return hotovo({ ...bezVypoctuOdpoved(lang, tenant.contact_email, question), meta: { candidateCount: 0, bezVypoctu: true } });
+    return hotovo({ ...bezVypoctuOdpoved(lang, question), meta: { candidateCount: 0, bezVypoctu: true } });
   }
   const [queryVector] = await embedTexts(env.AI, [question]);
   // Do stopy až po úspešnom vektore: zlyhaný sa nezapočíta, vykonaný áno, aj keď
@@ -761,7 +793,7 @@ export async function runChatBezAI(env, { tenant, messages, lang, predVektorom =
   stopa.vektory.push(question);
   const candidates = await retrieveCandidates(env, tenant.id, queryVector, { topK: TOP_K });
   if (candidates.length === 0) {
-    return hotovo({ ...noMatchFallback(lang, tenant.contact_email, question), meta: { candidateCount: 0 } });
+    return hotovo({ ...noMatchFallback(lang, question), meta: { candidateCount: 0 } });
   }
   const products = candidates.slice(0, BEZ_AI_PRODUKTOV).map((c) => ({ title: c.title, url: c.url, price: c.price, currency: c.currency, image: c.image }));
   return hotovo({ answer: BEZ_AI_VETA[resolveLangForFallback(lang, question)], products, meta: { candidateCount: candidates.length } });
@@ -772,7 +804,7 @@ async function runChatVnutro(env, { tenant, messages, lang, model = CHAT_MODEL_D
   const question = skratText(extractLastUserMessage(messages), MAX_MESSAGE_CHARS);
 
   if (!question.trim()) {
-    return { ...noMatchFallback(lang, tenant.contact_email, question), meta: { candidateCount: 0, flaggedInjection: false } };
+    return { ...noMatchFallback(lang, question), meta: { candidateCount: 0, flaggedInjection: false } };
   }
 
   // Nothing to say, either because nothing was retrieved or because the
@@ -782,7 +814,7 @@ async function runChatVnutro(env, { tenant, messages, lang, model = CHAT_MODEL_D
   // answer the catalogue may well contain a minute later.
   const emptyAnswerReply = (meta) => (isIndexWarming(tenant)
     ? { ...indexWarmingReply(lang, question), meta: { ...meta, indexWarming: true } }
-    : { ...noMatchFallback(lang, tenant.contact_email, question), meta });
+    : { ...noMatchFallback(lang, question), meta });
 
   const [queryVector] = await embedTexts(env.AI, [question]);
   stopa.vektory.push(question);
@@ -797,7 +829,7 @@ async function runChatVnutro(env, { tenant, messages, lang, model = CHAT_MODEL_D
 
   const systemPrompt = buildSystemPrompt(lang);
   const categories = topCategoryNames(candidates, SHOP_FACTS_CATEGORY_LIMIT);
-  const userPrompt = buildUserPrompt({ question, candidates, contactEmail: tenant.contact_email, lang, categories });
+  const userPrompt = buildUserPrompt({ question, candidates, lang, categories });
 
   // Horná hranica nákladu tohto volania (vstup z bajtov hotového promptu,
   // výstup max_tokens, vektor otázky) sa rezervuje PRED modelom do všetkých
@@ -853,7 +885,7 @@ async function runChatVnutro(env, { tenant, messages, lang, model = CHAT_MODEL_D
   if (looksDegenerate(parsed.answer)) {
     // Model sa zacyklil: radsej priznat, ze nevieme, nez ukazat nezmysel.
     return {
-      ...noMatchFallback(lang, tenant.contact_email, question),
+      ...noMatchFallback(lang, question),
       meta: { candidateCount: candidates.length, flaggedInjection: flagged, degenerate: true },
     };
   }

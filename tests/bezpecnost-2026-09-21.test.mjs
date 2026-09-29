@@ -25,6 +25,8 @@ import {
   ingestFeedForTenant,
   TENANT_CREATE_LIMIT_PER_HOUR,
   INGEST_MIN_NEURONS,
+  DomainTakenError,
+  FeedOtherDomainError,
 } from '../worker/src/onboarding.js';
 import { bezpecnePorovnaj } from '../worker/src/security.js';
 import { isAdmin, testSessionPovolena, povoleneTestovacieEmaily } from '../worker/src/upload.js';
@@ -167,21 +169,32 @@ test('cudzi clovek uz nevymeni feed existujuceho obchodu', async () => {
     email: 'majitel@obchod.sk',
   });
 
-  const utok = await createTenantFromRequest(env, {
-    feedUrl: 'https://utocnik.example/feed.xml',
-    domain: 'obchod.sk',
-    email: 'utocnik@example.com',
-  });
-
-  // Odpoved vyzera rovnako ako doteraz, aby sa cudzi clovek nedozvedel nic navyse.
-  assert.equal(utok.existing, true);
-  assert.equal(utok.id, majitel.id);
-  // Ale katalog ostal netknuty.
+  // Od 29. 9. 2026 cudzí e-mail nedostane ani id obchodu: 409 domain_taken
+  // (bezpecnost-2026-09-29.test.mjs). Predtým dostal id s existing: true.
+  // Druhé kolo v ten istý deň: feed mimo domény obchodu sa odmietne ešte skôr
+  // (feed_other_domain), bez ohľadu na e-mail.
+  await assert.rejects(
+    () => createTenantFromRequest(env, {
+      feedUrl: 'https://utocnik.example/feed.xml',
+      domain: 'obchod.sk',
+      email: 'utocnik@example.com',
+    }),
+    (err) => err instanceof FeedOtherDomainError && !String(err.sprava).includes(majitel.id)
+  );
+  await assert.rejects(
+    () => createTenantFromRequest(env, {
+      feedUrl: 'https://obchod.sk/iny-feed.xml',
+      domain: 'obchod.sk',
+      email: 'utocnik@example.com',
+    }),
+    (err) => err instanceof DomainTakenError && !String(err.sprava).includes(majitel.id)
+  );
+  // A katalog ostal netknuty.
   const riadok = await getTenantById(env.DB, majitel.id);
   assert.equal(riadok.feed_url, 'https://obchod.sk/feed.xml');
 });
 
-test('majitel s tou istou adresou feed nadalej zmeni', async () => {
+test('majitel s tou istou adresou feed nadalej zmeni, ked adresu potvrdi kodom (Bearer)', async () => {
   const env = makeEnv();
   const majitel = await createTenantFromRequest(env, {
     feedUrl: 'https://obchod.sk/feed.xml',
@@ -193,6 +206,8 @@ test('majitel s tou istou adresou feed nadalej zmeni', async () => {
     domain: 'obchod.sk',
     // Velke pismena a medzery sa normalizuju rovnako ako pri zalozeni.
     email: ' majitel@obchod.sk ',
+    // Od 29. 9. 2026 bezi obchod (ready), takze feed meni len overeny majitel.
+    overenyEmail: 'majitel@obchod.sk',
   });
   const riadok = await getTenantById(env.DB, majitel.id);
   assert.equal(riadok.feed_url, 'https://obchod.sk/novy-feed.xml');
@@ -209,11 +224,11 @@ test('cudzi clovek nespusti ani opakovane nacitanie feedu cudzieho obchodu', asy
   // Stary zaznam: bez opravy by sem isla podmienka isIngestionStale a nacitanie
   // by sa spustilo komukolvek, kto poslal cudziu domenu.
   env.DB._tenants.get(majitel.id).last_ingested_at = '2020-01-01T00:00:00.000Z';
-  await createTenantFromRequest(env, {
+  await assert.rejects(() => createTenantFromRequest(env, {
     feedUrl: 'https://obchod.sk/feed.xml',
     domain: 'obchod.sk',
     email: 'utocnik@example.com',
-  });
+  }), DomainTakenError);
   assert.equal(env.AI.calls.length, pocetPred, 'model sa nemal volat');
 });
 

@@ -43,7 +43,7 @@ test('thresholdsCrossed reports 80 when the counter moves from 79 to 80 of 100, 
 
 test('buildQuotaPingUrl matches the contract: ?e=quota_80|quota_100&t={tenantId}&p={usage_percent}', () => {
   const url = buildQuotaPingUrl(DEFAULT_QUOTA_PING_URL, { event: 'quota_80', tenantId: '8d9a6783-7ef9-4790-a63b-c52752face6b', percent: 80 });
-  assert.equal(url, 'https://server.invalid/subscribe/api/ping?e=quota_80&t=8d9a6783-7ef9-4790-a63b-c52752face6b&p=80');
+  assert.equal(url, 'https://api.arling.workers.dev/subscribe/api/ping?e=quota_80&t=8d9a6783-7ef9-4790-a63b-c52752face6b&p=80');
 });
 
 test('quotaNotifiedKey is quota-notified:{tenant}:{YYYY-MM}:{threshold}', () => {
