@@ -233,3 +233,18 @@ test('runChat end to end: a description ingested through embedAndUpsertProducts 
   assert.equal(result.products[0].url, 'https://x/KUC-001');
   assert.equal(result.products[0].price, 34.9); // card data still comes from our metadata, not the model
 });
+
+// Naživo 29. 9. (oslovenia): vata pri odpovedi s výrobkami vyradila 6 z 12 obchodov.
+test('bezPrikladovOtazok odstráni záverečnú ponuku otázok či kontaktu a úvod „Som asistent“, odporúčanie ostane', () => {
+  const pary = [
+    ['Som asistent tohto obchodu a môžem vám pomôcť vybrať prút. Pre začiatočníka odporúčam VAGNER prút Origin 190cm za 39,90 €.', 'Pre začiatočníka odporúčam VAGNER prút Origin 190cm za 39,90 €.'],
+    ['Môžete zvážiť Darčekový set za 28,20 € alebo Sójová sviečka za 14,95 €. Ak máte ďalšie otázky, môžete sa spýtať.', 'Môžete zvážiť Darčekový set za 28,20 € alebo Sójová sviečka za 14,95 €.'],
+    ['Máme Pistáciový krém (25 %) 200g za 8,17 €. Ak máte ďalšie otázky, môžete nás kontaktovať na našej kontaktné stránke.', 'Máme Pistáciový krém (25 %) 200g za 8,17 €.'],
+    ['The FH-20 costs 34.90 EUR, while the FH-24 costs 44.90 EUR. If you have any other questions, feel free to ask.', 'The FH-20 costs 34.90 EUR, while the FH-24 costs 44.90 EUR.'],
+    ['Die Tasse kostet 9,90 € und passt gut. Wenn Sie weitere Fragen haben, helfe ich gern.', 'Die Tasse kostet 9,90 € und passt gut.'],
+    ['Odporúčame kávu Zlaté Zrnko 1000g za 41,36 €.', 'Odporúčame kávu Zlaté Zrnko 1000g za 41,36 €.'],
+  ];
+  for (const [vstup, vystup] of pary) assert.equal(bezPrikladovOtazok(vstup), vystup, vstup);
+  // krátka odpoveď bez obsahu po odstránení ostane celá
+  assert.equal(bezPrikladovOtazok('Áno, máme. Ak máte ďalšie otázky, pýtajte sa.'), 'Áno, máme. Ak máte ďalšie otázky, pýtajte sa.');
+});

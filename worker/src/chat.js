@@ -613,9 +613,23 @@ const PRIKLADY_OTAZOK_RE = /(?:^|\s)(?:Príkladom (?:môže byť|je) otázka|Pr�
 export function bezPrikladovOtazok(answer) {
   const text = String(answer || '');
   const m = PRIKLADY_OTAZOK_RE.exec(text);
-  if (!m) return text;
+  if (!m) return bezVatyPriVyrobkoch(text);
   const zvysok = text.slice(0, m.index).trim();
-  return zvysok.split(/\s+/).filter(Boolean).length >= 5 ? zvysok : text;
+  return bezVatyPriVyrobkoch(zvysok.split(/\s+/).filter(Boolean).length >= 5 ? zvysok : text);
+}
+
+// Vata pri odpovedi s výrobkami (naživo 29. 9., oslovenia: 6 z 12 obchodov vyradených): záverečná ponuka ďalších
+// otázok či kontaktu a úvodné „Som asistent tohto obchodu“. Pri výrobkoch nič nepridávajú, kontakt ukáže widget sám.
+const ZAVER_VATA_RE = /^(?:Ak máte (?:ďalšie|nejaké|akékoľvek|iné|konkrétn\p{L}*)|Ak (?:potrebujete|chcete) (?:ďalšie|viac|poradiť)|Neváhajte|Môžete nás (?:kontaktovať|kedykoľvek)|Príkladové otázky|Pokud máte (?:další|nějaké|jakékoli)|Neváhejte|Můžete nás kontaktovat|If you have (?:any )?(?:other |more |further )?questions|Feel free to|Let me know if|Wenn Sie (?:weitere |noch )?Fragen|Zögern Sie nicht)/u;
+const UVOD_VATA_RE = /^(?:Som asistent tohto obchodu|Jsem asistent tohoto obchodu|I am this shop's assistant|I'm this shop's assistant|Ich bin der Assistent dieses Shops)[^.!?]*[.!?]\s*/u;
+export function bezVatyPriVyrobkoch(answer) {
+  let text = String(answer || '').trim();
+  const bezUvodu = text.replace(UVOD_VATA_RE, '');
+  if (bezUvodu !== text && bezUvodu.split(/\s+/).filter(Boolean).length >= 5) text = bezUvodu;
+  const vety = text.match(/[^.!?]+[.!?]*\s*/gu) || [text];
+  while (vety.length > 1 && ZAVER_VATA_RE.test(vety[vety.length - 1].trim())) vety.pop();
+  const vysledok = vety.join('').trim();
+  return vysledok.split(/\s+/).filter(Boolean).length >= 5 ? vysledok : text;
 }
 
 /**
