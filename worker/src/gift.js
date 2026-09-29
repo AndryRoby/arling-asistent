@@ -297,9 +297,14 @@ export function jeDieta(recipient) {
 const DETSKY_ZAUJEM_RE = /^(deti|detsk\p{L}*|dieta|dietatu|deticky|dojc\p{L}*|batol\p{L}*|babatk\p{L}*|miminko|miminka|hrack\p{L}*|hracky|kinder\p{L}*|kind|baby|babies|toddlers?|child|children|kids?|toys?|spielzeug\p{L}*|skolk\p{L}*|vnuc\p{L}*|vnouc\p{L}*|vnuk\p{L}*|grandkids?|grandchild\p{L}*|grandson|granddaughter|enkel\p{L}*|synovec|neter|nephew|niece)$/u;
 const ZAPOR = new Set(['bez', 'nie', 'ziadne', 'ziadnu', 'ziadny', 'nechcem', 'nechce', 'ne', 'zadne', 'no', 'not', 'without', 'nothing', 'ohne', 'kein', 'keine', 'keinen', 'nicht']);
 
+// Zápor platí pre celú vetu až po spojku odporovaciu („no toys or gifts for kids“ je zápor aj pre kids;
+// „bez hračiek, ale pre vnúča knihy“ nie), nie len tri slová pred (brána 29. 9., pokus 3, nález 4).
+const HRANICA_VETY = /[.;!?\n]|\b(?:ale|avsak|vsak|but|however|aber|jedoch|sondern)\b/u;
 export function chceDetske(interests) {
-  const slova = bezDiakritiky(interests).split(/[^\p{L}]+/u).filter(Boolean);
-  return slova.some((w, i) => DETSKY_ZAUJEM_RE.test(w) && !slova.slice(Math.max(0, i - 3), i).some((p) => ZAPOR.has(p)));
+  return bezDiakritiky(interests).split(HRANICA_VETY).some((veta) => {
+    const slova = veta.split(/[^\p{L}]+/u).filter(Boolean);
+    return slova.some((w, i) => DETSKY_ZAUJEM_RE.test(w) && !slova.slice(0, i).some((p) => ZAPOR.has(p)));
+  });
 }
 
 /**

@@ -116,6 +116,21 @@ test('doplnKartyZTextu pridá karty k výrobkom, ktoré odpoveď menuje, len z k
 });
 
 // Brána 29. 9., pokus 2, nález 3: spoločný skrátený názov variantov nesmie priradiť zlý variant, v žiadnom poradí.
+// Brána 29. 9., pokus 3, nález 3: odmietnutý variant ani farba iného výrobku nepridajú kartu, v oboch poradiach.
+test('doplnKartyZTextu: odmietnutý variant a farba iného výrobku kartu nepridajú', () => {
+  const cerveny = { title: 'Kapsulový kávovar Orava Mini, červený', url: 'k3', price: 89.9 };
+  const biely = { title: 'Kapsulový kávovar Orava Mini, biely', url: 'k4', price: 89.9 };
+  const hrnceky = { title: 'Porcelánový hrnček 300 ml', url: 'h1', price: 9.9 };
+  for (const poradie of [[cerveny, biely, hrnceky], [biely, cerveny, hrnceky]]) {
+    const karty = (t) => doplnKartyZTextu([], t, poradie).map((p) => p.url);
+    assert.deepEqual(karty('Odporúčam Kapsulový kávovar Orava Mini, biely; červený neodporúčam.'), ['k4']);
+    assert.deepEqual(karty('Odporúčam Kapsulový kávovar Orava Mini, biely. K nemu sa hodí červený hrnček.'), ['k4']);
+    assert.deepEqual(karty('Kapsulový kávovar Orava Mini, červený neodporúčam, vyberte Kapsulový kávovar Orava Mini, biely.'), ['k4']);
+    assert.deepEqual(karty('I do not recommend Kapsulový kávovar Orava Mini, červený. Kapsulový kávovar Orava Mini, biely is great.'), ['k4']);
+    assert.deepEqual(karty('Jediné Kapsulový kávovar Orava Mini, biely máme skladom.'), ['k4']);
+  }
+});
+
 test('doplnKartyZTextu pri variantoch s rovnakým skráteným názvom pridá len menovaný variant, nikdy iný', () => {
   const cerveny = { title: 'Kapsulový kávovar Orava Mini, červený', url: 'k3', price: 89.9 };
   const biely = { title: 'Kapsulový kávovar Orava Mini, biely', url: 'k4', price: 89.9 };

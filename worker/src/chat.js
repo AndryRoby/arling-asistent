@@ -559,6 +559,13 @@ const bezDiakritikyChat = (t) => String(t || '').normalize('NFD').replace(/\p{M}
  * celý názov, alebo časť názvu pred prvou čiarkou s aspoň tromi slovami.
  * Poradie podľa prvého výskytu v texte, najviac MAX_PRODUCTS_IN_ANSWER.
  */
+// Zmienka výrobku so záporom tesne pred ňou alebo za ňou nie je odporúčanie (sk, cs, en, de, bez diakritiky).
+const ZAPOR_PRED = /(?<!\p{L})(?:neodporucam|neodporucame|nedoporucuji|nedoporucujeme|nekupujte|nie|ne|not|don't|do not|nicht|kein|keine|avoid|vyhnite sa|(?:do not|don't|would not|wouldn't|cannot|can't) (?:recommend|suggest)|(?:empfehle|empfehlen) (?:ich |wir )?nicht)\s*[:,]?\s*$/u;
+const ZAPOR_ZA = /^\s*[,;:]?\s*(?:neodporucam|neodporucame|nedoporucuji|nedoporucujeme|sa nehodi|se nehodi|nie je vhodn|neni vhodn|is not (?:recommended|suitable)|isn't (?:recommended|suitable)|i do not recommend|i don't recommend|ist nicht (?:empfohlen|geeignet)|empfehle ich nicht)/u;
+function zapornaZmienka(text, i, dlzka) {
+  return ZAPOR_PRED.test(text.slice(Math.max(0, i - 30), i)) || ZAPOR_ZA.test(text.slice(i + dlzka, i + dlzka + 40));
+}
+
 export function doplnKartyZTextu(products, answer, candidates) {
   const out = [...(products || [])];
   if (out.length >= MAX_PRODUCTS_IN_ANSWER) return out;
@@ -579,12 +586,11 @@ export function doplnKartyZTextu(products, answer, candidates) {
     const cely = bezDiakritikyChat(c.title).trim();
     const [hlavny, ...zvysok] = cely.split(',').map((x) => x.trim());
     let i = cely.length >= 8 ? text.indexOf(cely) : -1;
-    if (i < 0 && hlavny.split(' ').length >= 3) {
-      const j = text.indexOf(hlavny);
-      const variant = zvysok.join(', ');
-      if (j >= 0 && (hlavne.get(hlavny) === 1 || (variant && text.indexOf(variant, j) >= 0))) i = j;
-    }
-    if (i >= 0) najdene.push({ i, c });
+    let dlzka = cely.length;
+    // Skrátený názov len pri jedinom kandidátovi s ním; variant hľadaný hocikde ďalej v odpovedi pripájal
+    // aj odmietnutý variant či farbu iného výrobku (brána 29. 9., pokus 3, nález 3).
+    if (i < 0 && hlavny.split(' ').length >= 3 && hlavne.get(hlavny) === 1) { i = text.indexOf(hlavny); dlzka = hlavny.length; }
+    if (i >= 0 && !zapornaZmienka(text, i, dlzka)) najdene.push({ i, c });
   }
   najdene.sort((a, b) => a.i - b.i);
   for (const { c } of najdene) {

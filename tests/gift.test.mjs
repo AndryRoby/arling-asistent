@@ -25,6 +25,7 @@ import {
   parseGiftModelJson,
   reconcileGiftPicks,
   bezDetskychPreDospeleho,
+  chceDetske,
   cistyDovod,
   jeDospely,
   runGift,
@@ -284,6 +285,20 @@ test('runGift falls back to the tenant\'s most common category names when intere
 
 // Naživo 29. 9. 2026 na ukážkovom obchode: „Mama“ do 50 € dostala detský príbor a vkladačku
 // a dôvody „Cena 16.90 EUR“. Kód preto vek obdarovaného stráži sám a dôvod len s cenou zahodí.
+// Brána 29. 9., pokus 3, nález 4: zápor platí pre celú vetu, nie len tri slová pred slovom o deťoch.
+test('chceDetske: zápor pokryje celý koordinovaný výraz, odporovacia spojka ho ukončí', () => {
+  for (const nie of ['no toys or gifts for kids', 'bez hračiek a iných vecí pre deti', 'nothing for small children or babies',
+    'keine Spielsachen und nichts für Kinder', 'žiadne detské veci, prosím', 'not for the kids, she is an adult']) {
+    assert.equal(chceDetske(nie), false, nie);
+  }
+  for (const ano of ['hračky pre vnúča', 'for the grandkids', 'bez sladkostí, ale pre deti hračky', 'no sweets. toys for kids',
+    'etwas für Kinder', 'no candy but a toy for my nephew']) {
+    assert.equal(chceDetske(ano), true, ano);
+  }
+  const c = [{ title: 'Drevená vkladačka pre deti', category: 'Hračky' }, { title: 'Detský batoh', category: 'Deti' }, { title: 'Bylinkový čaj darčekový box', category: 'Čaj' }];
+  assert.deepEqual(bezDetskychPreDospeleho(c, 'Mum', 'no toys or gifts for kids').map((x) => x.title), ['Bylinkový čaj darčekový box']);
+});
+
 test('bezDetskychPreDospeleho: dospelému bez detských výrobkov, dieťaťu a záujmom o deti ich nechá, prázdny výsledok nikdy', () => {
   const c = [
     { title: 'Detský príbor z nerezovej ocele, 4 kusy', category: 'Deti | Stolovanie' },
