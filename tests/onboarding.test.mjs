@@ -553,11 +553,12 @@ test('tenantStatusResponse reports a legacy "trial" plan as "free" (the public c
   assert.equal(status.last_ingested_at, null);
 });
 
-test('handleTenantStatusRoute (public GET) never returns billing_ref even after a plan with one was set', async () => {
+test('handleTenantStatusRoute (owner GET with admin token) never returns billing_ref even after a plan with one was set', async () => {
   const env = makeEnv();
   const tenant = await createTenantFromRequest(env, { feedUrl: 'https://public-status.sk/feed.xml', domain: 'public-status.sk', email: 'a@public-status.sk' });
   await handleSetPlanRoute(planRequest({ plan: 'starter', billing_ref: 'sub_secret', valid_until: '2026-12-01' }), env, tenant.id);
-  const res = await handleTenantStatusRoute(new Request('https://x/'), env, tenant.id);
+  // Plán a spotreba sú od O-25 (30. 9. 2026) len v plnom stave (admin token, kľúč obchodu, Bearer majiteľa).
+  const res = await handleTenantStatusRoute(new Request('https://x/', { headers: { 'X-Admin-Token': ADMIN_TOKEN } }), env, tenant.id);
   const text = await res.text();
   assert.equal(text.includes('sub_secret'), false);
   assert.equal(text.includes('billing_ref'), false);

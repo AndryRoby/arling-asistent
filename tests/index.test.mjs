@@ -44,7 +44,8 @@ function chatRequest(tenant, { session, message = 'Mate to skladom?', ip = '9.9.
 }
 
 async function conversationsUsed(env, tenant) {
-  const res = await worker.fetch(new Request(`https://asistent.arling.sk/v1/tenants/${tenant.id}/status`), env, {});
+  // Spotreba je od O-25 (30. 9. 2026) len v plnom stave: admin token.
+  const res = await worker.fetch(new Request(`https://asistent.arling.sk/v1/tenants/${tenant.id}/status`, { headers: { 'X-Admin-Token': 'test-admin-token' } }), env, {});
   return (await res.json()).conversations_used;
 }
 
@@ -287,7 +288,7 @@ test('PATCH /v1/tenants/:id/plan is wired up end to end: unauthorized without th
   assert.equal(body.monthly_quota, 3000);
   assert.equal(body.billing_ref, 'sub_789');
 
-  const statusRes = await worker.fetch(new Request(`https://asistent.arling.sk/v1/tenants/${tenant.id}/status`), env, {});
+  const statusRes = await worker.fetch(new Request(`https://asistent.arling.sk/v1/tenants/${tenant.id}/status`, { headers: { 'X-Admin-Token': 'test-admin-token' } }), env, {});
   const statusBody = await statusRes.json();
   assert.equal(statusBody.plan, 'pro');
   assert.equal(statusBody.monthly_quota, 3000);
@@ -346,11 +347,12 @@ test('POST /v1/chat still succeeds and still counts when the KV session dedupe t
   assert.equal(await conversationsUsed(env, tenant), 2); // no dedupe possible, counted per request, never refused
 });
 
-test('GET /v1/tenants/:id/status returns the public contract fields and neither billing_ref nor contact_email', async () => {
+test('GET /v1/tenants/:id/status returns the full contract fields to the admin token and neither billing_ref nor contact_email', async () => {
   const env = makeEnv();
   const tenant = await readyTenant(env, 'status-contract.sk');
   await worker.fetch(chatRequest(tenant, { session: 'a1b2c3d4e5f60718' }), env, {});
-  const res = await worker.fetch(new Request(`https://asistent.arling.sk/v1/tenants/${tenant.id}/status`), env, {});
+  // Bez tokenu od O-25 (30. 9. 2026) len úzky verejný stav, viď ucet-ochrana-o04.test.mjs.
+  const res = await worker.fetch(new Request(`https://asistent.arling.sk/v1/tenants/${tenant.id}/status`, { headers: { 'X-Admin-Token': 'test-admin-token' } }), env, {});
   assert.equal(res.status, 200);
   const text = await res.text();
   const body = JSON.parse(text);

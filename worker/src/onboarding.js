@@ -38,7 +38,7 @@ import { embedAndUpsertProducts, embedTexts, znakyProduktov } from './embed.js';
 import { parseAllowedOrigins, corsHeaders, bezpecnePorovnaj, checkRateLimit, SECURITY_HEADERS } from './security.js';
 import { hasBudget, rezervujObnovu, spendObnova, vratObnovu, obnovaZaZnaky, jeOslovenieTenant, jeRezimUkazkyOslovenia } from './budget.js';
 import { poVytvoreni, poNacitani, poZmenePlanu, nastavJazyk, jazykZoVstupu, zdrojZoVstupu, poOvereniMajitela, mozePrevziatOslovenie, prevezmiOslovenie, zapamatajVektory, vymenVektory, udalostiTenanta, jeDemo } from './zivotny-cyklus.js';
-import { overenyEmailZBearer } from './ucet.js';
+import { overenyEmailZBearer, klucObchodu, jeKlucObchodu } from './ucet.js';
 
 export const TENANT_STATUS = {
   PENDING: 'pending',
@@ -970,11 +970,24 @@ export async function handleCreateTenantRoute(request, env, ctx) {
     // `existing: true` set, and gets 200 instead of 201, same shape otherwise.
     // Anyone else gets 409 domain_taken below.
     if (tenant.existing) {
-      const telo = { id: tenant.id, domain: tenant.domain, status: tenant.status, plan: tenant.plan, monthly_quota: tenant.monthly_quota, existing: true, overeny: !!tenant.overeny, prevzate: !!tenant.prevzate };
+      const telo = { id: tenant.id, domain: tenant.domain, status: tenant.status, existing: true, overeny: !!tenant.overeny, prevzate: !!tenant.prevzate };
+      // O-25: plán, kvóta a kľúč stavu len overenému majiteľovi (Bearer pre
+      // contact_email). Samotná zhoda e-mailu nestačí: adresa obchodu sa dá
+      // uhádnuť (info@...), a tá istá odpoveď by prezradila, kto platí.
+      if (tenant.overeny) {
+        telo.plan = tenant.plan;
+        telo.monthly_quota = tenant.monthly_quota;
+        const kluc = await klucObchodu(env, tenant.id);
+        if (kluc) telo.kluc_stavu = kluc;
+      }
       if (tenant.feed_treba_overit) telo.feed_treba_overit = true;
       return jsonResponse(telo, 200, headers);
     }
-    return jsonResponse({ id: tenant.id, domain: tenant.domain, status: tenant.status, plan: tenant.plan, monthly_quota: tenant.monthly_quota, overeny: !!tenant.overeny }, 201, headers);
+    // Nový obchod: kto ho práve založil, dostane aj kľúč stavu (doplnok ho uloží).
+    const nove = { id: tenant.id, domain: tenant.domain, status: tenant.status, plan: tenant.plan, monthly_quota: tenant.monthly_quota, overeny: !!tenant.overeny };
+    const klucNoveho = await klucObchodu(env, tenant.id);
+    if (klucNoveho) nove.kluc_stavu = klucNoveho;
+    return jsonResponse(nove, 201, headers);
   } catch (err) {
     const headers = corsHeadersForRequest(request, env);
     if (err instanceof ValidationError) {
@@ -1000,11 +1013,61 @@ export async function handleCreateTenantRoute(request, env, ctx) {
   }
 }
 
+/**
+ * Veľký audit 30. 9. 2026, oprava O-25 (nález 01 D9): id obchodu je verejne
+ * v HTML každého obchodu s widgetom, takže plán, kvóta a spotreba vo
+ * verejnom stave prezrádzali konkurencii, kto platí a koľko používa.
+ * Verejne ostáva len to, čo verejné stránky naozaj potrebujú:
+ *   id, status, product_count, live_demo   (zadanie O-25)
+ *   domain, outreach_demo                  (živá ukážka live.js: meno obchodu
+ *                                           a režim ukážky osloveného obchodu;
+ *                                           návštevník sa prihlásiť nemôže)
+ *   feed_pripojeny                         (prevzatie ukážky, prevzatie.js)
+ * Doména je aj tak verejná (obchod sám), ostatné sú len áno/nie bez peňazí.
+ */
+export const VEREJNE_POLIA_STAVU = ['id', 'status', 'product_count', 'live_demo', 'domain', 'outreach_demo', 'feed_pripojeny'];
+
+export function verejnyStavObchodu(status) {
+  const out = {};
+  for (const k of VEREJNE_POLIA_STAVU) if (k in status) out[k] = status[k];
+  return out;
+}
+
+/**
+ * Smie volajúci vidieť plný stav (plán, kvótu, spotrebu)? Áno pre
+ * X-Admin-Token (ADMIN_TOKEN), pre kľúč stavu obchodu v X-Arling-Kluc
+ * (doplnok WordPress od 0.4.1, ucet.js klucObchodu) a pre Bearer token účtu,
+ * ktorého e-mail je contact_email obchodu. Nikdy nehádže.
+ */
+export async function smieVidietPlnyStav(request, env, tenantId) {
+  try {
+    const admin = request.headers.get('X-Admin-Token') || '';
+    if (admin && env.ADMIN_TOKEN && bezpecnePorovnaj(admin, env.ADMIN_TOKEN)) return true;
+    if (await jeKlucObchodu(env, tenantId, request.headers.get('X-Arling-Kluc') || '')) return true;
+    if (request.headers.get('Authorization')) {
+      const overeny = await overenyEmailZBearer(request, env);
+      if (!overeny) return false;
+      const tenant = await getTenantById(env.DB, tenantId);
+      const majitel = String((tenant && tenant.contact_email) || '').trim().toLowerCase();
+      return !!majitel && bezpecnePorovnaj(overeny, majitel);
+    }
+  } catch (e) {
+    console.warn('[arling-asistent] overenie plneho stavu zlyhalo:', (e && e.message) || e);
+  }
+  return false;
+}
+
 export async function handleTenantStatusRoute(request, env, tenantId) {
   const status = await tenantStatusResponse(env, tenantId);
   const headers = corsHeadersForRequest(request, env, status ? [status.domain] : []);
   if (!status) return jsonResponse({ error: 'not_found' }, 404, headers);
-  return jsonResponse(status, 200, headers);
+  // ASISTENT_STATUS_VEREJNY = "plny" je len prechodný vypínač pre doplnok
+  // WordPress 0.4.0 a starší (bez kľúča by platiacemu obchodu ukázal „Free“);
+  // predvolene je verejný stav úzky.
+  if (env.ASISTENT_STATUS_VEREJNY === 'plny' || (await smieVidietPlnyStav(request, env, tenantId))) {
+    return jsonResponse(status, 200, headers);
+  }
+  return jsonResponse(verejnyStavObchodu(status), 200, headers);
 }
 
 // ---------------------------------------------------------------------------

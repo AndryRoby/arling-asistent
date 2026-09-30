@@ -425,6 +425,7 @@ function makeEnv() {
     VECTORIZE: createMockVectorize(),
     ASISTENT_CACHE: createMockKV(),
     ALLOWED_ORIGINS: 'arling.sk',
+    ADMIN_TOKEN: 'test-admin-token',
     fetchImpl: async () => ({ ok: true, status: 200, text: async () => '' }),
   };
 }
@@ -447,7 +448,8 @@ function giftRequest(tenant, { session, recipient = 'mama', interests = 'kava', 
 }
 
 async function conversationsUsed(env, tenant) {
-  const res = await worker.fetch(new Request(`https://asistent.arling.sk/v1/tenants/${tenant.id}/status`), env, {});
+  // Spotreba je od O-25 (30. 9. 2026) len v plnom stave: admin token.
+  const res = await worker.fetch(new Request(`https://asistent.arling.sk/v1/tenants/${tenant.id}/status`, { headers: { 'X-Admin-Token': 'test-admin-token' } }), env, {});
   return (await res.json()).conversations_used;
 }
 

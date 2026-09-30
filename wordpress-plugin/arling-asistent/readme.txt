@@ -4,7 +4,7 @@ Tags: ai chatbot, chatbot, woocommerce chatbot, product search, shopping assista
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.4.0
+Stable tag: 0.4.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -156,6 +156,10 @@ Click "Disconnect" on the settings page to immediately stop the widget from appe
 
 == Changelog ==
 
+= 0.4.1 =
+* Your plan and usage are no longer shown to anyone who only knows the assistant id (it is visible in the storefront HTML). They are shown to this store with its status key, to the owner signed in at arling.sk, and to ARLing. When you connect, the plugin now keeps that status key and uses it to read your own plan and usage.
+* A store that connected with an earlier version has no status key: the settings page then says the plan is not shown here, instead of showing "Free". A paid plan keeps working as before.
+
 = 0.4.0 =
 * When you connect, the plugin also sends the language of your own WordPress profile (Slovak, Czech, English or German, anything else as English), so any setup e-mail from ARLing is in your language (ARLing does not send these e-mails yet), and marks the account as coming from this plugin, so the e-mail does not ask you to paste any code.
 * The consent text now says what ARLing sends to your e-mail address: the setup instructions and at most three service messages about this assistant, each with a link that stops them. They are sent only to an address on the site's own domain.
@@ -191,6 +195,9 @@ Click "Disconnect" on the settings page to immediately stop the widget from appe
 * Initial release: connect flow, status polling, language/colour/position/display-scope settings, front-end widget loader.
 
 == Upgrade Notice ==
+
+= 0.4.1 =
+Your plan and usage are no longer shown to anyone who only knows the assistant id; this store, the owner signed in at arling.sk and ARLing still see them. No change on your storefront.
 
 = 0.4.0 =
 Prepares setup e-mails in your own language (not sent yet) and a clearer consent text. No change on your storefront.

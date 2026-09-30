@@ -261,7 +261,8 @@ class Arling_Asistent_Admin {
 
 		return array(
 			'status'        => isset( $data['status'] ) ? sanitize_key( (string) $data['status'] ) : 'unknown',
-			'plan'          => isset( $data['plan'] ) ? sanitize_key( (string) $data['plan'] ) : 'free',
+			// '' = the service did not say (public status without the status key, 0.4.1+): never shown as "Free".
+			'plan'          => isset( $data['plan'] ) ? sanitize_key( (string) $data['plan'] ) : '',
 			'monthly_quota' => $quota,
 			'used'          => $used,
 			'usage_percent' => max( 0, min( 100, $percent ) ),
@@ -308,7 +309,7 @@ class Arling_Asistent_Admin {
 			return $this->status;
 		}
 
-		$result = Arling_Asistent_Api::get_status( $tenant_id );
+		$result = Arling_Asistent_Api::get_status( $tenant_id, 15, (string) get_option( 'arling_asistent_kluc', '' ) );
 		if ( empty( $result['ok'] ) ) {
 			$this->status_failure = $result;
 			return null;
@@ -330,7 +331,7 @@ class Arling_Asistent_Admin {
 			wp_clear_scheduled_hook( ARLING_ASISTENT_CRON_HOOK );
 			return;
 		}
-		$result = Arling_Asistent_Api::get_status( $tenant_id, 10 );
+		$result = Arling_Asistent_Api::get_status( $tenant_id, 10, (string) get_option( 'arling_asistent_kluc', '' ) );
 		if ( ! empty( $result['ok'] ) ) {
 			self::remember_status( self::normalise_status( isset( $result['data'] ) ? $result['data'] : array() ) );
 		}
@@ -560,6 +561,12 @@ class Arling_Asistent_Admin {
 
 		$tenant_id = sanitize_text_field( $data['id'] );
 		update_option( 'arling_asistent_tenant_id', $tenant_id );
+		// Status key (0.4.1+): lets this store read its own plan and usage.
+		// The service returns it to whoever creates the assistant, and on a
+		// reconnect only after the owner confirmed the e-mail with a code.
+		if ( ! empty( $data['kluc_stavu'] ) ) {
+			update_option( 'arling_asistent_kluc', sanitize_text_field( (string) $data['kluc_stavu'] ), false );
+		}
 		update_option( 'arling_asistent_domain', $domain );
 		update_option( 'arling_asistent_email', $email );
 		update_option( 'arling_asistent_connected_at', time() );
@@ -632,6 +639,7 @@ class Arling_Asistent_Admin {
 		}
 
 		delete_option( 'arling_asistent_tenant_id' );
+		delete_option( 'arling_asistent_kluc' );
 		delete_option( 'arling_asistent_domain' );
 		delete_option( 'arling_asistent_email' );
 		delete_option( 'arling_asistent_connected_at' );
@@ -1162,7 +1170,11 @@ class Arling_Asistent_Admin {
 	 * @param array  $status    Normalised status.
 	 */
 	private function render_plan_section( $tenant_id, $status ) {
-		$plan         = in_array( $status['plan'], array( 'free', 'starter', 'pro' ), true ) ? $status['plan'] : 'free';
+		if ( ! in_array( $status['plan'], array( 'free', 'starter', 'pro' ), true ) ) {
+			$this->render_plan_section_unknown( $tenant_id );
+			return;
+		}
+		$plan         = $status['plan'];
 		$plan_names   = array(
 			'free'    => __( 'Free', 'arling-asistent' ),
 			'starter' => __( 'Starter', 'arling-asistent' ),
@@ -1245,6 +1257,32 @@ class Arling_Asistent_Admin {
 		if ( $current_rank > $rank['free'] ) {
 			$this->render_manage_link();
 		}
+	}
+
+	/**
+	 * Plan section when the service did not return the plan (a store that
+	 * connected before 0.4.1 has no status key, and the public status no
+	 * longer names the plan). Never claims "Free": a paying store would read
+	 * that as a lost subscription. Offers both plans and the portal link.
+	 *
+	 * @param string $tenant_id This site's connected tenant id.
+	 */
+	private function render_plan_section_unknown( $tenant_id ) {
+		$starter_link = $this->build_upgrade_url( Arling_Asistent_Api::stripe_link_starter(), $tenant_id );
+		$pro_link     = $this->build_upgrade_url( Arling_Asistent_Api::stripe_link_pro(), $tenant_id );
+		echo '<h2 id="arling-asistent-plan">' . esc_html__( 'Plan and usage', 'arling-asistent' ) . '</h2>';
+		echo '<p class="description" style="max-width:760px;">' . esc_html__( 'The plan and the usage for this month are not shown on this site. To read them, this site needs the status key that a store receives when it first connects with version 0.4.1 or later, and this store does not have that key. If you pay for a plan, it keeps working as before; your payments and your plan are in the Stripe customer portal linked below.', 'arling-asistent' ) . '</p>';
+		echo '<p>';
+		if ( $starter_link ) {
+			echo '<a class="button" href="' . esc_url( $starter_link ) . '" target="_blank" rel="noopener noreferrer">' .
+				esc_html__( 'Starter (19 EUR/month, up to 1,000 conversations)', 'arling-asistent' ) . '</a> ';
+		}
+		if ( $pro_link ) {
+			echo '<a class="button" href="' . esc_url( $pro_link ) . '" target="_blank" rel="noopener noreferrer">' .
+				esc_html__( 'Pro (39 EUR/month, up to 3,000 conversations)', 'arling-asistent' ) . '</a>';
+		}
+		echo '</p>';
+		$this->render_manage_link();
 	}
 
 	private function render_manage_link() {

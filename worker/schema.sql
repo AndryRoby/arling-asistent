@@ -103,3 +103,8 @@ CREATE TABLE IF NOT EXISTS tenant_zmazane (
   tenant_id TEXT PRIMARY KEY,
   kedy TEXT NOT NULL
 );
+
+-- Pokusy o kód účtu na adresu v okne 24 h (migrations/0004_ucet_ochrana.sql,
+-- src/ucet.js). Kľúč je odtlačok e-mailu, nikdy holý e-mail.
+CREATE TABLE IF NOT EXISTS ucet_pokusy (kluc TEXT PRIMARY KEY, pokusy INTEGER NOT NULL DEFAULT 0, okno_od INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_ucet_pokusy_okno ON ucet_pokusy (okno_od);

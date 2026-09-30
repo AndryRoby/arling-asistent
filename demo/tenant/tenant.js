@@ -60,6 +60,27 @@ export function upgradeUrl(plan, tenantId) {
   return base + sep + 'client_reference_id=' + encodeURIComponent(tenantId);
 }
 
+/**
+ * Bearer token of a signed-in owner on arling.sk, or ''. Since 30 Sep 2026
+ * (audit O-25) GET /v1/tenants/:id/status returns plan, quota and usage only
+ * to the shop's owner (Bearer for its contact e-mail), the admin token or the
+ * shop's status key; without them it is id, status, product count and the
+ * demo flags only, and this page shows "n/a" for plan and usage. The token
+ * comes from the same code sign-in as arling.sk/ucet/ ('arling:ucet') or the
+ * trial form on /asistent/ ('arling_asistent_overenie'); both keep
+ * { token, email } in this origin's localStorage.
+ */
+export function ownerToken(storage) {
+  const keys = ['arling:ucet', 'arling_asistent_overenie'];
+  for (const key of keys) {
+    try {
+      const z = JSON.parse((storage && storage.getItem(key)) || 'null');
+      if (z && typeof z.token === 'string' && z.token) return z.token;
+    } catch (e) { /* storage unavailable or not JSON */ }
+  }
+  return '';
+}
+
 /** Same snippet the demo page shows after trial creation. */
 export function embedSnippetFor(tenantId) {
   return '<script src="' + WIDGET_SCRIPT_ORIGIN + '/widget.js" data-tenant="' + tenantId + '" data-lang="auto" data-endpoint="' + ENDPOINT + '" defer></script>';
@@ -312,7 +333,12 @@ if (typeof document !== 'undefined') {
     showState('state-loading');
     const controller = typeof AbortController === 'function' ? new AbortController() : null;
     const timer = controller ? setTimeout(() => controller.abort(), 15000) : null;
-    fetch(ENDPOINT + '/v1/tenants/' + encodeURIComponent(tenantId) + '/status', { signal: controller ? controller.signal : undefined })
+    let storage = null;
+    try { storage = window.localStorage; } catch (e) { storage = null; }
+    const token = ownerToken(storage);
+    const init = { signal: controller ? controller.signal : undefined };
+    if (token) init.headers = { Authorization: 'Bearer ' + token };
+    fetch(ENDPOINT + '/v1/tenants/' + encodeURIComponent(tenantId) + '/status', init)
       .then((res) => {
         if (res.status === 404) return { notFound: true };
         if (!res.ok) throw new Error('status_' + res.status);

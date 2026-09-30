@@ -25,6 +25,8 @@
  *   GET  /v1/ucet/ja                 -> ucet.js (Bearer; account, purchases, subscriptions)
  *   DELETE /v1/ucet/ja               -> ucet.js (Bearer; "forget me", purchases kept)
  *   POST /v1/ucet/nakup-session      -> ucet.js (Bearer; attach one paid Checkout Session)
+ *   POST /v1/ucet/nakup-pristup      -> ucet.js (Bearer; session_id of one purchase by its id, O-04)
+ *   POST /v1/ucet/odomkni            -> ucet.js (admin only, X-Admin-Token; unlock one locked address, O-04)
  *   PUT  /v1/ucet/nakup              -> ucet.js (admin only, X-Admin-Token; licence-service webhook)
  *   GET  /v1/ucet/hra/:hra           -> ucet.js (Bearer; cross-device game state, opaque JSON)
  *   PUT  /v1/ucet/hra/:hra           -> ucet.js (Bearer; same, max 64 kB)
@@ -94,6 +96,8 @@ import {
   handleUcetJaRoute,
   handleUcetDeleteRoute,
   handleUcetNakupSessionRoute,
+  handleUcetNakupPristupRoute,
+  handleUcetOdomkniRoute,
   handleUcetNakupRoute,
   handleUcetHraGetRoute,
   handleUcetHraPutRoute,
@@ -342,6 +346,14 @@ export default {
 
       if (url.pathname === '/v1/ucet/nakup-session' && request.method === 'POST') {
         return await handleUcetNakupSessionRoute(request, env);
+      }
+
+      if (url.pathname === '/v1/ucet/nakup-pristup' && request.method === 'POST') {
+        return await handleUcetNakupPristupRoute(request, env);
+      }
+
+      if (url.pathname === '/v1/ucet/odomkni' && request.method === 'POST') {
+        return await handleUcetOdomkniRoute(request, env);
       }
 
       if (url.pathname === '/v1/ucet/nakup' && request.method === 'PUT') {

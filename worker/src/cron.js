@@ -26,6 +26,7 @@ import { ingestFeedForTenant, readIngestError, readIngestLimit, INGEST_ERRORS, T
 import { dobeh, dennaUdrzba, jeDemo } from './zivotny-cyklus.js';
 import { hasObnovaBudget, jeOslovenieTenant } from './budget.js';
 import { zmazStare } from './pocty.js';
+import { zmazStarePokusy } from './ucet.js';
 
 export const CRON_DENNY = '0 3 * * *';
 export const CRON_DOBEH = '*/10 * * * *';
@@ -153,6 +154,12 @@ export async function dennyBeh(env, opts = {}) {
     await zmazStare(env.DB, dayKey(new Date()));
   } catch (err) {
     console.warn('[arling-asistent] mazanie starych pocitadiel zlyhalo:', (err && err.message) || err);
+  }
+  // Pokusy o kód účtu starších ako 24 h preč (O-04, ucet.js).
+  try {
+    await zmazStarePokusy(env.DB);
+  } catch (err) {
+    console.warn('[arling-asistent] mazanie starych pokusov o kod zlyhalo:', (err && err.message) || err);
   }
   try {
     return await refreshAllFeeds(env, opts);

@@ -9,6 +9,7 @@
 import { SQL } from '../../worker/src/tenants.js';
 import { ZC_SQL } from '../../worker/src/zivotny-cyklus.js';
 import { POCTY_SQL } from '../../worker/src/pocty.js';
+import { UCET_SQL } from '../../worker/src/ucet.js';
 
 export function createMockD1() {
   const tenants = new Map(); // id -> row
@@ -64,6 +65,13 @@ export function createMockD1() {
   function potrebujPocty() {
     if (!hasPocty) throw new Error('D1_ERROR: no such table: asistent_pocty');
   }
+  // O-04 (veľký audit 30. 9. 2026): pokusy o kód účtu na adresu (ucet.js).
+  // Každá veta naraz, bez await uprostred, ako jedna SQL veta v D1.
+  let hasUcetPokusy = false;
+  const ucetPokusy = new Map(); // kluc -> {kluc, pokusy, okno_od}
+  function potrebujUcetPokusy() {
+    if (!hasUcetPokusy) throw new Error('D1_ERROR: no such table: ucet_pokusy');
+  }
   let dalsieId = 1;
   const calls = []; // každý vykonaný príkaz, pre testy „žiadny dopyt do D1“
 
@@ -88,6 +96,23 @@ export function createMockD1() {
       case POCTY_SQL.CREATE_POCTY:
         hasPocty = true;
         return { success: true, meta: { changes: 0 } };
+      case UCET_SQL.CREATE_POKUSY:
+        hasUcetPokusy = true;
+        return { success: true, meta: { changes: 0 } };
+      case UCET_SQL.CREATE_POKUSY_INDEX:
+        potrebujUcetPokusy();
+        return { success: true, meta: { changes: 0 } };
+      case UCET_SQL.ZMAZ_POKUSY: {
+        potrebujUcetPokusy();
+        const zmazane = ucetPokusy.delete(args[0]) ? 1 : 0;
+        return { success: true, meta: { changes: zmazane } };
+      }
+      case UCET_SQL.ZMAZ_STARE_POKUSY: {
+        potrebujUcetPokusy();
+        let n = 0;
+        for (const [k, row] of ucetPokusy) if (row.okno_od <= args[0]) { ucetPokusy.delete(k); n++; }
+        return { success: true, meta: { changes: n } };
+      }
       case POCTY_SQL.CREATE_POCTY_INDEX:
         potrebujPocty();
         return { success: true, meta: { changes: 0 } };
@@ -411,6 +436,31 @@ export function createMockD1() {
         row.hodnota += pocet;
         return { hodnota: row.hodnota };
       }
+      case UCET_SQL.REZERVUJ_POKUS: {
+        // INSERT ... ON CONFLICT DO UPDATE ... WHERE okno_od <= hranica OR pokusy < limit RETURNING
+        potrebujUcetPokusy();
+        const [kluc, teraz, hranica, , , limit] = args;
+        const row = ucetPokusy.get(kluc);
+        if (!row) {
+          ucetPokusy.set(kluc, { kluc, pokusy: 1, okno_od: teraz });
+          return { pokusy: 1, okno_od: teraz };
+        }
+        if (row.okno_od <= hranica) {
+          row.pokusy = 1;
+          row.okno_od = teraz;
+          return { pokusy: 1, okno_od: teraz };
+        }
+        if (row.pokusy < limit) {
+          row.pokusy += 1;
+          return { pokusy: row.pokusy, okno_od: row.okno_od };
+        }
+        return null;
+      }
+      case UCET_SQL.STAV_POKUSOV: {
+        potrebujUcetPokusy();
+        const row = ucetPokusy.get(args[0]);
+        return row ? { pokusy: row.pokusy, okno_od: row.okno_od } : null;
+      }
       case POCTY_SQL.PRIDAJ: {
         potrebujPocty();
         const [kluc, den, pocet] = args;
@@ -542,6 +592,7 @@ export function createMockD1() {
     _zcStlpce: zcStlpce,
     _nakladyStlpce: nakladyStlpce,
     _pocty: pocty,
+    _ucetPokusy: ucetPokusy,
     _hasPocty: () => hasPocty,
     _hasUdalosti: () => hasUdalosti,
     _strop: strop,

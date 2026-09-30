@@ -109,18 +109,28 @@ class Arling_Asistent_Api {
 	}
 
 	/**
-	 * GET /v1/tenants/:id/status -> { id, domain, status, plan, monthly_quota,
-	 * conversations_used, usage_percent, period_start, period_end,
-	 * product_count, last_ingest, last_error, used_this_month, last_ingested_at }
+	 * GET /v1/tenants/:id/status -> { id, domain, status, product_count, ... }
+	 *
+	 * Since 30 Sep 2026 the public answer has no plan and no usage (anyone can
+	 * read the tenant id from the storefront HTML). With the status key that
+	 * POST /v1/tenants returned when this store first connected
+	 * (option arling_asistent_kluc, header X-Arling-Kluc) the service also
+	 * returns plan, monthly_quota, conversations_used, usage_percent,
+	 * period_end, last_ingest and last_error.
 	 *
 	 * @param string $tenant_id Tenant id returned by create_tenant().
 	 * @param int    $timeout   Seconds to wait (shorter for the background check).
+	 * @param string $kluc      Status key of this store, or '' when it has none.
 	 * @return array{ok:bool,data?:array,error?:string,message?:string} Normalised result.
 	 */
-	public static function get_status( $tenant_id, $timeout = 15 ) {
+	public static function get_status( $tenant_id, $timeout = 15, $kluc = '' ) {
+		$args = array( 'timeout' => (int) $timeout );
+		if ( '' !== (string) $kluc ) {
+			$args['headers'] = array( 'X-Arling-Kluc' => (string) $kluc );
+		}
 		$response = wp_remote_get(
 			self::base_url() . '/v1/tenants/' . rawurlencode( $tenant_id ) . '/status',
-			array( 'timeout' => (int) $timeout )
+			$args
 		);
 
 		return self::parse_response( $response, array( 200 ) );

@@ -113,7 +113,8 @@ export function renderAdminPage({ apiKey, shop, host }) {
       row('Shop', data.shop) +
       row('Tenant status', data.tenant ? data.tenant.status : 'not created yet') +
       row('Products indexed', data.tenant ? String(data.tenant.product_count || 0) : '-') +
-      row('Conversations used this month', data.tenant ? (data.tenant.used_this_month + ' / ' + data.tenant.monthly_quota) : '-') +
+      // The public tenant status carries no usage since 30 Sep 2026 (audit O-25): show '-' instead of "undefined / undefined".
+      row('Conversations used this month', data.tenant && typeof data.tenant.monthly_quota === 'number' ? ((data.tenant.used_this_month || 0) + ' / ' + data.tenant.monthly_quota) : '-') +
       row('Current plan', PLAN_LABELS[data.plan] ? PLAN_LABELS[data.plan].name : data.plan);
     document.getElementById('status-message').textContent = data.tenant && data.tenant.status === 'ready'
       ? 'Widget is ready. Add the app embed block from the theme editor to show it on your storefront.'

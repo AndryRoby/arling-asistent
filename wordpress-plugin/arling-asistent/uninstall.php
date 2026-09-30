@@ -24,6 +24,7 @@ $arling_asistent_tenant_id = get_option( 'arling_asistent_tenant_id' );
 
 $arling_asistent_options = array(
 	'arling_asistent_tenant_id',
+	'arling_asistent_kluc',
 	'arling_asistent_domain',
 	'arling_asistent_email',
 	'arling_asistent_connected_at',

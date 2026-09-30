@@ -449,7 +449,11 @@ test('POST /v1/ucet/over doplni zaplatene, ostre Stripe sessions s tym e-mailom,
   });
   const { ucet } = await prihlas(env, email);
   assert.equal(ucet.nakupy.length, 1);
-  assert.equal(ucet.nakupy[0].session_id, 'cs_live_zaplatena');
+  // O-04: odpoveď nesie nepriehľadné id, nie session_id; session_id ostáva uložené v účte.
+  assert.equal('session_id' in ucet.nakupy[0], false);
+  assert.match(ucet.nakupy[0].id, /^[A-Za-z0-9_-]{22}$/);
+  const ulozeny = await env.ASISTENT_CACHE.get(`ucet:ucet:${email}`, 'json');
+  assert.equal(ulozeny.nakupy[0].session_id, 'cs_live_zaplatena');
   assert.equal(ucet.nakupy[0].produkt, 'Kontrola pain.001 XML');
   assert.equal(ucet.nakupy[0].suma, 4900);
   assert.equal(ucet.nakupy[0].mena, 'eur');

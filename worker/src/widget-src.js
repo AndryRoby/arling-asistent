@@ -1683,6 +1683,9 @@ export default `/*
 			img.alt = '';
 			img.loading = 'lazy';
 			img.decoding = 'async';
+			// Bez Referer (29. 9. 2026): obchody s ochranou fotiek pred cudzími stránkami (cerstvekorenie.sk)
+			// vracajú 403 pre Referer arling.sk, takže ukážka mala prázdne karty; bez hlavičky fotku pošlú.
+			img.referrerPolicy = 'no-referrer';
 			img.setAttribute('width', rozmer);
 			img.setAttribute('height', rozmer);
 			img.addEventListener('error', () => {
