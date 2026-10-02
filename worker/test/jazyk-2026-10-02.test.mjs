@@ -113,18 +113,20 @@ test('príčina: žiadny prompt nemá vzor „môžete nahradiť“; „môžete
   assert.match(prompty.cs, /vždy vykej, nikdy mu netykej/);
 });
 
+// Od 2. 10. 05:45 bez vzorov „Hodí sa …“, „Hodí se …“, „… is a good fit“ a „Gut geeignet ist …“: model „Hodí sa“
+// prevzal ako šablónu a nechal ho v jednotnom čísle pri štyroch výrobkoch (OPRAVA-ZHODA.md, test zhoda-2026-10-02).
 test('prompty: prirodzený začiatok odporúčania a o náhrade len pri otázke na náhradu (sk, cs, en, de, auto)', () => {
-  assert.match(buildSystemPrompt('sk'), /„Odporúčam …“, „Hodí sa …“ alebo „Pozrite si …“/);
+  assert.match(buildSystemPrompt('sk'), /výrobky uveď s presnými názvami za dvojbodkou, napríklad „Odporúčam: …“/);
   assert.match(buildSystemPrompt('sk'), /o náhrade píš len vtedy, keď sa na ňu zákazník pýta/);
   assert.match(buildSystemPrompt('sk'), /len skutočnými slovenskými slovami/);
-  assert.match(buildSystemPrompt('cs'), /„Doporučuji …“, „Hodí se …“ nebo „Podívejte se na …“/);
+  assert.match(buildSystemPrompt('cs'), /výrobky uveď s přesnými názvy za dvojtečkou, například „Doporučuji: …“/);
   assert.match(buildSystemPrompt('cs'), /o náhradě piš jen tehdy, když se na ni zákazník ptá/);
-  assert.match(buildSystemPrompt('en'), /"I recommend …", "… is a good fit" or "Have a look at …"/);
+  assert.match(buildSystemPrompt('en'), /"I recommend …" or "Have a look at …"/);
   assert.match(buildSystemPrompt('en'), /only when the customer asks what to replace it with/);
   assert.match(buildSystemPrompt('de'), /"Ich empfehle …"/);
   assert.match(buildSystemPrompt('de'), /nur dann vom Ersetzen/);
   const auto = buildSystemPrompt('auto');
-  assert.match(auto, /In Slovak, start a recommendation for example with "Odporúčam …", "Hodí sa …" or "Pozrite si …"/);
+  assert.match(auto, /In Slovak and Czech, give the recommended products with their exact titles after a colon, for example "Odporúčam: …" in Slovak or "Doporučuji: …" in Czech/);
   assert.match(auto, /never a word made up by translating an English expression literally/);
   assert.match(auto, /the polite plural form in Slovak and Czech/);
 });
@@ -137,7 +139,7 @@ test('prisnyPokyn: opakovanie bez vzoru „nahradiť“ v žiadnom jazyku; tvar 
   }
   const sk = prisnyPokyn('sk', ['nahradenie']);
   assert.match(sk, /^OPRAVA: predchádzajúca odpoveď .*\(odpoveď hovorí o náhrade, hoci sa zákazník na náhradu nepýta\)/);
-  assert.match(sk, /napríklad „Odporúčam …“ alebo „Hodí sa …“/);
+  assert.match(sk, /výrobky s presnými názvami za dvojbodkou, napríklad „Odporúčam: …“/);
   assert.doesNotMatch(sk, /po slove „môžete“/);
   assert.match(prisnyPokyn('sk', ['chyba_sk']), /po slove „môžete“ neurčitok; neurčitok nikdy nekončí na -íť/);
   assert.match(prisnyPokyn('auto', ['chyba_sk']), /a Slovak infinitive never ends in -íť/);
